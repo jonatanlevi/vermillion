@@ -23,7 +23,7 @@ const ROUTER_PROMPT = `אתה ה-ROUTER של מערכת AI פיננסית.
 
 export async function route(userMessage) {
   const raw = await runAgent({
-    model: 'qwen2.5:1.5b',
+    model: 'qwen2.5:3b',
     systemPrompt: ROUTER_PROMPT,
     userMessage,
     temperature: 0.1,

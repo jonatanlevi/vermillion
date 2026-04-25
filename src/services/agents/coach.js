@@ -12,7 +12,7 @@ const SYSTEM_PROMPT = `אתה THE COACH — מאמן הרגלים של VerMillio
 
 export const Coach = {
   name: 'Coach',
-  model: 'qwen2.5:1.5b',
+  model: 'qwen2.5:3b',
   
   async run(userMessage, context) {
     return runAgent({
