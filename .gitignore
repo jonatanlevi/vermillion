@@ -39,3 +39,7 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Ghost agent (dev-only, delete before production)
+ghost-feedback/
+scripts/_ghost_runner.mjs
