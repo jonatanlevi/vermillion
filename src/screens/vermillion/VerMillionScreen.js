@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import { getOnboardingState, isOnboardingComplete, appendChatMessage, getChatHistory, getCommitmentTime, getMsUntilCommitment } from '../../services/storage';
+import { getOnboardingState, isOnboardingComplete, appendChatMessage, getChatHistory, getCommitmentTime, getMsUntilCommitment, getGameLog } from '../../services/storage';
 import {
   getTodayOnboardingPrompt, processOnboardingAnswer,
   getDayProgress, completeDay, generateProfile,
@@ -250,7 +250,14 @@ export default function VerMillionScreen({ navigation }) {
           if (now < gate) {
             setDayDone(true); // עוד לא הגיע הזמן → DNA timer
           } else {
-            await askNextOnboardingQuestion(day, progress.done);
+            // הזמן הגיע — בדוק אם המשתמש כבר שיחק ביום הזה
+            const gameLog = await getGameLog();
+            if (gameLog[day]) {
+              await askNextOnboardingQuestion(day, progress.done);
+            } else {
+              // לא שיחק עדיין — שלח למשחקים
+              navigation.navigate('Games');
+            }
           }
         } else {
           // יום 1 עם commitment — שאל שאלות
@@ -381,7 +388,7 @@ export default function VerMillionScreen({ navigation }) {
         day={currentDay}
         insets={insets}
         onGoGames={() => navigation.navigate('Games')}
-        onUnlock={() => { setDayDone(false); init(); }}
+        onUnlock={() => navigation.navigate('Games')}
       />
     );
   }

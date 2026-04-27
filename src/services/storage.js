@@ -7,6 +7,7 @@ const K = {
   CHAT_HISTORY:   'vm_chat_history',
   DAILY_LOG:      'vm_daily_log',
   COMMITMENT:     'vm_commitment',
+  GAME_LOG:       'vm_game_log',
 };
 
 // ─── Daily commitment time ─────────────────────────────────
@@ -118,6 +119,19 @@ export async function saveDailyLog(day, data) {
 
 export async function getDailyLog() {
   const raw = await AsyncStorage.getItem(K.DAILY_LOG);
+  return raw ? JSON.parse(raw) : {};
+}
+
+// ─── Daily game stamp (day 2–7 accuracy) ──────────────────────
+export async function saveGameStamp(day, accuracyMs) {
+  const raw = await AsyncStorage.getItem(K.GAME_LOG);
+  const log = raw ? JSON.parse(raw) : {};
+  log[day] = { accuracyMs, stampedAt: new Date().toISOString() };
+  await AsyncStorage.setItem(K.GAME_LOG, JSON.stringify(log));
+}
+
+export async function getGameLog() {
+  const raw = await AsyncStorage.getItem(K.GAME_LOG);
   return raw ? JSON.parse(raw) : {};
 }
 
