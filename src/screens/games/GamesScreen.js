@@ -7,7 +7,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import RunnerGame from '../../components/RunnerGame';
 import BreakoutGame from '../../components/BreakoutGame';
 import ObstacleGame from '../../components/ObstacleGame';
-import { saveCommitmentTime, getCommitmentTime } from '../../services/storage';
+import { saveCommitmentTime, getCommitmentTime, saveGameStamp, getGameLog } from '../../services/storage';
+import { getOnboardingState } from '../../services/storage';
 
 const GAMES = [
   { key: 'runner',   label: 'ריצת VerMillion', emoji: '🏃', desc: 'קפוץ מעל חובות וריביות',    color: '#C0392B' },
@@ -128,7 +129,7 @@ function CommitModal({ visible, time, onClose }) {
 }
 
 // ─── Main screen ───────────────────────────────────────────────
-export default function GamesScreen() {
+export default function GamesScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const [activeGame, setActiveGame]         = useState(null);
   const [sessionScore, setSessionScore]     = useState(0);
@@ -137,10 +138,17 @@ export default function GamesScreen() {
   const [commitTime, setCommitTime]         = useState(null);
   const [showModal, setShowModal]           = useState(false);
   const [hasCommitment, setHasCommitment]   = useState(false);
+  const [showDailyStamp, setShowDailyStamp] = useState(false);
+  const [stampAccuracy, setStampAccuracy]   = useState(null);
+  const [activeDay, setActiveDay]           = useState(1);
   const fadeAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    getCommitmentTime().then(c => { if (c) setHasCommitment(true); });
+    Promise.all([getCommitmentTime(), getOnboardingState()]).then(([c, state]) => {
+      if (c) { setHasCommitment(true); setCommitTime(c); }
+      const day = Math.min((state?.daysCompleted || []).length + 1, 7);
+      setActiveDay(day);
+    });
   }, []);
 
   function selectGame(key) {
@@ -156,8 +164,31 @@ export default function GamesScreen() {
     setTotalScore(prev => prev + score);
     setActiveGame(null);
     if (!hasCommitment) {
-      setShowCommitBtn(true);
+      setShowCommitBtn(true); // יום 1: GlassButton לקביעת commitment
+    } else {
+      setShowDailyStamp(true); // יום 2+: חתום דיוק
     }
+  }
+
+  async function handleDailyStamp() {
+    // חישוב דיוק — כמה ms מזמן ה-commitment
+    const now  = new Date();
+    let diffMs = 0;
+    if (commitTime) {
+      const gate = new Date(now);
+      gate.setHours(commitTime.hour, commitTime.minute, 0, 0);
+      diffMs = Math.abs(now.getTime() - gate.getTime());
+      // אם הפרש > 12 שעות → כנראה timestamp של מחר, חשב הפוך
+      if (diffMs > 43200000) diffMs = 86400000 - diffMs;
+    }
+    setStampAccuracy(diffMs);
+    await saveGameStamp(activeDay, diffMs);
+  }
+
+  function handleStampDone() {
+    setShowDailyStamp(false);
+    setStampAccuracy(null);
+    navigation.navigate('VerMillion');
   }
 
   async function handleCommit() {
@@ -179,6 +210,42 @@ export default function GamesScreen() {
         {activeGame === 'breakout' && <BreakoutGame onFinish={handleGameFinish} />}
         {activeGame === 'obstacle' && <ObstacleGame onFinish={handleGameFinish} />}
       </Animated.View>
+    );
+  }
+
+  // יום 2+: מסך חיתום דיוק יומי
+  if (showDailyStamp) {
+    const h = commitTime ? String(commitTime.hour).padStart(2,'0')   : '--';
+    const m = commitTime ? String(commitTime.minute).padStart(2,'0') : '--';
+    const accuracySec = stampAccuracy !== null ? Math.round(stampAccuracy / 1000) : null;
+    const accuracyLabel =
+      accuracySec === null ? null :
+      accuracySec < 30     ? `${accuracySec} שניות — מדהים! 🎯` :
+      accuracySec < 120    ? `${accuracySec} שניות — טוב מאוד 💪` :
+      `${Math.round(accuracySec / 60)} דקות — תשפר מחר`;
+
+    return (
+      <View style={[styles.commitScreen, { paddingTop: insets.top + 20 }]}>
+        <Text style={ds.dayLabel}>יום {activeDay} / 7</Text>
+        <Text style={ds.title}>הזמן האישי שלך</Text>
+        <Text style={ds.commitTimeDisplay}>{h}:{m}</Text>
+
+        {stampAccuracy === null ? (
+          <>
+            <Text style={ds.sub}>לחץ כדי לחתום — נמדד כמה היית מדויק</Text>
+            <TouchableOpacity style={ds.stampBtn} onPress={handleDailyStamp} activeOpacity={0.85}>
+              <Text style={ds.stampBtnText}>⏱ חתום עכשיו</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <>
+            <Text style={ds.accuracy}>{accuracyLabel}</Text>
+            <TouchableOpacity style={ds.continueBtn} onPress={handleStampDone} activeOpacity={0.85}>
+              <Text style={ds.continueBtnText}>המשך לשאלות VerMillion →</Text>
+            </TouchableOpacity>
+          </>
+        )}
+      </View>
     );
   }
 
@@ -331,6 +398,25 @@ const styles = StyleSheet.create({
   scoreResult:    { alignItems: 'center', marginBottom: 48 },
   scoreResultLabel:{ color: '#555', fontSize: 14, marginBottom: 6 },
   scoreResultVal: { color: '#FFF', fontSize: 28, fontWeight: '900' },
+});
+
+// ─── Daily Stamp styles ─────────────────────────────────────────
+const ds = StyleSheet.create({
+  dayLabel:          { color: '#555', fontSize: 13, fontWeight: '700', letterSpacing: 2, marginBottom: 8 },
+  title:             { color: '#FFF', fontSize: 22, fontWeight: '900', marginBottom: 12 },
+  commitTimeDisplay: { color: '#D4AF37', fontSize: 64, fontWeight: '900', marginBottom: 8 },
+  sub:               { color: '#666', fontSize: 14, textAlign: 'center', marginBottom: 40, lineHeight: 22 },
+  stampBtn: {
+    backgroundColor: '#C0392B', borderRadius: 16,
+    paddingVertical: 20, paddingHorizontal: 48, alignItems: 'center',
+  },
+  stampBtnText:  { color: '#FFF', fontSize: 18, fontWeight: '900' },
+  accuracy:      { color: '#27AE60', fontSize: 18, fontWeight: '800', marginBottom: 40, textAlign: 'center' },
+  continueBtn: {
+    backgroundColor: '#1A1A1A', borderRadius: 16, borderWidth: 1, borderColor: '#C0392B44',
+    paddingVertical: 18, paddingHorizontal: 32, alignItems: 'center', width: '100%',
+  },
+  continueBtnText: { color: '#C0392B', fontSize: 16, fontWeight: '800' },
 });
 
 // ─── Glass Button styles ────────────────────────────────────────
