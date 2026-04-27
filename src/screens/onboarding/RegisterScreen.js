@@ -64,7 +64,7 @@ export default function RegisterScreen({ navigation }) {
         <TouchableOpacity
           style={[styles.btn, !canSubmit && styles.btnDisabled]}
           disabled={!canSubmit}
-          onPress={() => navigation.replace('MainTabs')}
+          onPress={() => navigation.navigate('CompleteProfile')}
         >
           <Text style={styles.btnText}>התחל שבוע ניסיון</Text>
         </TouchableOpacity>
