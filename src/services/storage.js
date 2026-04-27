@@ -6,7 +6,39 @@ const K = {
   ONBOARDING:     'vm_onboarding',
   CHAT_HISTORY:   'vm_chat_history',
   DAILY_LOG:      'vm_daily_log',
+  COMMITMENT:     'vm_commitment',
 };
+
+// ─── Daily commitment time ─────────────────────────────────
+export async function saveCommitmentTime() {
+  const now = new Date();
+  await AsyncStorage.setItem(K.COMMITMENT, JSON.stringify({
+    hour: now.getHours(),
+    minute: now.getMinutes(),
+    setAt: now.toISOString(),
+  }));
+}
+
+export async function getCommitmentTime() {
+  const raw = await AsyncStorage.getItem(K.COMMITMENT);
+  return raw ? JSON.parse(raw) : null;
+}
+
+export function getMsUntilCommitment(commitment) {
+  if (!commitment) return getMsUntilMidnight();
+  const now = new Date();
+  const next = new Date(now);
+  next.setHours(commitment.hour, commitment.minute, 0, 0);
+  if (next <= now) next.setDate(next.getDate() + 1);
+  return next.getTime() - now.getTime();
+}
+
+function getMsUntilMidnight() {
+  const now = new Date();
+  const midnight = new Date(now);
+  midnight.setHours(24, 0, 0, 0);
+  return midnight.getTime() - now.getTime();
+}
 
 // ─── Profile ───────────────────────────────────────────────
 export async function saveProfile(data) {

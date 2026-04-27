@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import { getOnboardingState, isOnboardingComplete, appendChatMessage, getChatHistory } from '../../services/storage';
+import { getOnboardingState, isOnboardingComplete, appendChatMessage, getChatHistory, getCommitmentTime, getMsUntilCommitment } from '../../services/storage';
 import {
   getTodayOnboardingPrompt, processOnboardingAnswer,
   getDayProgress, completeDay, generateProfile,
@@ -19,13 +19,6 @@ function getDayNumber(startDate) {
   if (!startDate) return 1;
   const diff = Math.floor((Date.now() - new Date(startDate).getTime()) / 86400000);
   return Math.min(diff + 1, 7);
-}
-
-function getMsUntilMidnight() {
-  const now = new Date();
-  const midnight = new Date(now);
-  midnight.setHours(24, 0, 0, 0);
-  return midnight.getTime() - now.getTime();
 }
 
 function formatCountdown(ms) {
@@ -42,14 +35,22 @@ function formatCountdown(ms) {
 
 // ─── DNA Timer component ───────────────────────────────────────
 function DNATimer({ day, insets, onGoGames }) {
-  const [msLeft, setMsLeft] = useState(getMsUntilMidnight());
+  const [commitment, setCommitment] = useState(null);
+  const [msLeft, setMsLeft] = useState(0);
+
+  useEffect(() => {
+    getCommitmentTime().then(c => {
+      setCommitment(c);
+      setMsLeft(getMsUntilCommitment(c));
+    });
+  }, []);
   const pulseAnims = useRef([0, 1, 2, 3, 4, 5, 6].map(() => new Animated.Value(0.4))).current;
   const glowAnim  = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    const tick = setInterval(() => setMsLeft(getMsUntilMidnight()), 1000);
+    const tick = setInterval(() => setMsLeft(getMsUntilCommitment(commitment)), 1000);
     return () => clearInterval(tick);
-  }, []);
+  }, [commitment]);
 
   useEffect(() => {
     // Staggered pulse on each DNA node
@@ -109,7 +110,11 @@ function DNATimer({ day, insets, onGoGames }) {
       </View>
 
       {/* Countdown */}
-      <Text style={dna.label}>שאלות חדשות בעוד</Text>
+      <Text style={dna.label}>
+        {commitment
+          ? `השאלות שלך בשעה ${String(commitment.hour).padStart(2,'0')}:${String(commitment.minute).padStart(2,'0')} — בעוד`
+          : 'שאלות חדשות בעוד'}
+      </Text>
       <View style={dna.clockRow}>
         <View style={dna.clockBlock}>
           <Text style={dna.clockNum}>{h}</Text>
