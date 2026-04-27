@@ -123,7 +123,7 @@ export default function AvatarRevealScreen({ navigation, route }) {
                 appearance: appearance,
                 tone: tone
               };
-              navigation.replace('MainTabs');
+              navigation.replace('ModelDownload');
             }}
             activeOpacity={0.85}
           >

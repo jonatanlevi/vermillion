@@ -1,4 +1,5 @@
 import { runAgent } from './_runAgent';
+import { CONFIG } from '../../config';
 
 const ROUTER_PROMPT = `אתה ה-ROUTER של מערכת AI פיננסית.
 המשימה שלך: לסווג שאלת משתמש ולהחליט אילו סוכנים צריכים להגיב.
@@ -23,7 +24,7 @@ const ROUTER_PROMPT = `אתה ה-ROUTER של מערכת AI פיננסית.
 
 export async function route(userMessage) {
   const raw = await runAgent({
-    model: 'qwen2.5:3b',
+    model: CONFIG.AI_MODEL,
     systemPrompt: ROUTER_PROMPT,
     userMessage,
     temperature: 0.1,

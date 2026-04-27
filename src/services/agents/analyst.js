@@ -1,4 +1,5 @@
 import { runAgent } from './_runAgent';
+import { CONFIG } from '../../config';
 
 const SYSTEM_PROMPT = `אתה THE ANALYST — אנליסט פיננסי קר ומדויק של VerMillion.
 תפקידך: לחלץ מספרים, יחסים ודפוסים מהנתונים. בלי רגש, בלי המלצות — רק אמת מספרית.
@@ -12,7 +13,7 @@ const SYSTEM_PROMPT = `אתה THE ANALYST — אנליסט פיננסי קר ו�
 
 export const Analyst = {
   name: 'Analyst',
-  model: 'qwen2.5:3b',
+  model: CONFIG.AI_MODEL,
   
   async run(userMessage, context) {
     const enriched = `${userMessage}\n\nנתוני המשתמש:\n${context.metricsText || 'אין נתונים'}`;

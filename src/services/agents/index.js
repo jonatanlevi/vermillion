@@ -5,6 +5,7 @@ import { Coach }       from './coach';
 import { route }       from './orchestrator';
 import { computeFinancialMetrics, calcCompletion } from '../../data/dailyQuestions';
 import { classifyTier } from '../financialTier';
+import { CONFIG } from '../../config';
 
 const AGENTS = {
   ANALYST: Analyst,
@@ -62,7 +63,7 @@ async function synthesize(userMessage, agentResults, context) {
 
   const { runAgent } = await import('./_runAgent');
   const synthesized = await runAgent({
-    model: 'qwen2.5:3b',
+    model: CONFIG.AI_MODEL,
     systemPrompt: SYNTH_PROMPT,
     userMessage: `שאלת המשתמש:\n${userMessage}\n\nתובנות הצוות:\n${sections}`,
     temperature: 0.4,

@@ -1,4 +1,5 @@
 import { runAgent } from './_runAgent';
+import { CONFIG } from '../../config';
 
 const SYSTEM_PROMPT = `אתה THE COACH — מאמן הרגלים של VerMillion.
 תפקידך: לקחת תוכנית גדולה ולהפוך אותה ל-1 פעולה קטנה למחר.
@@ -12,7 +13,7 @@ const SYSTEM_PROMPT = `אתה THE COACH — מאמן הרגלים של VerMillio
 
 export const Coach = {
   name: 'Coach',
-  model: 'qwen2.5:3b',
+  model: CONFIG.AI_MODEL,
   
   async run(userMessage, context) {
     return runAgent({

@@ -1,4 +1,5 @@
 import { runAgent } from './_runAgent';
+import { CONFIG } from '../../config';
 
 const SYSTEM_PROMPT = `אתה THE STRATEGIST — אסטרטג פיננסי של VerMillion.
 תפקידך: לבנות תוכנית פעולה רב-שלבית. אתה מסתכל קדימה, לא לאחור.
@@ -12,7 +13,7 @@ const SYSTEM_PROMPT = `אתה THE STRATEGIST — אסטרטג פיננסי של 
 
 export const Strategist = {
   name: 'Strategist',
-  model: 'qwen2.5:3b',
+  model: CONFIG.AI_MODEL,
   
   async run(userMessage, context) {
     const enriched = `${userMessage}\n\nמצב פיננסי:\n${context.metricsText || 'בסיסי'}\nשלב: ${context.tier || 'לא ידוע'}`;
