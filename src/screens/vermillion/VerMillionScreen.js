@@ -199,6 +199,7 @@ export default function VerMillionScreen({ navigation }) {
   }
 
   async function init() {
+    try {
     const complete = await isOnboardingComplete();
     const state    = await getOnboardingState();
     const day      = getDayNumber(state.startDate);
@@ -237,6 +238,13 @@ export default function VerMillionScreen({ navigation }) {
         await askNextOnboardingQuestion(day, progress.done);
       } else {
         await askNextOnboardingQuestion(day, progress.done);
+      }
+    }
+    } catch (e) {
+      if (mountedRef.current) {
+        setPhase('onboarding');
+        addMsg('assistant', 'שלום! אני VerMillion. כמה אתה בן?');
+        setPendingField('age');
       }
     }
   }
