@@ -44,6 +44,7 @@ export async function chatWithAI(userMessage, userData, onPartial) {
 
   const response = await fetch(`${CONFIG.OLLAMA_BASE_URL}/api/chat`, {
     method: 'POST',
+    signal: AbortSignal.timeout(90000),
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: CONFIG.AI_MODEL,
