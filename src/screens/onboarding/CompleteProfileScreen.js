@@ -4,6 +4,7 @@ import {
   KeyboardAvoidingView, Platform, ScrollView, Animated, Modal, FlatList,
 } from 'react-native';
 import { useLanguage } from '../../context/LanguageContext';
+import { saveProfile, saveFinancialData } from '../../services/storage';
 
 /* ─── Country codes ─── */
 const COUNTRIES = [
@@ -139,10 +140,26 @@ export default function CompleteProfileScreen({ navigation }) {
     if (Object.keys(errs).length > 0) { shake(); return; }
 
     setLoading(true);
-    setTimeout(() => {
+
+    const year  = parseInt(values.dobY, 10);
+    const month = parseInt(values.dobM, 10);
+    const day   = parseInt(values.dobD, 10);
+    const dob   = new Date(year, month - 1, day);
+    const today = new Date();
+    let age = today.getFullYear() - dob.getFullYear();
+    if (today.getMonth() < dob.getMonth() ||
+        (today.getMonth() === dob.getMonth() && today.getDate() < dob.getDate())) age--;
+
+    Promise.all([
+      saveProfile({ firstName: values.firstName, lastName: values.lastName, phone: `${country.dial}${values.phone}` }),
+      saveFinancialData({ age }),
+    ]).then(() => {
       setLoading(false);
       navigation.navigate('AvatarAppearance');
-    }, 900);
+    }).catch(() => {
+      setLoading(false);
+      navigation.navigate('AvatarAppearance');
+    });
   };
 
   const allValid = Object.keys(validate(values, t)).length === 0;

@@ -200,51 +200,49 @@ export default function VerMillionScreen({ navigation }) {
 
   async function init() {
     try {
-    const complete = await isOnboardingComplete();
-    const state    = await getOnboardingState();
-    const day      = getDayNumber(state.startDate);
-    if (!mountedRef.current) return;
-    setCurrentDay(day);
+      const complete = await isOnboardingComplete();
+      const state    = await getOnboardingState();
+      const day      = getDayNumber(state.startDate);
+      if (!mountedRef.current) return;
+      setCurrentDay(day);
 
-    if (complete) {
-      setPhase('coaching');
-      const history = await getChatHistory();
-      if (history.length > 0) {
-        setMessages(history.slice(-40));
-      } else {
-        addMsg('assistant', state.profileText
-          ? `${state.profileText}\n\nמה תרצה לעבוד עליו היום?`
-          : 'שלום! הפרופיל שלך מוכן. מה תרצה לשאול?');
-      }
-    } else {
-      setPhase('onboarding');
-      const progress = await getDayProgress(day);
-      setQuestionsToday(progress.done);
-
-      if (progress.complete) {
-        setDayDone(true);
-      } else if (day > 1) {
-        // days 2-7: locked until commitment time
-        const commitment = await getCommitmentTime();
-        if (commitment) {
-          const now = new Date();
-          const gate = new Date(now);
-          gate.setHours(commitment.hour, commitment.minute, 0, 0);
-          if (now < gate) {
-            setDayDone(true); // show DNA timer — not yet time
-            return;
-          }
+      if (complete) {
+        setPhase('coaching');
+        const history = await getChatHistory();
+        if (history.length > 0) {
+          setMessages(history.slice(-40));
+        } else {
+          addMsg('assistant', state.profileText
+            ? `${state.profileText}\n\nמה תרצה לעבוד עליו היום?`
+            : 'שלום! הפרופיל שלך מוכן. מה תרצה לשאול?');
         }
-        await askNextOnboardingQuestion(day, progress.done);
       } else {
-        await askNextOnboardingQuestion(day, progress.done);
+        setPhase('onboarding');
+        const progress = await getDayProgress(day);
+        if (!mountedRef.current) return;
+        setQuestionsToday(progress.done);
+
+        if (progress.complete) {
+          setDayDone(true);
+        } else if (day > 1) {
+          const commitment = await getCommitmentTime();
+          if (commitment) {
+            const now = new Date();
+            const gate = new Date(now);
+            gate.setHours(commitment.hour, commitment.minute, 0, 0);
+            if (now < gate) { setDayDone(true); return; }
+          }
+          await askNextOnboardingQuestion(day, progress.done);
+        } else {
+          await askNextOnboardingQuestion(day, progress.done);
+        }
       }
-    }
     } catch (e) {
+      console.error('[VM] init failed:', e?.message || e);
       if (mountedRef.current) {
         setPhase('onboarding');
-        addMsg('assistant', 'שלום! אני VerMillion. כמה אתה בן?');
-        setPendingField('age');
+        addMsg('assistant', 'שלום! אני VerMillion — היועץ הפיננסי האישי שלך.\n\nיש לך ילדים? כמה?');
+        setPendingField('kids');
       }
     }
   }
@@ -448,27 +446,27 @@ export default function VerMillionScreen({ navigation }) {
 function getAck(field, answer) {
   const n = typeof answer === 'number' ? answer : null;
   const map = {
-    age:              `${answer} — מבין.`,
-    familyStatus:     `${answer} — רשמתי.`,
-    kids:             answer === 0 ? 'ללא ילדים.' : `${answer} ילדים — רשמתי.`,
-    employmentType:   `${answer} — ברור.`,
-    netIncome:        n ? `₪${n.toLocaleString('he-IL')} נטו — רשמתי.` : 'רשמתי.',
-    incomeStability:  `${answer} — מבין.`,
-    housingType:      `${answer} — רשמתי.`,
-    housingCost:      n ? `₪${n.toLocaleString('he-IL')} — רשמתי.` : 'רשמתי.',
-    fixedExpenses:    n === 0 ? 'ללא הוצאות קבועות נוספות.' : 'רשמתי.',
-    variableExpenses: n ? `₪${n.toLocaleString('he-IL')} — מבין.` : 'רשמתי.',
-    biggestExpense:   'מעניין — רשמתי.',
-    creditDebt:       n === 0 ? 'ללא חוב כרטיס — טוב.' : `₪${(n||0).toLocaleString('he-IL')} — רשמתי.`,
-    loans:            n === 0 ? 'ללא הלוואות.' : 'רשמתי.',
-    overdraft:        n === 0 ? 'ללא מינוס — מצוין.' : `₪${(n||0).toLocaleString('he-IL')} מינוס.`,
-    savings:          n ? `₪${n.toLocaleString('he-IL')} בצד — מבין.` : 'רשמתי.',
-    assets:           'רשמתי.',
-    moneyGoal:        'מטרה ברורה — רשמתי.',
-    moneyFear:        'הבנתי. זה בדיוק מה שנעבוד עליו.',
-    financialStress:  n >= 7 ? 'גבוה — נטפל בזה.' : n <= 3 ? 'נמוך — נחמד.' : 'ממוצע — מבין.',
-    moneyPersonality: `${answer} — מעניין.`,
-    biggestDream:     'חלום יפה. בואו נגרום לזה לקרות.',
+    kids:               answer === 0 ? 'ללא ילדים.' : `${answer} ילדים — רשמתי.`,
+    netIncome:          n ? `₪${n.toLocaleString('he-IL')} נטו — רשמתי.` : 'רשמתי.',
+    incomeStability:    `${answer} — מבין.`,
+    housingType:        `${answer} — רשמתי.`,
+    housingCost:        n ? `₪${n.toLocaleString('he-IL')} — רשמתי.` : 'רשמתי.',
+    fixedExpenses:      n === 0 ? 'ללא הוצאות קבועות נוספות.' : 'רשמתי.',
+    variableExpenses:   n ? `₪${n.toLocaleString('he-IL')} — מבין.` : 'רשמתי.',
+    biggestExpense:     'מעניין — רשמתי.',
+    creditDebt:         n === 0 ? 'ללא חוב כרטיס — טוב.' : `₪${(n||0).toLocaleString('he-IL')} — רשמתי.`,
+    loans:              n === 0 ? 'ללא הלוואות.' : 'רשמתי.',
+    overdraft:          n === 0 ? 'ללא מינוס — מצוין.' : `₪${(n||0).toLocaleString('he-IL')} מינוס.`,
+    savings:            n ? `₪${n.toLocaleString('he-IL')} בצד — מבין.` : 'רשמתי.',
+    assets:             'רשמתי.',
+    moneyGoal:          'מטרה ברורה — רשמתי.',
+    moneyFear:          'הבנתי. זה בדיוק מה שנעבוד עליו.',
+    financialStress:    n >= 7 ? 'גבוה — נטפל בזה.' : n <= 3 ? 'נמוך — נחמד.' : 'ממוצע — מבין.',
+    moneyPersonality:   `${answer} — מעניין.`,
+    biggestDream:       'חלום יפה. בואו נגרום לזה לקרות.',
+    spouseIncome:       n === 0 ? 'ללא הכנסה נוספת — רשמתי.' : 'רשמתי.',
+    retirementSavings:  n === 0 ? 'ללא פנסיה כרגע — חשוב לדעת.' : 'רשמתי.',
+    financialGoalYears: n ? `${n} שנים — יעד ברור.` : 'רשמתי.',
   };
   return map[field] || 'רשמתי.';
 }

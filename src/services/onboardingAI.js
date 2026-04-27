@@ -1,62 +1,63 @@
 import { saveFinancialData, getFinancialData, markDayComplete, saveOnboardingState, getOnboardingState } from './storage';
 
 // 21 שאלות = 3 בדיוק לכל יום × 7 ימים
+// age, familyStatus, employmentType נאספים בהרשמה — לא נשאלים שוב
 const FIELDS = {
-  age:              null,
-  familyStatus:     null,
-  kids:             null,
-  employmentType:   null,
-  netIncome:        null,
-  incomeStability:  null,
-  housingType:      null,
-  housingCost:      null,
-  fixedExpenses:    null,
-  variableExpenses: null,
-  biggestExpense:   null,
-  creditDebt:       null,
-  loans:            null,
-  overdraft:        null,
-  savings:          null,
-  assets:           null,
-  moneyGoal:        null,
-  moneyFear:        null,
-  financialStress:  null,
-  moneyPersonality: null,
-  biggestDream:     null,
+  kids:                null,
+  netIncome:           null,
+  incomeStability:     null,
+  housingType:         null,
+  housingCost:         null,
+  fixedExpenses:       null,
+  variableExpenses:    null,
+  biggestExpense:      null,
+  creditDebt:          null,
+  loans:               null,
+  overdraft:           null,
+  savings:             null,
+  assets:              null,
+  moneyGoal:           null,
+  moneyFear:           null,
+  financialStress:     null,
+  moneyPersonality:    null,
+  biggestDream:        null,
+  spouseIncome:        null,
+  retirementSavings:   null,
+  financialGoalYears:  null,
 };
 
 const DAY_PLAN = {
-  1: ['age', 'familyStatus', 'kids'],
-  2: ['employmentType', 'netIncome', 'incomeStability'],
-  3: ['housingType', 'housingCost', 'fixedExpenses'],
-  4: ['variableExpenses', 'biggestExpense', 'creditDebt'],
-  5: ['loans', 'overdraft', 'savings'],
-  6: ['assets', 'moneyGoal', 'moneyFear'],
-  7: ['financialStress', 'moneyPersonality', 'biggestDream'],
+  1: ['kids', 'netIncome', 'incomeStability'],
+  2: ['housingType', 'housingCost', 'fixedExpenses'],
+  3: ['variableExpenses', 'biggestExpense', 'creditDebt'],
+  4: ['loans', 'overdraft', 'savings'],
+  5: ['assets', 'moneyGoal', 'moneyFear'],
+  6: ['financialStress', 'moneyPersonality', 'biggestDream'],
+  7: ['spouseIncome', 'retirementSavings', 'financialGoalYears'],
 };
 
 const QUESTIONS = {
-  age:              'כמה אתה בן?',
-  familyStatus:     'מה המצב המשפחתי שלך — רווק, נשוי, גרוש?',
-  kids:             'יש לך ילדים? כמה?',
-  employmentType:   'איך אתה עובד — שכיר, עצמאי, משהו אחר?',
-  netIncome:        'מה ההכנסה החודשית שלך נטו?',
-  incomeStability:  'ההכנסה שלך קבועה כל חודש, או משתנה?',
-  housingType:      'איפה אתה גר — שכירות, משכנתא, אצל הורים?',
-  housingCost:      'כמה זה עולה לך בחודש?',
-  fixedExpenses:    'יש הוצאות קבועות נוספות — ביטוחים, מזונות, מנויים?',
-  variableExpenses: 'כמה יוצא לך בחודש על אוכל, דלק, בילויים?',
-  biggestExpense:   'מה ההוצאה הכי גדולה שלך שאפשר היה להפחית?',
-  creditDebt:       'יש חוב בכרטיס אשראי? כמה בערך?',
-  loans:            'יש הלוואות פעילות — בנק, חברים, גמ"ח?',
-  overdraft:        'יש מינוס בחשבון? כמה בממוצע?',
-  savings:          'כמה כסף נזיל יש לך בצד?',
-  assets:           'יש נכסים — דירה, קרן השתלמות, ביטוח מנהלים?',
-  moneyGoal:        'מה המטרה הכלכלית הכי חשובה לך כרגע?',
-  moneyFear:        'מה הדבר הכלכלי שהכי מפחיד אותך?',
-  financialStress:  'בסקלה 1-10, כמה הכסף לוחץ עליך כרגע?',
-  moneyPersonality: 'אתה יותר חוסך, מוציא, או לא מסתכל בכלל?',
-  biggestDream:     'אם הכסף לא היה בעיה — מה היית עושה?',
+  kids:               'יש לך ילדים? כמה?',
+  netIncome:          'מה ההכנסה החודשית שלך נטו — כמה נכנס לחשבון אחרי מס?',
+  incomeStability:    'ההכנסה שלך קבועה כל חודש, או משתנה?',
+  housingType:        'איפה אתה גר — שכירות, משכנתא, אצל הורים?',
+  housingCost:        'כמה עולה לך הדיור בחודש?',
+  fixedExpenses:      'יש הוצאות קבועות נוספות — ביטוחים, מזונות, מנויים?',
+  variableExpenses:   'כמה יוצא לך בחודש על אוכל, דלק, בילויים?',
+  biggestExpense:     'מה ההוצאה הכי גדולה שלך שאפשר היה להפחית?',
+  creditDebt:         'יש חוב בכרטיס אשראי? כמה בערך?',
+  loans:              'יש הלוואות פעילות — בנק, חברים, גמ"ח?',
+  overdraft:          'יש מינוס בחשבון? כמה בממוצע?',
+  savings:            'כמה כסף נזיל יש לך בצד?',
+  assets:             'יש נכסים — דירה, קרן השתלמות, ביטוח מנהלים?',
+  moneyGoal:          'מה המטרה הכלכלית הכי חשובה לך כרגע?',
+  moneyFear:          'מה הדבר הכלכלי שהכי מפחיד אותך?',
+  financialStress:    'בסקלה 1-10, כמה הכסף לוחץ עליך כרגע?',
+  moneyPersonality:   'אתה יותר חוסך, מוציא, או לא מסתכל בכלל?',
+  biggestDream:       'אם הכסף לא היה בעיה — מה היית עושה?',
+  spouseIncome:       'יש הכנסה נוספת בבית — בן/בת זוג, עסק, שכירות?',
+  retirementSavings:  'יש חיסכון פנסיוני? כמה מופקד כל חודש?',
+  financialGoalYears: 'בכמה שנים אתה מתכנן להגיע למטרה הכלכלית שלך?',
 };
 
 function extractNumber(text) {
@@ -105,7 +106,8 @@ function parseAnswer(field, text) {
   }
   if (['kids', 'age', 'netIncome', 'housingCost', 'fixedExpenses',
     'variableExpenses', 'creditDebt', 'loans', 'overdraft',
-    'savings', 'assets', 'financialStress'].includes(field)) {
+    'savings', 'assets', 'financialStress', 'spouseIncome',
+    'retirementSavings', 'financialGoalYears'].includes(field)) {
     if (/אין|לא|אפס|0/.test(t) && !/\d{4,}/.test(t)) return 0;
     return extractNumber(text) ?? text;
   }
@@ -157,10 +159,11 @@ export async function generateProfile() {
 
   const profileText =
     `VerMillion מכיר אותך עכשיו: ` +
-    `${financial.familyStatus || ''}, ${financial.employmentType || ''}, בן/ת ${financial.age || '?'}. ` +
+    `${financial.familyStatus || ''}, ${financial.employmentType || ''}, בן/ת ${financial.age || '?'}, ${financial.kids ? `${financial.kids} ילדים` : 'ללא ילדים'}. ` +
     `הכנסה חודשית ${fmt(financial.netIncome)}, הוצאות ${fmt((financial.housingCost || 0) + (financial.fixedExpenses || 0) + (financial.variableExpenses || 0))}. ` +
     `עודף: ${fmt(surplus)} (${savingsRate}%). חובות: ${fmt(totalDebt)}. ` +
-    `המטרה שלך: ${financial.moneyGoal || '—'}.`;
+    `המטרה שלך: ${financial.moneyGoal || '—'}. ` +
+    `${financial.financialGoalYears ? `אופק: ${financial.financialGoalYears} שנים.` : ''}`;
 
   const profile = { ...financial, surplus, totalDebt, savingsRate, skills, generatedAt: new Date().toISOString() };
 

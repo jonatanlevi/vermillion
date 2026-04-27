@@ -2,6 +2,25 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { useLanguage } from '../../context/LanguageContext';
 import { mockUser } from '../../mock/data';
+import { saveFinancialData } from '../../services/storage';
+
+function parseStatus(text) {
+  const t = (text || '').toLowerCase();
+  if (/נשו|נשוי|נשואה/.test(t))         return 'נשוי';
+  if (/גרו|גרוש|גרושה|פרוד/.test(t))   return 'גרוש';
+  if (/זוגי|זוג|חבר|חברה|יחד/.test(t)) return 'זוגי';
+  return 'רווק';
+}
+
+function parseOccupation(text) {
+  const t = (text || '').toLowerCase();
+  if (/שכיר|עובד|משכורת|עובדת/.test(t))     return 'שכיר';
+  if (/עצמאי|עוסק|עסק|פרילנס/.test(t))       return 'עצמאי';
+  if (/סטודנט|תלמיד|לומד/.test(t))           return 'סטודנט';
+  if (/מובטל|לא עובד/.test(t))               return 'מובטל';
+  if (/פנסי/.test(t))                         return 'פנסיונר';
+  return text;
+}
 
 export default function AvatarIntroScreen({ navigation, route }) {
   const { appearance, tone } = route.params;
@@ -25,6 +44,11 @@ export default function AvatarIntroScreen({ navigation, route }) {
     mockUser.dailyAnswers[1] = newDay1Answers;
 
     if (isLast) {
+      saveFinancialData({
+        familyStatus:   parseStatus(newDay1Answers.status),
+        employmentType: parseOccupation(newDay1Answers.occupation),
+        city:           newDay1Answers.city || '',
+      }).catch(() => {});
       navigation.navigate('AvatarReveal', { appearance, tone, day1: newDay1Answers });
     } else {
       setAnswers(newDay1Answers);
