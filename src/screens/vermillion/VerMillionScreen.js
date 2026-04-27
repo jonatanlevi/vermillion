@@ -34,7 +34,7 @@ function formatCountdown(ms) {
 }
 
 // ─── DNA Timer component ───────────────────────────────────────
-function DNATimer({ day, insets, onGoGames }) {
+function DNATimer({ day, insets, onGoGames, onUnlock }) {
   const [commitment, setCommitment] = useState(null);
   const [msLeft, setMsLeft] = useState(0);
 
@@ -48,7 +48,11 @@ function DNATimer({ day, insets, onGoGames }) {
   const glowAnim  = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    const tick = setInterval(() => setMsLeft(getMsUntilCommitment(commitment)), 1000);
+    const tick = setInterval(() => {
+      const ms = getMsUntilCommitment(commitment);
+      setMsLeft(ms);
+      if (ms <= 0) onUnlock?.();
+    }, 1000);
     return () => clearInterval(tick);
   }, [commitment]);
 
@@ -218,6 +222,19 @@ export default function VerMillionScreen({ navigation }) {
 
       if (progress.complete) {
         setDayDone(true);
+      } else if (day > 1) {
+        // days 2-7: locked until commitment time
+        const commitment = await getCommitmentTime();
+        if (commitment) {
+          const now = new Date();
+          const gate = new Date(now);
+          gate.setHours(commitment.hour, commitment.minute, 0, 0);
+          if (now < gate) {
+            setDayDone(true); // show DNA timer — not yet time
+            return;
+          }
+        }
+        await askNextOnboardingQuestion(day, progress.done);
       } else {
         await askNextOnboardingQuestion(day, progress.done);
       }
@@ -339,6 +356,7 @@ export default function VerMillionScreen({ navigation }) {
         day={currentDay}
         insets={insets}
         onGoGames={() => navigation.navigate('Games')}
+        onUnlock={() => { setDayDone(false); init(); }}
       />
     );
   }
