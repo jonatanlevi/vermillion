@@ -213,7 +213,7 @@ export default function ProfileScreen({ navigation }) {
         {/* Build skills button */}
         <TouchableOpacity
           style={styles.buildBtn}
-          onPress={() => navigation.getParent()?.navigate('VerMillion')}
+          onPress={() => navigation.navigate('VerMillion')}
           activeOpacity={0.85}
         >
           <Text style={styles.buildBtnText}>
@@ -272,7 +272,7 @@ export default function ProfileScreen({ navigation }) {
         style={styles.logoutBtn}
         onPress={async () => {
           await clearAllData();
-          navigation.getParent()?.navigate('VerMillion');
+          navigation.getParent()?.replace('MainTabs');
         }}
       >
         <Text style={styles.logoutText}>איפוס נתונים (dev)</Text>

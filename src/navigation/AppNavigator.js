@@ -6,6 +6,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 
 import SplashScreen        from '../screens/onboarding/SplashScreen';
 import WelcomeScreen       from '../screens/onboarding/WelcomeScreen';
+
 import RegisterScreen      from '../screens/onboarding/RegisterScreen';
 import LoginScreen         from '../screens/onboarding/LoginScreen';
 import CompleteProfileScreen  from '../screens/onboarding/CompleteProfileScreen';
@@ -89,7 +90,7 @@ export default function AppNavigator() {
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false, animation: 'fade' }}>
-        <Stack.Screen name="Splash"          component={ModelDownloadScreen} />
+        <Stack.Screen name="Splash"          component={SplashScreen} />
         <Stack.Screen name="Welcome"         component={WelcomeScreen} />
         <Stack.Screen name="Register"        component={RegisterScreen} />
         <Stack.Screen name="Login"           component={LoginScreen} />
