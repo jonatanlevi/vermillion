@@ -15,10 +15,8 @@ import { askTeam } from '../../services/agents';
 const nextId = () => `msg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
 const QUESTIONS_PER_DAY = 3;
 
-function getDayNumber(startDate) {
-  if (!startDate) return 1;
-  const diff = Math.floor((Date.now() - new Date(startDate).getTime()) / 86400000);
-  return Math.min(diff + 1, 7);
+function getActiveDay(daysCompleted) {
+  return Math.min((daysCompleted || []).length + 1, 7);
 }
 
 function formatCountdown(ms) {
@@ -200,11 +198,10 @@ export default function VerMillionScreen({ navigation }) {
 
   async function init() {
     try {
-      const complete = await isOnboardingComplete();
-      const state    = await getOnboardingState();
-      const day      = getDayNumber(state.startDate);
+      const complete    = await isOnboardingComplete();
+      const state       = await getOnboardingState();
+      const commitment  = await getCommitmentTime();
       if (!mountedRef.current) return;
-      setCurrentDay(day);
 
       if (complete) {
         setPhase('coaching');
@@ -216,24 +213,47 @@ export default function VerMillionScreen({ navigation }) {
             ? `${state.profileText}\n\nמה תרצה לעבוד עליו היום?`
             : 'שלום! הפרופיל שלך מוכן. מה תרצה לשאול?');
         }
+        return;
+      }
+
+      setPhase('onboarding');
+
+      if (!commitment) {
+        // ── שלב 1: יום 1 לפני משחק ראשון ──────────────────────
+        // commitment נקבע רק אחרי משחק ראשון (GlassButton)
+        setCurrentDay(1);
+        const progress = await getDayProgress(1);
+        if (!mountedRef.current) return;
+        setQuestionsToday(progress.done);
+        if (progress.complete) {
+          // שאלות יום 1 נגמרו — שלח לשחק כדי לקבוע commitment
+          navigation.navigate('Games');
+        } else {
+          await askNextOnboardingQuestion(1, progress.done);
+        }
       } else {
-        setPhase('onboarding');
+        // ── שלב 2: commitment נקבע — מחזור יומי רגיל ─────────
+        const day = getActiveDay(state.daysCompleted);
+        setCurrentDay(day);
         const progress = await getDayProgress(day);
         if (!mountedRef.current) return;
         setQuestionsToday(progress.done);
 
         if (progress.complete) {
+          // שאלות היום הושלמו → DNA timer עד commitment הבא
           setDayDone(true);
         } else if (day > 1) {
-          const commitment = await getCommitmentTime();
-          if (commitment) {
-            const now = new Date();
-            const gate = new Date(now);
-            gate.setHours(commitment.hour, commitment.minute, 0, 0);
-            if (now < gate) { setDayDone(true); return; }
+          // לפני שאלות — בדוק אם הגיע זמן ה-commitment
+          const now  = new Date();
+          const gate = new Date(now);
+          gate.setHours(commitment.hour, commitment.minute, 0, 0);
+          if (now < gate) {
+            setDayDone(true); // עוד לא הגיע הזמן → DNA timer
+          } else {
+            await askNextOnboardingQuestion(day, progress.done);
           }
-          await askNextOnboardingQuestion(day, progress.done);
         } else {
+          // יום 1 עם commitment — שאל שאלות
           await askNextOnboardingQuestion(day, progress.done);
         }
       }
@@ -279,7 +299,6 @@ export default function VerMillionScreen({ navigation }) {
         addMsg('assistant', `מצוין! סיימנו ליום ${day} 💪\n\nעובר אותך למשחקים...`);
         setTimeout(() => {
           if (!mountedRef.current) return;
-          setDayDone(true);
           navigation.navigate('Games');
         }, 1800);
       }
