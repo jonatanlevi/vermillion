@@ -17,7 +17,7 @@ npm install   # אם צריך
 npx expo start
 ```
 
-אפשר `w` לדפדפן, או סריקת QR ל-Expo Go.
+אפשר `w` לדפדפן, או סריקת QR ל-Expo Go. אם פורט 8081 תפוס: `npx expo start --web --port 8082` ואז דפדפן ב־`http://localhost:8082`.
 
 ## Git
 
