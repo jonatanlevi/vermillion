@@ -1,8 +1,9 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { useAuth } from '../context/AuthContext';
 
 import SplashScreen        from '../screens/onboarding/SplashScreen';
 import WelcomeScreen       from '../screens/onboarding/WelcomeScreen';
@@ -87,25 +88,42 @@ function MainTabs() {
 }
 
 export default function AppNavigator() {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#0A0A0A', alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator color="#C0392B" size="large" />
+      </View>
+    );
+  }
+
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false, animation: 'fade' }}>
-        <Stack.Screen name="Splash"          component={SplashScreen} />
-        <Stack.Screen name="Welcome"         component={WelcomeScreen} />
-        <Stack.Screen name="Register"        component={RegisterScreen} />
-        <Stack.Screen name="Login"           component={LoginScreen} />
-        <Stack.Screen name="CompleteProfile" component={CompleteProfileScreen} />
-        <Stack.Screen name="AvatarAppearance" component={AvatarAppearanceScreen} />
-        <Stack.Screen name="AvatarTone"      component={AvatarToneScreen} />
-        <Stack.Screen name="AvatarIntro"     component={AvatarIntroScreen} />
-        <Stack.Screen name="AvatarReveal"    component={AvatarRevealScreen} />
-        <Stack.Screen name="Subscription"    component={SubscriptionScreen} />
-        <Stack.Screen name="ModelDownload"   component={ModelDownloadScreen} />
-        <Stack.Screen name="DailyQuestions"  component={DailyQuestionsScreen} />
-        <Stack.Screen name="DailyCoaching"   component={DailyCoachingScreen} />
-        <Stack.Screen name="ProfileReveal"   component={ProfileRevealScreen} />
-        <Stack.Screen name="Settings"        component={SettingsScreen} />
-        <Stack.Screen name="MainTabs"        component={MainTabs} />
+        {user ? (
+          <>
+            <Stack.Screen name="MainTabs"        component={MainTabs} />
+            <Stack.Screen name="DailyQuestions"  component={DailyQuestionsScreen} />
+            <Stack.Screen name="DailyCoaching"   component={DailyCoachingScreen} />
+            <Stack.Screen name="ProfileReveal"   component={ProfileRevealScreen} />
+            <Stack.Screen name="Settings"        component={SettingsScreen} />
+            <Stack.Screen name="CompleteProfile" component={CompleteProfileScreen} />
+            <Stack.Screen name="AvatarAppearance" component={AvatarAppearanceScreen} />
+            <Stack.Screen name="AvatarTone"      component={AvatarToneScreen} />
+            <Stack.Screen name="AvatarIntro"     component={AvatarIntroScreen} />
+            <Stack.Screen name="AvatarReveal"    component={AvatarRevealScreen} />
+            <Stack.Screen name="Subscription"    component={SubscriptionScreen} />
+            <Stack.Screen name="ModelDownload"   component={ModelDownloadScreen} />
+          </>
+        ) : (
+          <>
+            <Stack.Screen name="Splash"   component={SplashScreen} />
+            <Stack.Screen name="Welcome"  component={WelcomeScreen} />
+            <Stack.Screen name="Register" component={RegisterScreen} />
+            <Stack.Screen name="Login"    component={LoginScreen} />
+          </>
+        )}
       </Stack.Navigator>
     </NavigationContainer>
   );

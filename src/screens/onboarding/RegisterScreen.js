@@ -1,18 +1,31 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, TextInput,
-  TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView
+  TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator, Alert
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { clearAllData } from '../../services/storage';
+import { signInWithGoogle } from '../../services/authService';
 
 export default function RegisterScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [agreed, setAgreed] = useState(false);
+  const [name, setName]       = useState('');
+  const [phone, setPhone]     = useState('');
+  const [agreed, setAgreed]   = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   const canSubmit = name.length > 1 && phone.length >= 9 && agreed;
+
+  async function handleGoogle() {
+    setGoogleLoading(true);
+    try {
+      await signInWithGoogle();
+    } catch (e) {
+      Alert.alert('שגיאה', e.message || 'ההתחברות עם Google נכשלה');
+    } finally {
+      setGoogleLoading(false);
+    }
+  }
 
   return (
     <KeyboardAvoidingView
@@ -60,6 +73,24 @@ export default function RegisterScreen({ navigation }) {
               קראתי ואני מסכים לתנאי השימוש
             </Text>
           </TouchableOpacity>
+        </View>
+
+        <TouchableOpacity
+          style={styles.googleBtn}
+          onPress={handleGoogle}
+          disabled={googleLoading}
+          activeOpacity={0.85}
+        >
+          {googleLoading
+            ? <ActivityIndicator color="#fff" />
+            : <Text style={styles.googleBtnText}>🇬 המשך עם Google</Text>
+          }
+        </TouchableOpacity>
+
+        <View style={styles.dividerRow}>
+          <View style={styles.dividerLine} />
+          <Text style={styles.dividerText}>או</Text>
+          <View style={styles.dividerLine} />
         </View>
 
         <TouchableOpacity
@@ -131,4 +162,17 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   onboardingNoteText: { color: '#888', fontSize: 13, textAlign: 'center' },
+  googleBtn: {
+    backgroundColor: '#1A1A1A',
+    borderRadius: 14,
+    padding: 18,
+    alignItems: 'center',
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  googleBtnText: { color: '#FFF', fontSize: 16, fontWeight: '700' },
+  dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 20 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: '#2A2A2A' },
+  dividerText: { color: '#555', fontSize: 13 },
 });
