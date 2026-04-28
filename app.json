@@ -2,6 +2,7 @@
   "expo": {
     "name": "vermillion",
     "slug": "vermillion",
+    "scheme": "vermillion",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -20,10 +21,20 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.jonatanlevi.vermillion"
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-web-browser",
+      "expo-asset"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "8b2ae177-90a5-4a00-b458-449645e0438b"
+      }
     }
   }
 }

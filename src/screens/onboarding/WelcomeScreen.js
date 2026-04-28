@@ -1,8 +1,9 @@
-import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, ActivityIndicator, Dimensions } from 'react-native';
 import { useLanguage } from '../../context/LanguageContext';
 import LanguagePicker from '../../components/LanguagePicker';
 import { clearAllData } from '../../services/storage';
+import { signInWithGoogle } from '../../services/authService';
 
 const { width: SW } = Dimensions.get('window');
 
@@ -10,6 +11,7 @@ export default function WelcomeScreen({ navigation }) {
   const { t } = useLanguage();
   const fade = useRef(new Animated.Value(0)).current;
   const slideY = useRef(new Animated.Value(40)).current;
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     Animated.parallel([
@@ -63,13 +65,29 @@ export default function WelcomeScreen({ navigation }) {
         <View style={styles.actions}>
           <TouchableOpacity
             style={styles.googleBtn}
-            onPress={async () => { await clearAllData(); navigation.navigate('CompleteProfile'); }}
+            onPress={async () => {
+              try {
+                setLoading(true);
+                await signInWithGoogle();
+                navigation.navigate('CompleteProfile');
+              } catch (e) {
+                console.error('Google sign-in error:', e);
+                setLoading(false);
+              }
+            }}
             activeOpacity={0.88}
+            disabled={loading}
           >
-            <View style={styles.googleIconWrap}>
-              <Text style={styles.googleIconText}>G</Text>
-            </View>
-            <Text style={styles.googleText}>{t.continueGoogle}</Text>
+            {loading ? (
+              <ActivityIndicator color="#111" />
+            ) : (
+              <>
+                <View style={styles.googleIconWrap}>
+                  <Text style={styles.googleIconText}>G</Text>
+                </View>
+                <Text style={styles.googleText}>{t.continueGoogle}</Text>
+              </>
+            )}
           </TouchableOpacity>
 
           <View style={styles.dividerRow}>
