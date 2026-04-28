@@ -7,8 +7,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { getFinancialData, getOnboardingState, clearAllData } from '../../services/storage';
 import { computeSkills, DAY_PLAN } from '../../services/onboardingAI';
+import { useLanguage } from '../../context/LanguageContext';
 
-const TIER_LABELS = ['עיוור', 'ייצוב', 'שרידות', 'בנייה', 'אופטימיזציה'];
 const TIER_COLORS = ['#444', '#E74C3C', '#E67E22', '#3498DB', '#D4AF37'];
 
 const LEADERBOARD = [
@@ -21,16 +21,8 @@ const LEADERBOARD = [
   { rank: 7, name: 'אבי ש.',   score: 1100, badge: '' },
 ];
 
-const SKILL_LABELS = {
-  saving:   { label: 'חיסכון',     icon: '💰', desc: 'יחס חיסכון מהכנסה' },
-  debtMgmt: { label: 'ניהול חוב',  icon: '📉', desc: 'יחס חוב להכנסה' },
-  planning: { label: 'תכנון',      icon: '🎯', desc: 'מטרות פיננסיות' },
-  mindset:  { label: 'מנטליות',    icon: '🧠', desc: 'רמת לחץ פיננסי' },
-  investment:{ label: 'השקעות',    icon: '📈', desc: 'נכסים ותיק השקעות' },
-};
-
-function SkillBar({ skill, value, color }) {
-  const meta = SKILL_LABELS[skill] || { label: skill, icon: '•', desc: '' };
+function SkillBar({ skill, value, color, labels }) {
+  const meta = labels[skill] || { label: skill, icon: '•', desc: '' };
   return (
     <View style={styles.skillRow}>
       <Text style={styles.skillIcon}>{meta.icon}</Text>
@@ -48,24 +40,22 @@ function SkillBar({ skill, value, color }) {
   );
 }
 
-function LeaderboardModal({ visible, onClose }) {
+function LeaderboardModal({ visible, onClose, t }) {
   return (
     <Modal visible={visible} animationType="slide" transparent>
       <View style={styles.modalOverlay}>
         <View style={styles.modalCard}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>🏆 לוח זוכים — אפריל</Text>
+            <Text style={styles.modalTitle}>{t.lbTitle}</Text>
             <TouchableOpacity onPress={onClose} style={styles.modalClose}>
               <Text style={styles.modalCloseText}>✕</Text>
             </TouchableOpacity>
           </View>
-
           <View style={styles.prizeBox}>
-            <Text style={styles.prizeLabel}>פרס חודשי</Text>
+            <Text style={styles.prizeLabel}>{t.lbPrizeLabel}</Text>
             <Text style={styles.prizeAmt}>₪45,000</Text>
-            <Text style={styles.prizeNote}>27 ימים נותרו</Text>
+            <Text style={styles.prizeNote}>{t.lbPrizeNote}</Text>
           </View>
-
           <FlatList
             data={LEADERBOARD}
             keyExtractor={item => String(item.rank)}
@@ -87,6 +77,7 @@ function LeaderboardModal({ visible, onClose }) {
 
 export default function ProfileScreen({ navigation }) {
   const insets = useSafeAreaInsets();
+  const { t } = useLanguage();
   const [financial, setFinancial]   = useState({});
   const [onboarding, setOnboarding] = useState({});
   const [skills, setSkills]         = useState(null);
@@ -94,9 +85,7 @@ export default function ProfileScreen({ navigation }) {
   const [showLB, setShowLB]         = useState(false);
 
   useFocusEffect(
-    useCallback(() => {
-      loadData();
-    }, [])
+    useCallback(() => { loadData(); }, [])
   );
 
   async function loadData() {
@@ -104,7 +93,6 @@ export default function ProfileScreen({ navigation }) {
     const [fin, ob] = await Promise.all([getFinancialData(), getOnboardingState()]);
     setFinancial(fin);
     setOnboarding(ob);
-
     if (Object.keys(fin).length > 0) {
       const surplus = (fin.netIncome || 0) - (fin.housingCost || 0)
         - (fin.fixedExpenses || 0) - (fin.variableExpenses || 0);
@@ -137,10 +125,12 @@ export default function ProfileScreen({ navigation }) {
     return allFields.filter(f => financial[f] !== undefined && financial[f] !== null).length;
   }
 
-  const answered = countAnswered();
-  const totalQ   = 21;
-  const tier     = getTier();
-  const tierColor = TIER_COLORS[tier];
+  const answered   = countAnswered();
+  const totalQ     = 21;
+  const tier       = getTier();
+  const tierColor  = TIER_COLORS[tier];
+  const tierLabels = t.profileTierLabels;
+  const skillLabels = t.profileSkillLabels;
 
   if (loading) {
     return (
@@ -156,102 +146,96 @@ export default function ProfileScreen({ navigation }) {
       contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}
       showsVerticalScrollIndicator={false}
     >
-      {/* Header */}
       <View style={styles.header}>
         <View style={[styles.avatarCircle, { borderColor: tierColor }]}>
           <Text style={styles.avatarLetter}>V</Text>
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={styles.userName}>VerMillion שלך</Text>
+          <Text style={styles.userName}>{t.profileTitle}</Text>
           <View style={[styles.tierBadge, { backgroundColor: tierColor + '22', borderColor: tierColor + '66' }]}>
-            <Text style={[styles.tierLabel, { color: tierColor }]}>{TIER_LABELS[tier]}</Text>
+            <Text style={[styles.tierLabel, { color: tierColor }]}>{tierLabels[tier]}</Text>
           </View>
         </View>
         <TouchableOpacity style={styles.lbBtn} onPress={() => setShowLB(true)}>
           <Text style={styles.lbBtnIcon}>🏆</Text>
-          <Text style={styles.lbBtnText}>לוח זוכים</Text>
+          <Text style={styles.lbBtnText}>{t.profileLBBtn}</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Score row */}
       <View style={styles.scoreCard}>
         <View style={styles.scoreItem}>
           <Text style={styles.scoreVal}>#3</Text>
-          <Text style={styles.scoreKey}>דירוג</Text>
+          <Text style={styles.scoreKey}>{t.profileRankKey}</Text>
         </View>
         <View style={styles.divider} />
         <View style={styles.scoreItem}>
           <Text style={styles.scoreVal}>2,340</Text>
-          <Text style={styles.scoreKey}>נקודות</Text>
+          <Text style={styles.scoreKey}>{t.profileScoreKey}</Text>
         </View>
         <View style={styles.divider} />
         <View style={styles.scoreItem}>
           <Text style={styles.scoreVal}>27</Text>
-          <Text style={styles.scoreKey}>ימים נותרו</Text>
+          <Text style={styles.scoreKey}>{t.profileDaysKey}</Text>
         </View>
       </View>
 
-      {/* Skills */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>כישורי VerMillion</Text>
-          <Text style={styles.sectionSub}>{answered}/{totalQ} שאלות</Text>
+          <Text style={styles.sectionTitle}>{t.profileSkillsTitle}</Text>
+          <Text style={styles.sectionSub}>{t.profileQCount(answered, totalQ)}</Text>
         </View>
 
         {skills ? (
           <View style={styles.skillsCard}>
             {Object.entries(skills).map(([key, val]) => (
-              <SkillBar key={key} skill={key} value={val} color={getSkillColor(val)} />
+              <SkillBar key={key} skill={key} value={val} color={getSkillColor(val)} labels={skillLabels} />
             ))}
           </View>
         ) : (
           <View style={styles.emptySkills}>
-            <Text style={styles.emptySkillsText}>הכישורים יחושבו לאחר שתענה על שאלות היכרות</Text>
+            <Text style={styles.emptySkillsText}>{t.profileEmptySkills}</Text>
           </View>
         )}
 
-        {/* Build skills button */}
         <TouchableOpacity
           style={styles.buildBtn}
           onPress={() => navigation.navigate('VerMillion')}
           activeOpacity={0.85}
         >
           <Text style={styles.buildBtnText}>
-            {answered < totalQ ? `בנה כישורים → (${totalQ - answered} שאלות נותרו)` : 'שוחח עם VerMillion →'}
+            {answered < totalQ ? t.profileBuildBtn(totalQ - answered) : t.profileChatBtn}
           </Text>
         </TouchableOpacity>
       </View>
 
-      {/* Financial summary (if data exists) */}
       {financial.netIncome ? (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>סיכום פיננסי</Text>
+          <Text style={styles.sectionTitle}>{t.profileFinTitle}</Text>
           <View style={styles.finCard}>
             {[
-              { label: 'הכנסה נטו',  val: financial.netIncome,   prefix: '₪' },
-              { label: 'הוצאות קבועות', val: (financial.housingCost || 0) + (financial.fixedExpenses || 0), prefix: '₪' },
-              { label: 'הוצאות משתנות', val: financial.variableExpenses, prefix: '₪' },
-              { label: 'חוב כולל',   val: (financial.creditDebt || 0) + (financial.loans || 0) + (financial.overdraft || 0), prefix: '₪' },
-              { label: 'חיסכון נזיל', val: financial.savings,   prefix: '₪' },
+              { label: t.profileFinIncome,   val: financial.netIncome },
+              { label: t.profileFinFixed,    val: (financial.housingCost || 0) + (financial.fixedExpenses || 0) },
+              { label: t.profileFinVar,      val: financial.variableExpenses },
+              { label: t.profileFinDebt,     val: (financial.creditDebt || 0) + (financial.loans || 0) + (financial.overdraft || 0) },
+              { label: t.profileFinSavings,  val: financial.savings },
             ].filter(r => r.val !== undefined && r.val !== null).map((row, i) => (
               <View key={i} style={styles.finRow}>
-                <Text style={styles.finVal}>{row.prefix}{(row.val || 0).toLocaleString('he-IL')}</Text>
+                <Text style={styles.finVal}>₪{(row.val || 0).toLocaleString('he-IL')}</Text>
                 <Text style={styles.finLabel}>{row.label}</Text>
               </View>
             ))}
           </View>
           {financial.moneyGoal ? (
             <View style={styles.goalBox}>
-              <Text style={styles.goalLabel}>המטרה שלך</Text>
+              <Text style={styles.goalLabel}>{t.profileGoalLabel}</Text>
               <Text style={styles.goalText}>"{financial.moneyGoal}"</Text>
             </View>
           ) : null}
         </View>
       ) : null}
 
-      {/* Achievements */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>הישגים</Text>
+        <Text style={styles.sectionTitle}>{t.profileAchievements}</Text>
         <View style={styles.achieveRow}>
           {[
             { icon: '🔥', label: '7 ימים', locked: answered < 21 },
@@ -267,7 +251,6 @@ export default function ProfileScreen({ navigation }) {
         </View>
       </View>
 
-      {/* Logout */}
       <TouchableOpacity
         style={styles.logoutBtn}
         onPress={async () => {
@@ -275,10 +258,10 @@ export default function ProfileScreen({ navigation }) {
           navigation.getParent()?.replace('MainTabs');
         }}
       >
-        <Text style={styles.logoutText}>איפוס נתונים (dev)</Text>
+        <Text style={styles.logoutText}>{t.profileDevReset}</Text>
       </TouchableOpacity>
 
-      <LeaderboardModal visible={showLB} onClose={() => setShowLB(false)} />
+      <LeaderboardModal visible={showLB} onClose={() => setShowLB(false)} t={t} />
     </ScrollView>
   );
 }
@@ -287,12 +270,8 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0A0A0A' },
   content:   { paddingHorizontal: 20, paddingBottom: 48 },
   center:    { flex: 1, backgroundColor: '#0A0A0A', alignItems: 'center', justifyContent: 'center' },
-
   header: { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 16 },
-  avatarCircle: {
-    width: 56, height: 56, borderRadius: 28, borderWidth: 2.5,
-    backgroundColor: '#C0392B', alignItems: 'center', justifyContent: 'center',
-  },
+  avatarCircle: { width: 56, height: 56, borderRadius: 28, borderWidth: 2.5, backgroundColor: '#C0392B', alignItems: 'center', justifyContent: 'center' },
   avatarLetter: { color: '#FFF', fontSize: 22, fontWeight: '900' },
   userName: { color: '#FFF', fontSize: 17, fontWeight: '800', marginBottom: 4 },
   tierBadge: { alignSelf: 'flex-start', borderRadius: 8, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 3 },
@@ -300,22 +279,15 @@ const styles = StyleSheet.create({
   lbBtn: { alignItems: 'center', gap: 3, padding: 8 },
   lbBtnIcon: { fontSize: 22 },
   lbBtnText: { color: '#888', fontSize: 10, fontWeight: '600' },
-
-  scoreCard: {
-    flexDirection: 'row', backgroundColor: '#111', borderRadius: 16,
-    padding: 16, marginBottom: 20, borderWidth: 1, borderColor: '#1E1E1E',
-    justifyContent: 'space-around', alignItems: 'center',
-  },
+  scoreCard: { flexDirection: 'row', backgroundColor: '#111', borderRadius: 16, padding: 16, marginBottom: 20, borderWidth: 1, borderColor: '#1E1E1E', justifyContent: 'space-around', alignItems: 'center' },
   scoreItem: { alignItems: 'center' },
   scoreVal:  { color: '#FFF', fontSize: 22, fontWeight: '900' },
   scoreKey:  { color: '#555', fontSize: 11, marginTop: 2 },
   divider:   { width: 1, height: 32, backgroundColor: '#222' },
-
   section:       { marginBottom: 24 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   sectionTitle:  { color: '#FFF', fontSize: 16, fontWeight: '800' },
   sectionSub:    { color: '#555', fontSize: 12 },
-
   skillsCard:  { backgroundColor: '#111', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#1E1E1E', gap: 16 },
   skillRow:    { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
   skillIcon:   { fontSize: 20, marginTop: 2 },
@@ -326,16 +298,10 @@ const styles = StyleSheet.create({
   barTrack:    { height: 6, backgroundColor: '#222', borderRadius: 3, marginBottom: 4 },
   barFill:     { height: 6, borderRadius: 3 },
   skillDesc:   { color: '#444', fontSize: 11 },
-
   emptySkills:     { backgroundColor: '#111', borderRadius: 16, padding: 24, borderWidth: 1, borderColor: '#1E1E1E', alignItems: 'center' },
   emptySkillsText: { color: '#444', fontSize: 14, textAlign: 'center' },
-
-  buildBtn:     {
-    marginTop: 12, backgroundColor: '#C0392B', borderRadius: 14,
-    height: 50, alignItems: 'center', justifyContent: 'center',
-  },
+  buildBtn:     { marginTop: 12, backgroundColor: '#C0392B', borderRadius: 14, height: 50, alignItems: 'center', justifyContent: 'center' },
   buildBtnText: { color: '#FFF', fontSize: 14, fontWeight: '800' },
-
   finCard: { backgroundColor: '#111', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#1E1E1E' },
   finRow:  { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#181818' },
   finVal:  { color: '#FFF', fontSize: 15, fontWeight: '700' },
@@ -343,17 +309,13 @@ const styles = StyleSheet.create({
   goalBox: { marginTop: 10, backgroundColor: '#0D1A0D', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#1A3A1A' },
   goalLabel:{ color: '#4CAF50', fontSize: 11, fontWeight: '700', marginBottom: 4 },
   goalText: { color: '#E0E0E0', fontSize: 14, fontStyle: 'italic' },
-
   achieveRow:   { flexDirection: 'row', gap: 10, flexWrap: 'wrap' },
   achieveBadge: { alignItems: 'center', backgroundColor: '#111', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: '#1E1E1E', minWidth: 70 },
   achieveLocked:{ borderColor: '#161616', backgroundColor: '#0D0D0D' },
   achieveIcon:  { fontSize: 24, marginBottom: 6 },
   achieveLabel: { color: '#888', fontSize: 10, fontWeight: '600' },
-
   logoutBtn: { alignItems: 'center', paddingVertical: 12, marginTop: 8 },
   logoutText:{ color: '#2A2A2A', fontSize: 12 },
-
-  // Modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'flex-end' },
   modalCard:    { backgroundColor: '#111', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, maxHeight: '80%' },
   modalHeader:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },

@@ -10,14 +10,15 @@ import { classifyTier } from '../../services/financialTier';
 import { getUserTimeStatus } from '../../services/timeEngine';
 import { chatWithAI } from '../../services/aiService';
 import { COACHING_DAYS } from '../../data/coachingContent';
+import { useLanguage } from '../../context/LanguageContext';
 
 export default function DailyCoachingScreen({ navigation }) {
   const insets = useSafeAreaInsets();
+  const { t } = useLanguage();
   const ts = getUserTimeStatus(mockUser);
   const metrics = computeFinancialMetrics(mockUser.dailyAnswers || {});
   const tier = classifyTier(metrics, 100);
   const dayContent = COACHING_DAYS[ts.currentDay] || COACHING_DAYS[9];
-  // Fix: tier 0 means "incomplete profile" and has no coaching content — clamp to tier 1 as minimum
   const safeTier = Math.max(tier.tier, 1);
   const tierContent = dayContent[safeTier] || dayContent[1];
 
@@ -50,7 +51,6 @@ export default function DailyCoachingScreen({ navigation }) {
 
   function handleComplete() {
     if (!answer.trim()) return;
-    // TODO: save to storage
     setDone(true);
   }
 
@@ -58,65 +58,64 @@ export default function DailyCoachingScreen({ navigation }) {
     return (
       <View style={styles.doneContainer}>
         <Text style={styles.doneEmoji}>✅</Text>
-        <Text style={styles.doneTitle}>יום {ts.currentDay} הושלם</Text>
-        <Text style={styles.doneSub}>מכפיל ×{ts.multiplier.toFixed(1)} · {ts.daysLeft} ימים לסיום</Text>
+        <Text style={styles.doneTitle}>{t.coachDoneTitle(ts.currentDay)}</Text>
+        <Text style={styles.doneSub}>{t.coachDoneSub(ts.multiplier.toFixed(1), ts.daysLeft)}</Text>
         <TouchableOpacity style={styles.doneBtn} onPress={() => navigation.goBack()}>
-          <Text style={styles.doneBtnText}>חזור לבית</Text>
+          <Text style={styles.doneBtnText}>{t.coachBackHome}</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}
+      showsVerticalScrollIndicator={false}
+    >
       <Animated.View style={{ opacity: fadeAnim }}>
 
-        {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
             <Text style={styles.backText}>←</Text>
           </TouchableOpacity>
           <View style={styles.dayBadge}>
-            <Text style={styles.dayBadgeText}>יום {ts.currentDay}</Text>
+            <Text style={styles.dayBadgeText}>{t.coachDayBadge(ts.currentDay)}</Text>
           </View>
           <View style={[styles.tierPill, { backgroundColor: tier.color + '22', borderColor: tier.color + '44' }]}>
             <Text style={[styles.tierPillText, { color: tier.color }]}>{tier.emoji} {tier.label}</Text>
           </View>
         </View>
 
-        {/* Topic */}
         <Text style={styles.topic}>{tierContent.topic}</Text>
         <Text style={styles.sub}>{tierContent.description}</Text>
 
-        {/* AI Tip */}
         <View style={styles.tipCard}>
           <View style={styles.tipHeader}>
             <View style={styles.aiDot} />
-            <Text style={styles.tipHeaderText}>VerMillion AI — טיפ היום</Text>
+            <Text style={styles.tipHeaderText}>{t.coachAiTipHeader}</Text>
           </View>
           {loadingTip ? (
             <View style={styles.loadingRow}>
               <ActivityIndicator color="#C0392B" size="small" />
-              <Text style={styles.loadingText}>VerMillion חושב...</Text>
+              <Text style={styles.loadingText}>{t.coachThinking}</Text>
             </View>
           ) : (
             <Text style={styles.tipText}>{aiTip || tierContent.fallbackTip}</Text>
           )}
         </View>
 
-        {/* Challenge */}
         <View style={styles.challengeCard}>
-          <Text style={styles.challengeTitle}>🎯 אתגר היום</Text>
+          <Text style={styles.challengeTitle}>{t.coachChallengeTitle}</Text>
           <Text style={styles.challengeText}>{tierContent.challenge}</Text>
         </View>
 
-        {/* Daily question */}
         <View style={styles.questionCard}>
-          <Text style={styles.questionLabel}>שאלת היום</Text>
+          <Text style={styles.questionLabel}>{t.coachQuestionLabel}</Text>
           <Text style={styles.questionText}>{tierContent.question}</Text>
           <TextInput
             style={styles.answerInput}
-            placeholder="הכנס תשובה כאן..."
+            placeholder={t.coachAnswerPh}
             placeholderTextColor="#333"
             value={answer}
             onChangeText={setAnswer}
@@ -126,16 +125,14 @@ export default function DailyCoachingScreen({ navigation }) {
           />
         </View>
 
-        {/* Multiplier notice */}
         {ts.isLate && (
           <View style={styles.lateWarning}>
             <Text style={styles.lateWarningText}>
-              ⚠️ איחור של {ts.deviation}h · מכפיל ×{ts.multiplier.toFixed(1)} (בזמן = ×1.2)
+              {t.coachLateWarning(ts.deviation, ts.multiplier.toFixed(1))}
             </Text>
           </View>
         )}
 
-        {/* Complete button */}
         <TouchableOpacity
           style={[styles.completeBtn, !answer.trim() && styles.completeBtnDisabled]}
           onPress={handleComplete}
@@ -143,7 +140,7 @@ export default function DailyCoachingScreen({ navigation }) {
           activeOpacity={0.88}
         >
           <Text style={styles.completeBtnText}>
-            סיים יום {ts.currentDay} · +{Math.round(100 * ts.multiplier)} נקודות
+            {t.coachCompleteBtn(ts.currentDay, Math.round(100 * ts.multiplier))}
           </Text>
         </TouchableOpacity>
 
@@ -155,7 +152,6 @@ export default function DailyCoachingScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0A0A0A' },
   content: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 50 },
-
   header: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 24 },
   backBtn: { padding: 8 },
   backText: { color: '#FFF', fontSize: 22, fontWeight: '700' },
@@ -163,10 +159,8 @@ const styles = StyleSheet.create({
   dayBadgeText: { color: '#FFF', fontSize: 13, fontWeight: '800' },
   tierPill: { borderRadius: 10, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1 },
   tierPillText: { fontSize: 12, fontWeight: '700' },
-
   topic: { fontSize: 28, fontWeight: '900', color: '#FFF', marginBottom: 8, textAlign: 'right' },
   sub: { color: '#666', fontSize: 15, lineHeight: 22, marginBottom: 24, textAlign: 'right' },
-
   tipCard: { backgroundColor: '#111', borderRadius: 20, padding: 18, marginBottom: 16, borderWidth: 1.5, borderColor: '#C0392B33' },
   tipHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
   aiDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#4CAF50' },
@@ -174,11 +168,9 @@ const styles = StyleSheet.create({
   loadingRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   loadingText: { color: '#C0392B', fontSize: 13 },
   tipText: { color: '#E0E0E0', fontSize: 15, lineHeight: 24, textAlign: 'right' },
-
   challengeCard: { backgroundColor: '#0D1A0D', borderRadius: 16, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: '#1A3A1A' },
   challengeTitle: { color: '#27AE60', fontSize: 14, fontWeight: '800', marginBottom: 8 },
   challengeText: { color: '#C0E0C0', fontSize: 14, lineHeight: 22, textAlign: 'right' },
-
   questionCard: { backgroundColor: '#111', borderRadius: 16, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: '#1E1E1E' },
   questionLabel: { color: '#C0392B', fontSize: 12, fontWeight: '800', letterSpacing: 1, marginBottom: 8 },
   questionText: { color: '#FFF', fontSize: 16, fontWeight: '700', marginBottom: 14, textAlign: 'right' },
@@ -187,14 +179,11 @@ const styles = StyleSheet.create({
     color: '#FFF', fontSize: 15, minHeight: 80,
     borderWidth: 1, borderColor: '#222',
   },
-
   lateWarning: { backgroundColor: '#1A0E00', borderRadius: 10, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: '#2A1800' },
   lateWarningText: { color: '#F39C12', fontSize: 13, textAlign: 'center' },
-
   completeBtn: { backgroundColor: '#C0392B', borderRadius: 16, paddingVertical: 18, alignItems: 'center', marginTop: 8 },
   completeBtnDisabled: { backgroundColor: '#222' },
   completeBtnText: { color: '#FFF', fontSize: 16, fontWeight: '900' },
-
   doneContainer: { flex: 1, backgroundColor: '#0A0A0A', alignItems: 'center', justifyContent: 'center', padding: 40 },
   doneEmoji: { fontSize: 60, marginBottom: 20 },
   doneTitle: { color: '#FFF', fontSize: 28, fontWeight: '900', marginBottom: 8 },

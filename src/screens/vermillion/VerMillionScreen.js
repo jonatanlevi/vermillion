@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
+import { useLanguage } from '../../context/LanguageContext';
 import { getOnboardingState, isOnboardingComplete, appendChatMessage, getChatHistory, getCommitmentTime, getMsUntilCommitment, getGameLog } from '../../services/storage';
 import {
   getTodayOnboardingPrompt, processOnboardingAnswer,
@@ -32,7 +33,7 @@ function formatCountdown(ms) {
 }
 
 // ─── DNA Timer component ───────────────────────────────────────
-function DNATimer({ day, insets, onGoGames, onUnlock }) {
+function DNATimer({ day, insets, onGoGames, onUnlock, t }) {
   const [commitment, setCommitment] = useState(null);
   const [msLeft, setMsLeft] = useState(0);
 
@@ -93,7 +94,7 @@ function DNATimer({ day, insets, onGoGames, onUnlock }) {
         </View>
         <View>
           <Text style={dna.title}>VerMillion</Text>
-          <Text style={dna.sub}>יום {day}/7 הושלם ✅</Text>
+          <Text style={dna.sub}>{t.vmDayDone(day)}</Text>
         </View>
       </View>
 
@@ -117,23 +118,23 @@ function DNATimer({ day, insets, onGoGames, onUnlock }) {
       {/* Countdown */}
       <Text style={dna.label}>
         {commitment
-          ? `השאלות שלך בשעה ${String(commitment.hour).padStart(2,'0')}:${String(commitment.minute).padStart(2,'0')} — בעוד`
-          : 'שאלות חדשות בעוד'}
+          ? t.vmCountdownLabel(String(commitment.hour).padStart(2,'0'), String(commitment.minute).padStart(2,'0'))
+          : t.vmCountdownDefault}
       </Text>
       <View style={dna.clockRow}>
         <View style={dna.clockBlock}>
           <Text style={dna.clockNum}>{h}</Text>
-          <Text style={dna.clockUnit}>שעות</Text>
+          <Text style={dna.clockUnit}>{t.vmHours}</Text>
         </View>
         <Text style={dna.clockSep}>:</Text>
         <View style={dna.clockBlock}>
           <Text style={dna.clockNum}>{m}</Text>
-          <Text style={dna.clockUnit}>דקות</Text>
+          <Text style={dna.clockUnit}>{t.vmMinutes}</Text>
         </View>
         <Text style={dna.clockSep}>:</Text>
         <View style={dna.clockBlock}>
           <Text style={dna.clockNum}>{s}</Text>
-          <Text style={dna.clockUnit}>שניות</Text>
+          <Text style={dna.clockUnit}>{t.vmSeconds}</Text>
         </View>
       </View>
 
@@ -148,13 +149,11 @@ function DNATimer({ day, insets, onGoGames, onUnlock }) {
 
       {/* CTA */}
       <TouchableOpacity style={dna.gamesBtn} onPress={onGoGames} activeOpacity={0.85}>
-        <Text style={dna.gamesBtnText}>🎮 למשחקים</Text>
+        <Text style={dna.gamesBtnText}>{t.vmGoGames}</Text>
       </TouchableOpacity>
 
       <Text style={dna.note}>
-        {day < 7
-          ? `עוד ${7 - day} ימים לאפיון המלא שלך`
-          : 'מחר VerMillion שלך יהיה מוכן לגמרי'}
+        {day < 7 ? t.vmDaysLeft(7 - day) : t.vmLastDay}
       </Text>
     </View>
   );
@@ -163,6 +162,7 @@ function DNATimer({ day, insets, onGoGames, onUnlock }) {
 // ─── Main screen ───────────────────────────────────────────────
 export default function VerMillionScreen({ navigation }) {
   const insets = useSafeAreaInsets();
+  const { t } = useLanguage();
   const [messages, setMessages]       = useState([]);
   const [input, setInput]             = useState('');
   const [loading, setLoading]         = useState(false);
@@ -296,7 +296,7 @@ export default function VerMillionScreen({ navigation }) {
 
       if (day >= 7) {
         setAvatarMood('excited');
-        addMsg('assistant', 'רגע אחד — מכין את האפיון האישי שלך...');
+        addMsg('assistant', t.vmPreparingProfile);
         setTimeout(async () => {
           if (!mountedRef.current) return;
           const { profileText } = await generateProfile();
@@ -371,7 +371,7 @@ export default function VerMillionScreen({ navigation }) {
         setAvatarMood('neutral');
       }
     } catch {
-      addMsg('assistant', 'לא הצלחתי להתחבר. נסה שוב.');
+      addMsg('assistant', t.vmErrorConnect);
       setAvatarMood('neutral');
     } finally {
       if (mountedRef.current) setLoading(false);
@@ -394,6 +394,7 @@ export default function VerMillionScreen({ navigation }) {
         insets={insets}
         onGoGames={() => navigation.navigate('Games')}
         onUnlock={() => navigation.navigate('Games')}
+        t={t}
       />
     );
   }
@@ -423,10 +424,10 @@ export default function VerMillionScreen({ navigation }) {
           <Text style={styles.avatarName}>VerMillion</Text>
           {phase === 'onboarding' ? (
             <Text style={styles.avatarSub}>
-              יום {currentDay}/7 · שאלה {Math.min(questionsToday + 1, QUESTIONS_PER_DAY)}/{QUESTIONS_PER_DAY}
+              {t.vmDayStep(currentDay, Math.min(questionsToday + 1, QUESTIONS_PER_DAY), QUESTIONS_PER_DAY)}
             </Text>
           ) : (
-            <Text style={[styles.avatarSub, { color: '#4CAF50' }]}>● היועץ האישי שלך</Text>
+            <Text style={[styles.avatarSub, { color: '#4CAF50' }]}>{t.vmAdvisor}</Text>
           )}
         </View>
 
@@ -452,7 +453,7 @@ export default function VerMillionScreen({ navigation }) {
       <View style={styles.inputRow}>
         <TextInput
           style={styles.input}
-          placeholder="כתוב כאן..."
+          placeholder={t.vmInputPh}
           placeholderTextColor="#444"
           value={input}
           onChangeText={setInput}

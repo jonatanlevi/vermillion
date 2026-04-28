@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { mockUser } from '../../mock/data';
 import { getAIStatus, resetConversation } from '../../services/aiService';
 import { getUserTimeStatus } from '../../services/timeEngine';
+import { useLanguage } from '../../context/LanguageContext';
 
 function SettingRow({ label, value, onPress, valueStyle }) {
   const content = (
@@ -12,13 +13,8 @@ function SettingRow({ label, value, onPress, valueStyle }) {
       <Text style={s.rowLabel}>{label}</Text>
     </View>
   );
-
   if (onPress) {
-    return (
-      <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
-        {content}
-      </TouchableOpacity>
-    );
+    return <TouchableOpacity onPress={onPress} activeOpacity={0.7}>{content}</TouchableOpacity>;
   }
   return content;
 }
@@ -33,6 +29,7 @@ function Divider() {
 
 export default function SettingsScreen({ navigation }) {
   const insets = useSafeAreaInsets();
+  const { t } = useLanguage();
   const [aiOnline, setAiOnline] = useState(null);
   const ts = getUserTimeStatus(mockUser);
   const isPremium = mockUser.subscription === 'premium';
@@ -42,32 +39,31 @@ export default function SettingsScreen({ navigation }) {
   }, []);
 
   const aiStatusLabel =
-    aiOnline === null ? '...' : aiOnline ? '● Online' : '● מצב דמו';
-
+    aiOnline === null ? '...' : aiOnline ? '● Online' : t.settingsValDemoMode;
   const aiStatusColor =
     aiOnline === null ? '#888' : aiOnline ? '#4CAF50' : '#F39C12';
 
   const handleCancelSubscription = () => {
     Alert.alert(
-      'ביטול מנוי',
-      'האם לבטל את המנוי? פעולה זו תיכנס לתוקף בסוף תקופת החיוב.',
-      [{ text: 'ביטול', style: 'cancel' }, { text: 'אישור', style: 'destructive' }]
+      t.settingsCancelAlert.title,
+      t.settingsCancelAlert.msg,
+      [{ text: t.settingsCancelAlert.cancel, style: 'cancel' }, { text: t.settingsCancelAlert.confirm, style: 'destructive' }]
     );
   };
 
   const handleResetQuestionnaire = () => {
-    Alert.alert('איפוס', 'השאלון יאופס בגרסה הבאה');
+    Alert.alert(t.settingsResetQAlert.title, t.settingsResetQAlert.msg);
   };
 
   const handleClearChat = () => {
     resetConversation();
-    Alert.alert('', 'היסטוריית השיחה נמחקה.');
+    Alert.alert('', t.settingsClearChatDone);
   };
 
   const handleLogout = () => {
-    Alert.alert('יציאה מהחשבון', 'האם אתה בטוח?', [
-      { text: 'ביטול', style: 'cancel' },
-      { text: 'יציאה', style: 'destructive', onPress: () => navigation.replace('Splash') },
+    Alert.alert(t.settingsLogoutAlert.title, t.settingsLogoutAlert.msg, [
+      { text: t.settingsLogoutAlert.cancel, style: 'cancel' },
+      { text: t.settingsLogoutAlert.confirm, style: 'destructive', onPress: () => navigation.replace('Splash') },
     ]);
   };
 
@@ -77,71 +73,71 @@ export default function SettingsScreen({ navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
           <Text style={s.backArrow}>‹</Text>
         </TouchableOpacity>
-        <Text style={s.title}>הגדרות</Text>
+        <Text style={s.title}>{t.settingsTitle}</Text>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scroll}>
 
-        <SectionHeader title="חשבון" />
+        <SectionHeader title={t.settingsSectionAccount} />
         <View style={s.card}>
-          <SettingRow label="שם" value={mockUser.name} />
+          <SettingRow label={t.settingsRowName} value={mockUser.name} />
           <Divider />
           <SettingRow
-            label="מנוי"
-            value={isPremium ? 'פרמיום ✓' : 'חינמי'}
+            label={t.settingsRowSub}
+            value={isPremium ? t.settingsValPremium : t.settingsValFree}
             valueStyle={{ color: isPremium ? '#4CAF50' : '#888888' }}
           />
           <Divider />
           <SettingRow
-            label="ביטול מנוי"
-            value="ביטול"
+            label={t.settingsRowCancelSub}
+            value={t.settingsValCancel}
             valueStyle={s.redValue}
             onPress={handleCancelSubscription}
           />
         </View>
 
-        <SectionHeader title="AI" />
+        <SectionHeader title={t.settingsSectionAI} />
         <View style={s.card}>
-          <SettingRow label="מודל AI" value="qwen2.5:3b" />
+          <SettingRow label={t.settingsRowAIModel} value="qwen2.5:3b" />
           <Divider />
           <SettingRow
-            label="מצב חיבור"
+            label={t.settingsRowConnection}
             value={aiStatusLabel}
             valueStyle={{ color: aiStatusColor }}
           />
           <Divider />
           <SettingRow
-            label="נקה שיחה"
-            value="נקה"
+            label={t.settingsRowClearChat}
+            value={t.settingsValClear}
             valueStyle={s.mutedValue}
             onPress={handleClearChat}
           />
         </View>
 
-        <SectionHeader title="אפיון" />
+        <SectionHeader title={t.settingsSectionProfiling} />
         <View style={s.card}>
           <SettingRow
-            label="איפוס שאלון"
-            value="איפוס"
+            label={t.settingsRowResetQ}
+            value={t.settingsValReset}
             valueStyle={s.redValue}
             onPress={handleResetQuestionnaire}
           />
           <Divider />
-          <SettingRow label="שלב נוכחי" value={ts.phase} />
+          <SettingRow label={t.settingsRowCurrentPhase} value={ts.phase} />
         </View>
 
-        <SectionHeader title="אודות" />
+        <SectionHeader title={t.settingsSectionAbout} />
         <View style={s.card}>
-          <SettingRow label="גרסה" value="1.0.0" />
+          <SettingRow label={t.settingsRowVersion} value="1.0.0" />
           <Divider />
-          <SettingRow label="יוצר" value="VerMillion" />
+          <SettingRow label={t.settingsRowCreator} value="VerMillion" />
         </View>
 
         <TouchableOpacity style={s.logoutBtn} onPress={handleLogout}>
-          <Text style={s.logoutText}>יציאה מהחשבון</Text>
+          <Text style={s.logoutText}>{t.settingsLogout}</Text>
         </TouchableOpacity>
 
-        <Text style={s.footer}>₪79/חודש · ₪749/שנה</Text>
+        <Text style={s.footer}>{t.settingsPricing}</Text>
 
       </ScrollView>
     </View>
@@ -149,104 +145,38 @@ export default function SettingsScreen({ navigation }) {
 }
 
 const s = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0A0A0A',
-  },
+  container: { flex: 1, backgroundColor: '#0A0A0A' },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#1E1E1E',
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 20, paddingVertical: 14,
+    borderBottomWidth: 1, borderBottomColor: '#1E1E1E',
   },
-  backBtn: {
-    marginRight: 12,
-    padding: 4,
-  },
-  backArrow: {
-    color: '#C0392B',
-    fontSize: 30,
-    lineHeight: 30,
-  },
-  title: {
-    color: '#FFFFFF',
-    fontSize: 20,
-    fontWeight: '700',
-    textAlign: 'right',
-    flex: 1,
-  },
-  scroll: {
-    paddingHorizontal: 20,
-    paddingBottom: 48,
-    paddingTop: 4,
-  },
+  backBtn: { marginRight: 12, padding: 4 },
+  backArrow: { color: '#C0392B', fontSize: 30, lineHeight: 30 },
+  title: { color: '#FFFFFF', fontSize: 20, fontWeight: '700', textAlign: 'right', flex: 1 },
+  scroll: { paddingHorizontal: 20, paddingBottom: 48, paddingTop: 4 },
   sectionHeader: {
-    color: '#444444',
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1.5,
-    textAlign: 'right',
-    marginTop: 28,
-    marginBottom: 8,
-    textTransform: 'uppercase',
+    color: '#444444', fontSize: 11, fontWeight: '700', letterSpacing: 1.5,
+    textAlign: 'right', marginTop: 28, marginBottom: 8, textTransform: 'uppercase',
   },
   card: {
-    backgroundColor: '#1A1A1A',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#1E1E1E',
-    overflow: 'hidden',
+    backgroundColor: '#1A1A1A', borderRadius: 16,
+    borderWidth: 1, borderColor: '#1E1E1E', overflow: 'hidden',
   },
-  divider: {
-    height: 1,
-    backgroundColor: '#222222',
-    marginHorizontal: 16,
-  },
+  divider: { height: 1, backgroundColor: '#222222', marginHorizontal: 16 },
   row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    minHeight: 48,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 16, paddingVertical: 14, minHeight: 48,
   },
-  rowLabel: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    textAlign: 'right',
-  },
-  rowValue: {
-    color: '#888888',
-    fontSize: 14,
-    textAlign: 'left',
-  },
-  redValue: {
-    color: '#C0392B',
-  },
-  mutedValue: {
-    color: '#555555',
-  },
+  rowLabel: { color: '#FFFFFF', fontSize: 15, textAlign: 'right' },
+  rowValue: { color: '#888888', fontSize: 14, textAlign: 'left' },
+  redValue: { color: '#C0392B' },
+  mutedValue: { color: '#555555' },
   logoutBtn: {
-    marginTop: 32,
-    borderWidth: 1,
-    borderColor: '#C0392B33',
-    borderRadius: 14,
-    paddingVertical: 16,
-    alignItems: 'center',
-    minHeight: 48,
-    justifyContent: 'center',
+    marginTop: 32, borderWidth: 1, borderColor: '#C0392B33',
+    borderRadius: 14, paddingVertical: 16, alignItems: 'center',
+    minHeight: 48, justifyContent: 'center',
   },
-  logoutText: {
-    color: '#C0392B',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  footer: {
-    color: '#444444',
-    fontSize: 12,
-    textAlign: 'center',
-    marginTop: 24,
-  },
+  logoutText: { color: '#C0392B', fontSize: 16, fontWeight: '600' },
+  footer: { color: '#444444', fontSize: 12, textAlign: 'center', marginTop: 24 },
 });
