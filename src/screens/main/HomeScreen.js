@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Animated } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { mockUser, mockPrizePool, canUseFeature } from '../../mock/data';
 import { useLanguage } from '../../context/LanguageContext';
@@ -211,7 +212,12 @@ export default function HomeScreen({ navigation }) {
               onPress={() => navigation.navigate('Challenge')}
               activeOpacity={0.92}
             >
-              <View style={styles.challengeGlow} />
+              <LinearGradient
+                colors={['#C0392B', '#7B1A10']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={StyleSheet.absoluteFillObject}
+              />
               <View style={styles.challengeInner}>
                 <View style={styles.challengeTopRow}>
                   <Text style={styles.challengeEmojiLabel}>{t.challengeLabel}</Text>
@@ -322,13 +328,13 @@ const styles = StyleSheet.create({
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   streakBadge: { backgroundColor: '#1A0E0E', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderColor: '#3A1A1A' },
   streakFire: { fontSize: 16 },
-  streakCount: { color: '#E74C3C', fontSize: 18, fontWeight: '900' },
+  streakCount: { color: '#C0392B', fontSize: 18, fontWeight: '900' },
 
   // Paywall banner
   paywallBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#110800', borderRadius: 16, padding: 14, marginBottom: 16, borderWidth: 1, borderColor: '#2A1800', gap: 12 },
   paywallLeft: { flex: 1 },
   paywallTitle: { color: '#F0C040', fontSize: 14, fontWeight: '800', marginBottom: 3 },
-  paywallSub: { color: '#7A5A20', fontSize: 12, lineHeight: 18 },
+  paywallSub: { color: '#AA8840', fontSize: 12, lineHeight: 18 },
   paywallBtn: { backgroundColor: '#C0392B', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8 },
   paywallBtnText: { color: '#FFF', fontSize: 13, fontWeight: '800' },
 
@@ -348,7 +354,7 @@ const styles = StyleSheet.create({
   timelineLine: { flex: 1, height: 2, backgroundColor: '#1E1E1E' },
   timelineLineDone: { backgroundColor: '#C0392B' },
   phaseDivider: { flexDirection: 'row', alignItems: 'center', marginTop: 12, gap: 8 },
-  phaseDividerLine: { flex: 1, height: 1, backgroundColor: '#2A2A2A' },
+  phaseDividerLine: { flex: 1, height: 1, backgroundColor: '#3A3A3A' },
   phaseLabel: { color: '#333', fontSize: 11, fontWeight: '600' },
   phaseLabelActive: { color: '#C0392B' },
 
@@ -372,14 +378,13 @@ const styles = StyleSheet.create({
 
   // Completion meter
   completionRow: { marginBottom: 16, gap: 6 },
-  completionBar: { height: 3, backgroundColor: '#1E1E1E', borderRadius: 2, overflow: 'hidden' },
-  completionFill: { height: '100%', backgroundColor: '#C0392B', borderRadius: 2 },
+  completionBar: { height: 6, backgroundColor: '#1E1E1E', borderRadius: 3, overflow: 'hidden' },
+  completionFill: { height: '100%', backgroundColor: '#C0392B', borderRadius: 3 },
   completionLabel: { color: '#444', fontSize: 11, textAlign: 'right' },
   completionPct: { color: '#C0392B', fontWeight: '700' },
 
   // Challenge hero
-  challengeHero: { borderRadius: 24, marginBottom: 16, overflow: 'hidden', backgroundColor: '#C0392B' },
-  challengeGlow: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.15)' },
+  challengeHero: { borderRadius: 24, marginBottom: 16, overflow: 'hidden' },
   challengeInner: { padding: 24 },
   challengeTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
   challengeEmojiLabel: { color: 'rgba(255,255,255,0.8)', fontSize: 14, fontWeight: '600' },
@@ -430,6 +435,6 @@ const styles = StyleSheet.create({
   aiLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   aiDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#4CAF50' },
   aiTitle: { color: '#FFF', fontSize: 14, fontWeight: '700' },
-  aiFreeBadge: { backgroundColor: '#1A1A0A', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: '#2A2A0A' },
+  aiFreeBadge: { backgroundColor: '#1A1A0A', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: '#4A4A1A' },
   aiMsg: { color: '#555', fontSize: 13 },
 });

@@ -49,7 +49,10 @@ function DNATimer({ day, insets, onGoGames, onUnlock }) {
     const tick = setInterval(() => {
       const ms = getMsUntilCommitment(commitment);
       setMsLeft(ms);
-      if (ms <= 0) onUnlock?.();
+      if (ms <= 0) {
+        clearInterval(tick);
+        onUnlock?.();
+      }
     }, 1000);
     return () => clearInterval(tick);
   }, [commitment]);
@@ -227,6 +230,7 @@ export default function VerMillionScreen({ navigation }) {
         setQuestionsToday(progress.done);
         if (progress.complete) {
           // שאלות יום 1 נגמרו — שלח לשחק כדי לקבוע commitment
+          if (!mountedRef.current) return;
           navigation.navigate('Games');
         } else {
           await askNextOnboardingQuestion(1, progress.done);
@@ -256,6 +260,7 @@ export default function VerMillionScreen({ navigation }) {
               await askNextOnboardingQuestion(day, progress.done);
             } else {
               // לא שיחק עדיין — שלח למשחקים
+              if (!mountedRef.current) return;
               navigation.navigate('Games');
             }
           }
@@ -334,12 +339,12 @@ export default function VerMillionScreen({ navigation }) {
 
     try {
       if (phase === 'onboarding' && pendingField) {
-        await processOnboardingAnswer(pendingField, text);
+        const parsedValue = await processOnboardingAnswer(pendingField, text);
         const newCount = questionsToday + 1;
         setQuestionsToday(newCount);
         setPendingField(null);
 
-        const ack = getAck(pendingField, text);
+        const ack = getAck(pendingField, parsedValue);
         await new Promise(r => setTimeout(r, 300));
         addMsg('assistant', ack);
         await new Promise(r => setTimeout(r, 600));
@@ -537,7 +542,7 @@ const styles = StyleSheet.create({
   miniAvatar:     { width: 30, height: 30, borderRadius: 15, backgroundColor: '#C0392B', alignItems: 'center', justifyContent: 'center', marginRight: 8 },
   miniAvatarText: { color: '#FFF', fontSize: 13, fontWeight: '900' },
   bubble:    { maxWidth: '80%', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 12 },
-  bubbleBot: { backgroundColor: '#161616', borderBottomLeftRadius: 4, borderWidth: 1, borderColor: '#C0392B22' },
+  bubbleBot: { backgroundColor: '#161616', borderBottomLeftRadius: 4, borderWidth: 1, borderColor: '#1E1414' },
   bubbleUser:{ backgroundColor: '#C0392B', borderBottomRightRadius: 4 },
   bubbleText:{ fontSize: 15, lineHeight: 24, textAlign: 'right' },
   textBot:   { color: '#E0E0E0' },
@@ -571,12 +576,12 @@ const dna = StyleSheet.create({
   },
   avatarRing: {
     width: 52, height: 52, borderRadius: 26, borderWidth: 2,
-    borderColor: '#27AE60', alignItems: 'center', justifyContent: 'center',
+    borderColor: '#C0392B', alignItems: 'center', justifyContent: 'center',
   },
-  avatar:     { width: 44, height: 44, borderRadius: 22, backgroundColor: '#27AE60', alignItems: 'center', justifyContent: 'center' },
+  avatar:     { width: 44, height: 44, borderRadius: 22, backgroundColor: '#C0392B', alignItems: 'center', justifyContent: 'center' },
   avatarText: { color: '#FFF', fontSize: 20, fontWeight: '900' },
   title:      { color: '#FFF', fontSize: 17, fontWeight: '800' },
-  sub:        { color: '#27AE60', fontSize: 12, marginTop: 2 },
+  sub:        { color: '#C0392B', fontSize: 12, marginTop: 2 },
 
   strandWrap: { alignItems: 'center', justifyContent: 'center', marginBottom: 28, position: 'relative' },
   glow: {
@@ -588,7 +593,7 @@ const dna = StyleSheet.create({
   strand:  { gap: 10, alignItems: 'center' },
   node:    { flexDirection: 'row', alignItems: 'center', gap: 0 },
   dotLeft: { width: 14, height: 14, borderRadius: 7, backgroundColor: '#C0392B' },
-  bridge:  { width: 64, height: 2, backgroundColor: '#1A1A1A' },
+  bridge:  { width: 64, height: 2, backgroundColor: '#2A2A2A' },
   dotRight:{ width: 14, height: 14, borderRadius: 7, backgroundColor: '#E67E22' },
 
   label: { color: '#555', fontSize: 13, fontWeight: '700', letterSpacing: 1, marginBottom: 12 },
