@@ -4,6 +4,7 @@ import {
   TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { clearAllData } from '../../services/storage';
 
 export default function RegisterScreen({ navigation }) {
   const insets = useSafeAreaInsets();
@@ -64,7 +65,7 @@ export default function RegisterScreen({ navigation }) {
         <TouchableOpacity
           style={[styles.btn, !canSubmit && styles.btnDisabled]}
           disabled={!canSubmit}
-          onPress={() => navigation.navigate('CompleteProfile')}
+          onPress={async () => { await clearAllData(); navigation.navigate('CompleteProfile'); }}
         >
           <Text style={styles.btnText}>התחל שבוע ניסיון</Text>
         </TouchableOpacity>

@@ -1,5 +1,7 @@
 import { mockChatWithAI, resetMockConversation } from './mockAI';
 import { buildSystemPrompt } from './aiPrompts';
+import { buildPersonalizedCoachingContext } from './personalizationAgent';
+import { validateResponse, shouldFallback } from './validatorAgent';
 import { CONFIG } from '../config';
 
 let chatHistory = [];
@@ -29,8 +31,10 @@ export function resetConversation() {
   resetMockConversation();
 }
 
-export async function chatWithAI(userMessage, userData, onPartial) {
-  const systemPrompt = buildSystemPrompt(userData);
+export async function chatWithAI(userMessage, userData, onPartial, coachingDay) {
+  const basePrompt = buildSystemPrompt(userData);
+  const personalization = coachingDay ? buildPersonalizedCoachingContext(userData, coachingDay) : '';
+  const systemPrompt = basePrompt + personalization;
 
   chatHistory.push({ role: 'user', content: userMessage });
   if (chatHistory.length > 16) chatHistory = chatHistory.slice(-16);
@@ -97,13 +101,16 @@ export async function chatWithAI(userMessage, userData, onPartial) {
     onPartial?.(fullResponse);
   }
 
-  // Chinese hallucination guard → fallback to mock
-  if (fullResponse && /[一-鿿]/.test(fullResponse)) {
-    chatHistory.pop();
-    const fallback = await mockChatWithAI(userMessage, userData, onPartial);
-    if (fallback) chatHistory.push({ role: 'user', content: userMessage });
-    if (fallback) chatHistory.push({ role: 'assistant', content: fallback });
-    return fallback;
+  // Validate response — guardrails + tier rules
+  if (fullResponse) {
+    const validation = validateResponse(fullResponse, userData);
+    if (shouldFallback(validation)) {
+      chatHistory.pop();
+      const fallback = await mockChatWithAI(userMessage, userData, onPartial);
+      if (fallback) chatHistory.push({ role: 'user', content: userMessage });
+      if (fallback) chatHistory.push({ role: 'assistant', content: fallback });
+      return fallback;
+    }
   }
 
   if (fullResponse) chatHistory.push({ role: 'assistant', content: fullResponse });

@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions } from 'react-native';
 import { useLanguage } from '../../context/LanguageContext';
 import LanguagePicker from '../../components/LanguagePicker';
+import { clearAllData } from '../../services/storage';
 
 const { width: SW } = Dimensions.get('window');
 
@@ -62,7 +63,7 @@ export default function WelcomeScreen({ navigation }) {
         <View style={styles.actions}>
           <TouchableOpacity
             style={styles.googleBtn}
-            onPress={() => navigation.navigate('CompleteProfile')}
+            onPress={async () => { await clearAllData(); navigation.navigate('CompleteProfile'); }}
             activeOpacity={0.88}
           >
             <View style={styles.googleIconWrap}>
@@ -79,7 +80,7 @@ export default function WelcomeScreen({ navigation }) {
 
           <TouchableOpacity
             style={styles.phoneBtn}
-            onPress={() => navigation.navigate('CompleteProfile')}
+            onPress={async () => { await clearAllData(); navigation.navigate('CompleteProfile'); }}
             activeOpacity={0.88}
           >
             <Text style={styles.phoneBtnText}>{t.continuePhone}</Text>
@@ -154,11 +155,11 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     borderWidth: 1, borderColor: '#2A2A2A',
   },
-  phoneBtnText: { color: '#888', fontSize: 16, fontWeight: '600' },
+  phoneBtnText: { color: '#CCC', fontSize: 16, fontWeight: '600' },
 
   loginLink: { alignItems: 'center', paddingVertical: 4 },
   loginLinkText: { color: '#555', fontSize: 14 },
   loginLinkBold: { color: '#FFF', fontWeight: '700' },
 
-  legal: { color: '#333', fontSize: 11, textAlign: 'center', lineHeight: 16 },
+  legal: { color: '#555', fontSize: 11, textAlign: 'center', lineHeight: 16 },
 });

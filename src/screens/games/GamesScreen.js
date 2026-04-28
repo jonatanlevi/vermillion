@@ -1,9 +1,10 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
   Animated, Modal, Easing,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import RunnerGame from '../../components/RunnerGame';
 import BreakoutGame from '../../components/BreakoutGame';
 import ObstacleGame from '../../components/ObstacleGame';
@@ -143,13 +144,15 @@ export default function GamesScreen({ navigation }) {
   const [activeDay, setActiveDay]           = useState(1);
   const fadeAnim = useRef(new Animated.Value(1)).current;
 
-  useEffect(() => {
-    Promise.all([getCommitmentTime(), getOnboardingState()]).then(([c, state]) => {
-      if (c) { setHasCommitment(true); setCommitTime(c); }
-      const day = Math.min((state?.daysCompleted || []).length + 1, 7);
-      setActiveDay(day);
-    });
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      Promise.all([getCommitmentTime(), getOnboardingState()]).then(([c, state]) => {
+        if (c) { setHasCommitment(true); setCommitTime(c); }
+        const day = Math.min((state?.daysCompleted || []).length + 1, 7);
+        setActiveDay(day);
+      });
+    }, [])
+  );
 
   function selectGame(key) {
     Animated.timing(fadeAnim, { toValue: 0, duration: 150, useNativeDriver: true }).start(() => {
@@ -437,8 +440,8 @@ const gb = StyleSheet.create({
     position: 'absolute', top: 0,
     width: 160, height: 130,
     borderTopLeftRadius: 80, borderTopRightRadius: 80,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.22)',
     alignItems: 'center', justifyContent: 'center',
     overflow: 'hidden',
     zIndex: 2,
@@ -446,8 +449,8 @@ const gb = StyleSheet.create({
   domeInner: {
     width: 40, height: 60,
     borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    position: 'absolute', top: 12, left: 20,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    position: 'absolute', top: 12, right: 20,
   },
 
   base: {
