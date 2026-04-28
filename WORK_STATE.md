@@ -2,6 +2,8 @@
 
 עודכן: 2026-04-28 — עותק זהה ל־`../WORK_STATE.md` בשורש התיקייה `million`.
 
+**השלמת env / Netlify / Supabase:** ראה `HANDOFF_FILL_IN.md` ו־`.env.example`.
+
 ## איפה הקוד
 
 | נתיב | תיאור |
