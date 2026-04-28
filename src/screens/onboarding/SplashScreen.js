@@ -23,7 +23,7 @@ export default function SplashScreen({ navigation }) {
     ]).start();
 
     let animDone = false;
-    let authSettled = false;
+    let sessionResolved = false;
     let resolvedSession = null;
     let navigated = false;
 
@@ -43,7 +43,7 @@ export default function SplashScreen({ navigation }) {
     }
 
     function tryNavigate() {
-      if (animDone && authSettled) doNavigate(resolvedSession);
+      if (animDone && sessionResolved) doNavigate(resolvedSession);
     }
 
     // Minimum splash display time
@@ -52,13 +52,19 @@ export default function SplashScreen({ navigation }) {
       tryNavigate();
     }, 2800);
 
-    // Wait for Supabase to settle auth state (including PKCE code exchange after OAuth redirect)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN') {
-        authSettled = true;
-        resolvedSession = session;
-        tryNavigate();
-      }
+    // Primary: read session from storage immediately (works on web + native; avoids hanging
+    // when onAuthStateChange does not emit INITIAL_SESSION the way we expect).
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      resolvedSession = session;
+      sessionResolved = true;
+      tryNavigate();
+    });
+
+    // Also react to PKCE / OAuth completing mid-splash
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      resolvedSession = session;
+      sessionResolved = true;
+      tryNavigate();
     });
 
     return () => {

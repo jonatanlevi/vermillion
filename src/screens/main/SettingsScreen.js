@@ -4,6 +4,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { mockUser } from '../../mock/data';
 import { getAIStatus, resetConversation } from '../../services/aiService';
 import { getUserTimeStatus } from '../../services/timeEngine';
+import { CONFIG } from '../../config';
+
+const AI_MODEL_ROWS = [
+  ['צ׳אט · ניתוב · Coach', CONFIG.AI_MODEL],
+  ['Analyst', CONFIG.AI_MODEL_ANALYST],
+  ['Strategist', CONFIG.AI_MODEL_STRATEGIST],
+  ['Psychologist', CONFIG.AI_MODEL_PSYCHOLOGIST],
+];
 
 function SettingRow({ label, value, onPress, valueStyle }) {
   const content = (
@@ -102,7 +110,12 @@ export default function SettingsScreen({ navigation }) {
 
         <SectionHeader title="AI" />
         <View style={s.card}>
-          <SettingRow label="מודל AI" value="qwen2.5:3b" />
+          {AI_MODEL_ROWS.map(([label, model], i) => (
+            <React.Fragment key={label}>
+              {i > 0 ? <Divider /> : null}
+              <SettingRow label={label} value={model} />
+            </React.Fragment>
+          ))}
           <Divider />
           <SettingRow
             label="מצב חיבור"

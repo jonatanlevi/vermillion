@@ -110,6 +110,17 @@ export default function WelcomeScreen({ navigation }) {
               <Text style={styles.loginLinkBold}>{t.login}</Text>
             </Text>
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.registerLink}
+            onPress={() => navigation.navigate('Register')}
+            activeOpacity={0.88}
+          >
+            <Text style={styles.registerLinkText}>
+              אין לך חשבון?{' '}
+              <Text style={styles.registerLinkBold}>הירשם כאן</Text>
+            </Text>
+          </TouchableOpacity>
         </View>
 
         <Text style={styles.legal}>{t.legalText}</Text>
@@ -178,6 +189,10 @@ const styles = StyleSheet.create({
   loginLink: { alignItems: 'center', paddingVertical: 4 },
   loginLinkText: { color: '#555', fontSize: 14 },
   loginLinkBold: { color: '#FFF', fontWeight: '700' },
+
+  registerLink: { alignItems: 'center', paddingVertical: 8 },
+  registerLinkText: { color: '#555', fontSize: 14 },
+  registerLinkBold: { color: '#C0392B', fontWeight: '800' },
 
   legal: { color: '#555', fontSize: 11, textAlign: 'center', lineHeight: 16 },
 });

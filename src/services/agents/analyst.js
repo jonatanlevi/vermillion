@@ -13,7 +13,7 @@ const SYSTEM_PROMPT = `אתה THE ANALYST — אנליסט פיננסי קר ו�
 
 export const Analyst = {
   name: 'Analyst',
-  model: CONFIG.AI_MODEL,
+  model: CONFIG.AI_MODEL_ANALYST,
   
   async run(userMessage, context) {
     const enriched = `${userMessage}\n\nנתוני המשתמש:\n${context.metricsText || 'אין נתונים'}`;

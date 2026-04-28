@@ -1,4 +1,50 @@
-import { supabase, getOrCreateUser } from './supabase';
+import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase, getOrCreateUser, isLocalUserId, clearDeviceLocalIdentity } from './supabase';
+
+const L = {
+  FIN:    '@vermillion/local/financial',
+  ONB:    '@vermillion/local/onboarding',
+  CHAT:   '@vermillion/local/chat',
+  COMMIT: '@vermillion/local/commitment',
+  GAME:   '@vermillion/local/gamelog',
+  PROF:   '@vermillion/local/profile',
+};
+
+async function localGet(key, fallback) {
+  try {
+    let raw;
+    if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
+      raw = localStorage.getItem(key);
+    } else {
+      raw = await AsyncStorage.getItem(key);
+    }
+    if (raw == null) return fallback;
+    return JSON.parse(raw);
+  } catch {
+    return fallback;
+  }
+}
+
+async function localSet(key, val) {
+  const s = JSON.stringify(val);
+  if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
+    localStorage.setItem(key, s);
+    return;
+  }
+  await AsyncStorage.setItem(key, s);
+}
+
+async function localRemoveAll() {
+  const keys = Object.values(L);
+  for (const k of keys) {
+    if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
+      localStorage.removeItem(k);
+    } else {
+      await AsyncStorage.removeItem(k);
+    }
+  }
+}
 
 // ─── helpers ───────────────────────────────────────────────
 async function uid() {
@@ -22,6 +68,10 @@ async function dbUpsert(table, userId, payload) {
 export async function saveCommitmentTime() {
   const userId = await uid();
   const now = new Date();
+  if (isLocalUserId(userId)) {
+    await localSet(L.COMMIT, { committed_at: now.toISOString(), streak_days: 0 });
+    return;
+  }
   await dbUpsert('commitment', userId, {
     committed_at: now.toISOString(),
     streak_days: 0,
@@ -30,6 +80,12 @@ export async function saveCommitmentTime() {
 
 export async function getCommitmentTime() {
   const userId = await uid();
+  if (isLocalUserId(userId)) {
+    const row = await localGet(L.COMMIT, null);
+    if (!row?.committed_at) return null;
+    const d = new Date(row.committed_at);
+    return { hour: d.getHours(), minute: d.getMinutes(), setAt: row.committed_at };
+  }
   const { data } = await supabase
     .from('commitment').select('committed_at').eq('user_id', userId).maybeSingle();
   if (!data?.committed_at) return null;
@@ -56,6 +112,11 @@ function getMsUntilMidnight() {
 // ─── Profile ───────────────────────────────────────────────
 export async function saveProfile(data) {
   const userId = await uid();
+  if (isLocalUserId(userId)) {
+    const prev = (await localGet(L.PROF, null)) || {};
+    await localSet(L.PROF, { ...prev, ...data, updated_at: new Date().toISOString() });
+    return;
+  }
   await supabase.from('profiles').upsert(
     { id: userId, ...data, updated_at: new Date().toISOString() },
     { onConflict: 'id' }
@@ -64,6 +125,9 @@ export async function saveProfile(data) {
 
 export async function getProfile() {
   const userId = await uid();
+  if (isLocalUserId(userId)) {
+    return (await localGet(L.PROF, null)) || null;
+  }
   const { data } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
   return data || null;
 }
@@ -72,11 +136,19 @@ export async function getProfile() {
 export async function saveFinancialData(patch) {
   const userId = await uid();
   const existing = await getFinancialData();
-  await dbUpsert('financial_data', userId, { data: { ...existing, ...patch } });
+  const merged = { ...existing, ...patch };
+  if (isLocalUserId(userId)) {
+    await localSet(L.FIN, merged);
+    return;
+  }
+  await dbUpsert('financial_data', userId, { data: merged });
 }
 
 export async function getFinancialData() {
   const userId = await uid();
+  if (isLocalUserId(userId)) {
+    return (await localGet(L.FIN, {})) || {};
+  }
   const { data } = await supabase
     .from('financial_data').select('data').eq('user_id', userId).maybeSingle();
   return data?.data || {};
@@ -87,6 +159,10 @@ export async function saveOnboardingState(patch) {
   const userId = await uid();
   const existing = await getOnboardingState();
   const merged = { ...existing, ...patch };
+  if (isLocalUserId(userId)) {
+    await localSet(L.ONB, merged);
+    return;
+  }
   await dbUpsert('onboarding_state', userId, {
     days_completed: merged.daysCompleted || [],
     daily_answers: merged,
@@ -95,6 +171,11 @@ export async function saveOnboardingState(patch) {
 
 export async function getOnboardingState() {
   const userId = await uid();
+  if (isLocalUserId(userId)) {
+    const data = await localGet(L.ONB, null);
+    if (!data) return { startDate: null, daysCompleted: [], profileGenerated: false, profileText: '' };
+    return data;
+  }
   const { data } = await supabase
     .from('onboarding_state').select('*').eq('user_id', userId).maybeSingle();
   if (!data) return { startDate: null, daysCompleted: [], profileGenerated: false, profileText: '' };
@@ -111,6 +192,10 @@ export async function markDayComplete(day) {
   const state = await getOnboardingState();
   if (!state.daysCompleted.includes(day)) state.daysCompleted.push(day);
   if (!state.startDate) state.startDate = new Date().toISOString();
+  if (isLocalUserId(userId)) {
+    await localSet(L.ONB, state);
+    return;
+  }
   await dbUpsert('onboarding_state', userId, {
     days_completed: state.daysCompleted,
     daily_answers: state,
@@ -125,11 +210,18 @@ export async function isOnboardingComplete() {
 // ─── Chat history ────────────────────────────────────────────
 export async function saveChatHistory(messages) {
   const userId = await uid();
+  if (isLocalUserId(userId)) {
+    await localSet(L.CHAT, messages);
+    return;
+  }
   await dbUpsert('chat_history', userId, { messages });
 }
 
 export async function getChatHistory() {
   const userId = await uid();
+  if (isLocalUserId(userId)) {
+    return (await localGet(L.CHAT, [])) || [];
+  }
   const { data } = await supabase
     .from('chat_history').select('messages').eq('user_id', userId).maybeSingle();
   return data?.messages || [];
@@ -160,11 +252,18 @@ export async function saveGameStamp(day, accuracyMs) {
   const userId = await uid();
   const existing = await getGameLog();
   existing[day] = { accuracyMs, stampedAt: new Date().toISOString() };
+  if (isLocalUserId(userId)) {
+    await localSet(L.GAME, existing);
+    return;
+  }
   await dbUpsert('game_log', userId, { entries: existing });
 }
 
 export async function getGameLog() {
   const userId = await uid();
+  if (isLocalUserId(userId)) {
+    return (await localGet(L.GAME, {})) || {};
+  }
   const { data } = await supabase
     .from('game_log').select('entries').eq('user_id', userId).maybeSingle();
   return data?.entries || {};
@@ -172,16 +271,24 @@ export async function getGameLog() {
 
 // ─── Clear all (re-register) ──────────────────────────────────
 export async function clearAllData() {
-  try {
-    const userId = await uid();
-    await Promise.all([
-      supabase.from('financial_data').delete().eq('user_id', userId),
-      supabase.from('onboarding_state').delete().eq('user_id', userId),
-      supabase.from('chat_history').delete().eq('user_id', userId),
-      supabase.from('commitment').delete().eq('user_id', userId),
-      supabase.from('game_log').delete().eq('user_id', userId),
-    ]);
-    await supabase.from('profiles').delete().eq('id', userId);
-  } catch (_) { /* ignore if no user yet */ }
+  const { data: { session } } = await supabase.auth.getSession();
+  const remoteId = session?.user?.id;
+
+  await localRemoveAll();
+  await clearDeviceLocalIdentity();
+
+  if (remoteId && !isLocalUserId(remoteId)) {
+    try {
+      await Promise.all([
+        supabase.from('financial_data').delete().eq('user_id', remoteId),
+        supabase.from('onboarding_state').delete().eq('user_id', remoteId),
+        supabase.from('chat_history').delete().eq('user_id', remoteId),
+        supabase.from('commitment').delete().eq('user_id', remoteId),
+        supabase.from('game_log').delete().eq('user_id', remoteId),
+      ]);
+      await supabase.from('profiles').delete().eq('id', remoteId);
+    } catch (_) { /* ignore */ }
+  }
+
   await supabase.auth.signOut();
 }

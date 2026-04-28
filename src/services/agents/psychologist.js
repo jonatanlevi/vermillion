@@ -1,4 +1,5 @@
 import { runAgent } from './_runAgent';
+import { CONFIG } from '../../config';
 
 const SYSTEM_PROMPT = `אתה THE PSYCHOLOGIST — מומחה לפסיכולוגיית כסף של VerMillion.
 תפקידך: להבין למה המשתמש לא מבצע. אתה רואה את הפחד, ההימנעות, האמונות המגבילות.
@@ -12,7 +13,7 @@ const SYSTEM_PROMPT = `אתה THE PSYCHOLOGIST — מומחה לפסיכולוג
 
 export const Psychologist = {
   name: 'Psychologist',
-  model: 'llama3.2:3b',
+  model: CONFIG.AI_MODEL_PSYCHOLOGIST,
   
   async run(userMessage, context) {
     const enriched = `${userMessage}\n\nרקע: ${context.lifestyleText || 'לא ידוע'}`;

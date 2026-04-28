@@ -370,7 +370,8 @@ export default function VerMillionScreen({ navigation }) {
         }
         setAvatarMood('neutral');
       }
-    } catch {
+    } catch (err) {
+      console.error('[VerMillion] send failed:', err);
       addMsg('assistant', 'לא הצלחתי להתחבר. נסה שוב.');
       setAvatarMood('neutral');
     } finally {

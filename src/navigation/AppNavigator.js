@@ -117,10 +117,23 @@ export default function AppNavigator() {
           </>
         ) : (
           <>
-            <Stack.Screen name="Splash"   component={SplashScreen} />
+            <Stack.Screen name="Splash"   component={SplashScreen} options={{ animation: 'none' }} />
             <Stack.Screen name="Welcome"  component={WelcomeScreen} />
             <Stack.Screen name="Register" component={RegisterScreen} />
             <Stack.Screen name="Login"    component={LoginScreen} />
+            {/* Same routes as authenticated stack so Welcome/Register/Login can navigate before Supabase session exists */}
+            <Stack.Screen name="MainTabs"          component={MainTabs} />
+            <Stack.Screen name="CompleteProfile"   component={CompleteProfileScreen} />
+            <Stack.Screen name="AvatarAppearance"  component={AvatarAppearanceScreen} />
+            <Stack.Screen name="AvatarTone"        component={AvatarToneScreen} />
+            <Stack.Screen name="AvatarIntro"       component={AvatarIntroScreen} />
+            <Stack.Screen name="AvatarReveal"      component={AvatarRevealScreen} />
+            <Stack.Screen name="Subscription"      component={SubscriptionScreen} />
+            <Stack.Screen name="ModelDownload"     component={ModelDownloadScreen} />
+            <Stack.Screen name="DailyQuestions"    component={DailyQuestionsScreen} />
+            <Stack.Screen name="DailyCoaching"     component={DailyCoachingScreen} />
+            <Stack.Screen name="ProfileReveal"     component={ProfileRevealScreen} />
+            <Stack.Screen name="Settings"          component={SettingsScreen} />
           </>
         )}
       </Stack.Navigator>

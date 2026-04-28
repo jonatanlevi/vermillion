@@ -13,7 +13,7 @@ const SYSTEM_PROMPT = `אתה THE STRATEGIST — אסטרטג פיננסי של 
 
 export const Strategist = {
   name: 'Strategist',
-  model: CONFIG.AI_MODEL,
+  model: CONFIG.AI_MODEL_STRATEGIST,
   
   async run(userMessage, context) {
     const enriched = `${userMessage}\n\nמצב פיננסי:\n${context.metricsText || 'בסיסי'}\nשלב: ${context.tier || 'לא ידוע'}`;
