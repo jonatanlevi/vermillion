@@ -5,7 +5,9 @@
       "Bash(node -e ' *)",
       "Bash(powershell -ExecutionPolicy Bypass -File scripts/ghost.ps1)",
       "Bash(curl -s http://localhost:11434/api/tags)",
-      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\([m['name'] for m in d.get\\('models',[]\\)]\\)\")"
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\([m['name'] for m in d.get\\('models',[]\\)]\\)\")",
+      "Bash(rm src/screens/vermillion/AICoachScreen.js src/screens/vermillion/ChallengeScreen.js src/screens/vermillion/DailyCoachingScreen.js src/screens/vermillion/DailyQuestionsScreen.js src/screens/vermillion/HomeScreen.js src/screens/vermillion/LeaderboardScreen.js src/screens/vermillion/ProfileRevealScreen.js src/screens/vermillion/ProfileScreen.js src/screens/vermillion/SettingsScreen.js src/screens/vermillion/GamesScreen.js)",
+      "Bash(rm src/screens/main/AICoachScreen.js src/screens/main/ChallengeScreen.js src/screens/main/HomeScreen.js src/screens/main/LeaderboardScreen.js src/screens/main/ProfileScreen.js)"
     ]
   }
 }
