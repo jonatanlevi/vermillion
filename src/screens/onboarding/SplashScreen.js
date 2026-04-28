@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated } from 'react-native';
+import { supabase } from '../../services/supabase';
 
 export default function SplashScreen({ navigation }) {
   const scale = useRef(new Animated.Value(0.7)).current;
@@ -21,8 +22,49 @@ export default function SplashScreen({ navigation }) {
       ]),
     ]).start();
 
-    const timer = setTimeout(() => navigation.replace('Welcome'), 2800);
-    return () => clearTimeout(timer);
+    let animDone = false;
+    let authSettled = false;
+    let resolvedSession = null;
+    let navigated = false;
+
+    async function doNavigate(session) {
+      if (navigated) return;
+      navigated = true;
+      if (session?.user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('name')
+          .eq('id', session.user.id)
+          .maybeSingle();
+        navigation.replace(profile?.name ? 'MainTabs' : 'CompleteProfile');
+      } else {
+        navigation.replace('Welcome');
+      }
+    }
+
+    function tryNavigate() {
+      if (animDone && authSettled) doNavigate(resolvedSession);
+    }
+
+    // Minimum splash display time
+    const timer = setTimeout(() => {
+      animDone = true;
+      tryNavigate();
+    }, 2800);
+
+    // Wait for Supabase to settle auth state (including PKCE code exchange after OAuth redirect)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN') {
+        authSettled = true;
+        resolvedSession = session;
+        tryNavigate();
+      }
+    });
+
+    return () => {
+      clearTimeout(timer);
+      subscription.unsubscribe();
+    };
   }, []);
 
   return (

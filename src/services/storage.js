@@ -1,28 +1,40 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase, getOrCreateUser } from './supabase';
 
-const K = {
-  PROFILE:        'vm_profile',
-  FINANCIAL:      'vm_financial',
-  ONBOARDING:     'vm_onboarding',
-  CHAT_HISTORY:   'vm_chat_history',
-  DAILY_LOG:      'vm_daily_log',
-  COMMITMENT:     'vm_commitment',
-  GAME_LOG:       'vm_game_log',
-};
+// ─── helpers ───────────────────────────────────────────────
+async function uid() {
+  const user = await getOrCreateUser();
+  return user.id;
+}
 
-// ─── Daily commitment time ─────────────────────────────────
+async function dbUpsert(table, userId, payload) {
+  const { data: existing } = await supabase
+    .from(table).select('id').eq('user_id', userId).maybeSingle();
+  if (existing) {
+    return supabase.from(table)
+      .update({ ...payload, updated_at: new Date().toISOString() })
+      .eq('user_id', userId);
+  }
+  return supabase.from(table)
+    .insert({ user_id: userId, ...payload, updated_at: new Date().toISOString() });
+}
+
+// ─── Commitment ─────────────────────────────────────────────
 export async function saveCommitmentTime() {
+  const userId = await uid();
   const now = new Date();
-  await AsyncStorage.setItem(K.COMMITMENT, JSON.stringify({
-    hour: now.getHours(),
-    minute: now.getMinutes(),
-    setAt: now.toISOString(),
-  }));
+  await dbUpsert('commitment', userId, {
+    committed_at: now.toISOString(),
+    streak_days: 0,
+  });
 }
 
 export async function getCommitmentTime() {
-  const raw = await AsyncStorage.getItem(K.COMMITMENT);
-  return raw ? JSON.parse(raw) : null;
+  const userId = await uid();
+  const { data } = await supabase
+    .from('commitment').select('committed_at').eq('user_id', userId).maybeSingle();
+  if (!data?.committed_at) return null;
+  const d = new Date(data.committed_at);
+  return { hour: d.getHours(), minute: d.getMinutes(), setAt: data.committed_at };
 }
 
 export function getMsUntilCommitment(commitment) {
@@ -43,99 +55,133 @@ function getMsUntilMidnight() {
 
 // ─── Profile ───────────────────────────────────────────────
 export async function saveProfile(data) {
-  await AsyncStorage.setItem(K.PROFILE, JSON.stringify(data));
+  const userId = await uid();
+  await supabase.from('profiles').upsert(
+    { id: userId, ...data, updated_at: new Date().toISOString() },
+    { onConflict: 'id' }
+  );
 }
 
 export async function getProfile() {
-  const raw = await AsyncStorage.getItem(K.PROFILE);
-  return raw ? JSON.parse(raw) : null;
+  const userId = await uid();
+  const { data } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
+  return data || null;
 }
 
-// ─── Financial data (collected during onboarding) ──────────
-export async function saveFinancialData(data) {
+// ─── Financial data ─────────────────────────────────────────
+export async function saveFinancialData(patch) {
+  const userId = await uid();
   const existing = await getFinancialData();
-  await AsyncStorage.setItem(K.FINANCIAL, JSON.stringify({ ...existing, ...data }));
+  await dbUpsert('financial_data', userId, { data: { ...existing, ...patch } });
 }
 
 export async function getFinancialData() {
-  const raw = await AsyncStorage.getItem(K.FINANCIAL);
-  return raw ? JSON.parse(raw) : {};
+  const userId = await uid();
+  const { data } = await supabase
+    .from('financial_data').select('data').eq('user_id', userId).maybeSingle();
+  return data?.data || {};
 }
 
-// ─── Onboarding state ──────────────────────────────────────
-export async function saveOnboardingState(state) {
+// ─── Onboarding state ────────────────────────────────────────
+export async function saveOnboardingState(patch) {
+  const userId = await uid();
   const existing = await getOnboardingState();
-  await AsyncStorage.setItem(K.ONBOARDING, JSON.stringify({ ...existing, ...state }));
+  const merged = { ...existing, ...patch };
+  await dbUpsert('onboarding_state', userId, {
+    days_completed: merged.daysCompleted || [],
+    daily_answers: merged,
+  });
 }
 
 export async function getOnboardingState() {
-  const raw = await AsyncStorage.getItem(K.ONBOARDING);
-  return raw ? JSON.parse(raw) : {
+  const userId = await uid();
+  const { data } = await supabase
+    .from('onboarding_state').select('*').eq('user_id', userId).maybeSingle();
+  if (!data) return { startDate: null, daysCompleted: [], profileGenerated: false, profileText: '' };
+  return data.daily_answers || {
     startDate: null,
-    daysCompleted: [],
+    daysCompleted: data.days_completed || [],
     profileGenerated: false,
     profileText: '',
   };
 }
 
 export async function markDayComplete(day) {
+  const userId = await uid();
   const state = await getOnboardingState();
-  if (!state.daysCompleted.includes(day)) {
-    state.daysCompleted.push(day);
-  }
+  if (!state.daysCompleted.includes(day)) state.daysCompleted.push(day);
   if (!state.startDate) state.startDate = new Date().toISOString();
-  await AsyncStorage.setItem(K.ONBOARDING, JSON.stringify(state));
+  await dbUpsert('onboarding_state', userId, {
+    days_completed: state.daysCompleted,
+    daily_answers: state,
+  });
 }
 
 export async function isOnboardingComplete() {
   const state = await getOnboardingState();
-  return state.daysCompleted.length >= 7;
+  return (state.daysCompleted || []).length >= 7;
 }
 
-// ─── Chat history ──────────────────────────────────────────
+// ─── Chat history ────────────────────────────────────────────
 export async function saveChatHistory(messages) {
-  await AsyncStorage.setItem(K.CHAT_HISTORY, JSON.stringify(messages));
+  const userId = await uid();
+  await dbUpsert('chat_history', userId, { messages });
 }
 
 export async function getChatHistory() {
-  const raw = await AsyncStorage.getItem(K.CHAT_HISTORY);
-  return raw ? JSON.parse(raw) : [];
+  const userId = await uid();
+  const { data } = await supabase
+    .from('chat_history').select('messages').eq('user_id', userId).maybeSingle();
+  return data?.messages || [];
 }
 
 export async function appendChatMessage(message) {
   const history = await getChatHistory();
   history.push(message);
   if (history.length > 200) history.splice(0, history.length - 200);
-  await AsyncStorage.setItem(K.CHAT_HISTORY, JSON.stringify(history));
+  await saveChatHistory(history);
 }
 
-// ─── Daily log (score, challenges) ─────────────────────────
-export async function saveDailyLog(day, data) {
-  const raw = await AsyncStorage.getItem(K.DAILY_LOG);
-  const log = raw ? JSON.parse(raw) : {};
-  log[day] = { ...log[day], ...data, savedAt: new Date().toISOString() };
-  await AsyncStorage.setItem(K.DAILY_LOG, JSON.stringify(log));
+// ─── Daily log ────────────────────────────────────────────────
+export async function saveDailyLog(day, logData) {
+  const state = await getOnboardingState();
+  if (!state.dailyLog) state.dailyLog = {};
+  state.dailyLog[day] = { ...state.dailyLog[day], ...logData, savedAt: new Date().toISOString() };
+  await saveOnboardingState(state);
 }
 
 export async function getDailyLog() {
-  const raw = await AsyncStorage.getItem(K.DAILY_LOG);
-  return raw ? JSON.parse(raw) : {};
+  const state = await getOnboardingState();
+  return state.dailyLog || {};
 }
 
-// ─── Daily game stamp (day 2–7 accuracy) ──────────────────────
+// ─── Game log ─────────────────────────────────────────────────
 export async function saveGameStamp(day, accuracyMs) {
-  const raw = await AsyncStorage.getItem(K.GAME_LOG);
-  const log = raw ? JSON.parse(raw) : {};
-  log[day] = { accuracyMs, stampedAt: new Date().toISOString() };
-  await AsyncStorage.setItem(K.GAME_LOG, JSON.stringify(log));
+  const userId = await uid();
+  const existing = await getGameLog();
+  existing[day] = { accuracyMs, stampedAt: new Date().toISOString() };
+  await dbUpsert('game_log', userId, { entries: existing });
 }
 
 export async function getGameLog() {
-  const raw = await AsyncStorage.getItem(K.GAME_LOG);
-  return raw ? JSON.parse(raw) : {};
+  const userId = await uid();
+  const { data } = await supabase
+    .from('game_log').select('entries').eq('user_id', userId).maybeSingle();
+  return data?.entries || {};
 }
 
-// ─── Clear all (logout) ────────────────────────────────────
+// ─── Clear all (re-register) ──────────────────────────────────
 export async function clearAllData() {
-  await AsyncStorage.multiRemove(Object.values(K));
+  try {
+    const userId = await uid();
+    await Promise.all([
+      supabase.from('financial_data').delete().eq('user_id', userId),
+      supabase.from('onboarding_state').delete().eq('user_id', userId),
+      supabase.from('chat_history').delete().eq('user_id', userId),
+      supabase.from('commitment').delete().eq('user_id', userId),
+      supabase.from('game_log').delete().eq('user_id', userId),
+    ]);
+    await supabase.from('profiles').delete().eq('id', userId);
+  } catch (_) { /* ignore if no user yet */ }
+  await supabase.auth.signOut();
 }
