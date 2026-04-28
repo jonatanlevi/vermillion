@@ -4,9 +4,7 @@ import * as AuthSession from 'expo-auth-session';
 
 WebBrowser.maybeCompleteAuthSession();
 
-// ─── החלף את זה ──────────────────────────────────────────
-const GOOGLE_CLIENT_ID = 'YOUR_GOOGLE_WEB_CLIENT_ID'; // Google Cloud Console → OAuth 2.0 Client IDs → Web client ID
-// ──────────────────────────────────────────────────────────
+const GOOGLE_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID;
 
 export async function signInWithGoogle() {
   const redirectUrl = AuthSession.makeRedirectUri({ useProxy: true });
