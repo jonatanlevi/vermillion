@@ -20,12 +20,16 @@ export const supabase = createClient(SUPABASE_URL || '', SUPABASE_ANON || '', {
     autoRefreshToken:   true,
     persistSession:     true,
     detectSessionInUrl: Platform.OS === 'web',
-    flowType:           'pkce',
+    flowType:           Platform.OS === 'web' ? 'implicit' : 'pkce',
   },
 });
 
+export function isGhostUserId(id) {
+  return typeof id === 'string' && id.startsWith('ghost_');
+}
+
 export function isLocalUserId(id) {
-  return typeof id === 'string' && id.startsWith('local_');
+  return (typeof id === 'string' && id.startsWith('local_')) || isGhostUserId(id);
 }
 
 async function readLocalUserId() {
