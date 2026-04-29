@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
-  Animated,
+  Animated, ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { mockUser } from '../../mock/data';
+import { getOnboardingState } from '../../services/storage';
 import { computeFinancialMetrics, calcCompletion, getBlindSpots } from '../../data/dailyQuestions';
 import { classifyTier } from '../../services/financialTier';
 import { chatWithAI, resetConversation } from '../../services/aiService';
@@ -44,25 +44,20 @@ export default function ProfileRevealScreen({ navigation }) {
   const [profileText, setProfileText] = useState('');
   const [generating, setGenerating] = useState(true);
   const [aiFailed, setAiFailed] = useState(false);
+  const [onboardingState, setOnboardingState] = useState(null);
+  const [stateLoading, setStateLoading] = useState(true);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const mountedRef = useRef(true);
 
-  const { metrics, tier, tierBadge, blindSpots } = useMemo(() => {
-    const enrichedAnswers = {
-      ...mockUser.dailyAnswers,
-      _age: { _computed_age: _computeAge(mockUser.dob) },
-    };
-    const m = computeFinancialMetrics(enrichedAnswers);
-    const comp = calcCompletion(mockUser.dailyAnswers || {});
-    const t = classifyTier(m, comp);
-    const tb = TIER_LABELS[t.tier] || TIER_LABELS[0];
-    const bs = getBlindSpots(mockUser.dailyAnswers || {});
-    return { metrics: m, tier: t, tierBadge: tb, blindSpots: bs };
-  }, []);
-
   useEffect(() => {
     mountedRef.current = true;
+    async function init() {
+      const state = await getOnboardingState();
+      if (!mountedRef.current) return;
+      setOnboardingState(state);
+      setStateLoading(false);
+    }
     const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, { toValue: 0.3, duration: 600, useNativeDriver: true }),
@@ -70,12 +65,26 @@ export default function ProfileRevealScreen({ navigation }) {
       ]),
     );
     loop.start();
-    generateProfile();
+    init();
     return () => {
       mountedRef.current = false;
       loop.stop();
     };
   }, []);
+
+  useEffect(() => {
+    if (!stateLoading && onboardingState) generateProfile();
+  }, [stateLoading]);
+
+  const { metrics, tier, tierBadge, blindSpots } = useMemo(() => {
+    const answers = onboardingState || {};
+    const m = computeFinancialMetrics(answers);
+    const comp = calcCompletion(answers);
+    const t = classifyTier(m, comp);
+    const tb = TIER_LABELS[t.tier] || TIER_LABELS[0];
+    const bs = getBlindSpots(answers);
+    return { metrics: m, tier: t, tierBadge: tb, blindSpots: bs };
+  }, [onboardingState]);
 
   async function generateProfile() {
     if (!mountedRef.current) return;
@@ -83,10 +92,11 @@ export default function ProfileRevealScreen({ navigation }) {
     setAiFailed(false);
     setProfileText('');
     fadeAnim.setValue(0);
+    const userObj = { registrationDate: onboardingState?.startDate || new Date().toISOString(), dailyAnswers: onboardingState || {} };
     try {
       resetConversation();
-      const prompt = PROFILE_PROMPT(mockUser, metrics, tier);
-      const result = await chatWithAI(prompt, mockUser, (partial) => {
+      const prompt = PROFILE_PROMPT(userObj, metrics, tier);
+      const result = await chatWithAI(prompt, userObj, (partial) => {
         if (mountedRef.current) setProfileText(partial);
       }, 8);
       if (!mountedRef.current) return;
@@ -108,12 +118,20 @@ export default function ProfileRevealScreen({ navigation }) {
   }
 
   const handleApprove = () => {
-    navigation.replace('MainTabs');
+    navigation.navigate('MainTabs');
   };
 
   const handleRetry = () => {
     generateProfile();
   };
+
+  if (stateLoading) {
+    return (
+      <View style={[styles.container, { alignItems: 'center', justifyContent: 'center' }]}>
+        <ActivityIndicator color="#C0392B" size="large" />
+      </View>
+    );
+  }
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]} showsVerticalScrollIndicator={false}>

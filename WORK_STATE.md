@@ -58,3 +58,10 @@ npx expo start
 - משתמשי בדיקות עם מזהה ghost_* מסומנים לוקאליים בלבד ב-src/services/supabase.js.
 - נתוני Ghost לא אמורים להיכתב ל-Supabase.
 
+
+## עדכון מצב — 2026-04-29
+
+- הושלמה משימת docs/CURSOR_TASK_01.md למסך ProfileRevealScreen (יום 8).
+- כולל: חיבור נתוני onboarding אמיתיים, loading, fallback+retry, Tier badge, Blind spots.
+- src/mock/data.js נשאר על DAYS_AGO = 7 לבדיקת יום 8.
+
