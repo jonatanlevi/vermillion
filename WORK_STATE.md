@@ -52,3 +52,9 @@ npx expo start
 - `src/services/supabase.js` — סשן + משתמש מקומי
 - `src/services/storage.js` — Supabase + מצב offline
 - `src/navigation/AppNavigator.js` — stacks מחובר / אורח
+
+## עדכון בדיקות Ghost
+
+- משתמשי בדיקות עם מזהה ghost_* מסומנים לוקאליים בלבד ב-src/services/supabase.js.
+- נתוני Ghost לא אמורים להיכתב ל-Supabase.
+
