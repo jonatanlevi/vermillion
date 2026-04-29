@@ -4,6 +4,16 @@
 
 ---
 
+## אתר production (Netlify)
+
+כתובת לדוגמה (האתר שלך): **https://eclectic-kringle-5c83ec.netlify.app**
+
+ב-Netlify → האתר → **Site configuration → Environment variables** חייבים להיות מוגדרים **לפני Build** את ארבעת משתני ה־`EXPO_PUBLIC_*` (הערכים זהים ל־`.env` המקומי). Expo טוען אותם בזמן `expo export`; בלי זה האפליקציה נבנית בלי Supabase/Ollama.
+
+אחרי עדכון משתנים: **Deploys → Trigger deploy → Clear cache and deploy site** (מומלץ פעם אחת).
+
+---
+
 ## 1) קובץ `.env` (מקומי, בתיקיית `vermillion/`)
 
 1. אם אין לך: העתק  
@@ -21,18 +31,24 @@
 
 ---
 
-## 2) Netlify (אותם שמות משתנים כמו ב-`.env`)
+## 2) Netlify (חובה — אותם מפתחות כמו ב-`.env`)
 
-ב-[Netlify](https://app.netlify.com/teams/jonatanlevi/projects) → בחר את האתר → **Site configuration** → **Environment variables**.
+ב-[Netlify](https://app.netlify.com/teams/jonatanlevi/projects) → האתר (למשל `eclectic-kringle-5c83ec`) → **Site configuration** → **Environment variables**.
 
-הוסף (או עדכן) **בדיוק** את ארבעת המפתחות:
+בלי ארבעת השורות האלה ה-build של Web לא יכלול את Supabase/Ollama; הקוד משחזר מידע גם ל-localStorage כשרימוט נכשל — אבל OAuth ו-Ollama עדיין דורשים את המפתחות.
+
+הוסף או עדכן:
 
 - `EXPO_PUBLIC_SUPABASE_URL`
 - `EXPO_PUBLIC_SUPABASE_ANON_KEY`
 - `EXPO_PUBLIC_GOOGLE_CLIENT_ID`
 - `EXPO_PUBLIC_OLLAMA_BASE_URL`
 
-אחרי שינוי: **Deploys** → **Trigger deploy** (או דחיפה ל-`main`) כדי שהבנייה תקלוט את הערכים.
+ב-Supabase → **Authentication → URL Configuration → Redirect URLs** הוסף:
+
+`https://eclectic-kringle-5c83ec.netlify.app/**`
+
+אחרי שינוי משתנים ב-Netlify: **Deploys** → **Trigger deploy** (עדיף **Clear cache and deploy** פעם אחת).
 
 ---
 
@@ -40,8 +56,8 @@
 
 - **Authentication → Providers → Anonymous** — אם רוצים סנכרון ענן למשתמשי אורח; אחרת האפליקציה יכולה לעבוד במצב מקומי.
 - **Authentication → URL Configuration**  
-  - **Site URL**: כתובת ה-production של Netlify, למשל `https://YOUR-SITE.netlify.app`  
-  - **Redirect URLs**: הוסף את אותה כתובת + `http://localhost:8081` (ולפי הצורך פורטים נוספים לפיתוח).
+  - **Site URL**: לפחות `https://eclectic-kringle-5c83ec.netlify.app` (או הדומיין הסופי שלך).  
+  - **Redirect URLs**: אותה כתובת, wildcard בסגנון `https://eclectic-kringle-5c83ec.netlify.app/**`, וגם `http://localhost:8081` לפיתוח.
 - **SQL** — הרץ את `supabase/schema.sql` בעורך ה-SQL אם הטבלאות עדיין לא קיימות.
 
 ---

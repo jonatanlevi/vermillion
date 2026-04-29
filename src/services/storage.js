@@ -52,30 +52,51 @@ async function uid() {
   return user.id;
 }
 
+/**
+ * Remote upsert; returns `{ error }` instead of throwing (mobile browsers / RLS / missing tables).
+ */
 async function dbUpsert(table, userId, payload) {
-  const { data: existing } = await supabase
-    .from(table).select('id').eq('user_id', userId).maybeSingle();
-  if (existing) {
-    return supabase.from(table)
-      .update({ ...payload, updated_at: new Date().toISOString() })
-      .eq('user_id', userId);
+  try {
+    const { data: existing, error: selErr } = await supabase
+      .from(table).select('id').eq('user_id', userId).maybeSingle();
+    if (selErr) return { error: selErr };
+
+    if (existing) {
+      const { error } = await supabase
+        .from(table)
+        .update({ ...payload, updated_at: new Date().toISOString() })
+        .eq('user_id', userId);
+      return { error };
+    }
+
+    const { error } = await supabase.from(table).insert({
+      user_id: userId,
+      ...payload,
+      updated_at: new Date().toISOString(),
+    });
+    return { error };
+  } catch (e) {
+    return { error: e };
   }
-  return supabase.from(table)
-    .insert({ user_id: userId, ...payload, updated_at: new Date().toISOString() });
 }
 
 // ─── Commitment ─────────────────────────────────────────────
 export async function saveCommitmentTime() {
   const userId = await uid();
   const now = new Date();
-  if (isLocalUserId(userId)) {
-    await localSet(L.COMMIT, { committed_at: now.toISOString(), streak_days: 0 });
-    return;
-  }
-  await dbUpsert('commitment', userId, {
+  const payload = {
     committed_at: now.toISOString(),
     streak_days: 0,
-  });
+  };
+  if (isLocalUserId(userId)) {
+    await localSet(L.COMMIT, payload);
+    return;
+  }
+  const { error } = await dbUpsert('commitment', userId, payload);
+  if (error) {
+    console.warn('[storage] commitment remote failed — device cache', error?.message || error);
+    await localSet(L.COMMIT, payload);
+  }
 }
 
 export async function getCommitmentTime() {
@@ -141,7 +162,11 @@ export async function saveFinancialData(patch) {
     await localSet(L.FIN, merged);
     return;
   }
-  await dbUpsert('financial_data', userId, { data: merged });
+  const { error } = await dbUpsert('financial_data', userId, { data: merged });
+  if (error) {
+    console.warn('[storage] financial_data remote save failed — device cache', error?.message || error);
+    await localSet(L.FIN, merged);
+  }
 }
 
 export async function getFinancialData() {
@@ -149,9 +174,20 @@ export async function getFinancialData() {
   if (isLocalUserId(userId)) {
     return (await localGet(L.FIN, {})) || {};
   }
-  const { data } = await supabase
-    .from('financial_data').select('data').eq('user_id', userId).maybeSingle();
-  return data?.data || {};
+  try {
+    const { data, error } = await supabase
+      .from('financial_data').select('data').eq('user_id', userId).maybeSingle();
+    if (!error && data?.data !== undefined && data?.data !== null) {
+      return data.data;
+    }
+    if (error) {
+      console.warn('[storage] financial_data remote read:', error?.message || error);
+    }
+  } catch (e) {
+    console.warn('[storage] financial_data read threw:', e?.message || e);
+  }
+  const local = await localGet(L.FIN, {});
+  return local || {};
 }
 
 // ─── Onboarding state ────────────────────────────────────────
@@ -163,10 +199,14 @@ export async function saveOnboardingState(patch) {
     await localSet(L.ONB, merged);
     return;
   }
-  await dbUpsert('onboarding_state', userId, {
+  const { error } = await dbUpsert('onboarding_state', userId, {
     days_completed: merged.daysCompleted || [],
     daily_answers: merged,
   });
+  if (error) {
+    console.warn('[storage] onboarding_state remote save failed — device cache', error?.message || error);
+    await localSet(L.ONB, merged);
+  }
 }
 
 export async function getOnboardingState() {
@@ -176,30 +216,44 @@ export async function getOnboardingState() {
     if (!data) return { startDate: null, daysCompleted: [], profileGenerated: false, profileText: '' };
     return data;
   }
-  const { data } = await supabase
-    .from('onboarding_state').select('*').eq('user_id', userId).maybeSingle();
-  if (!data) return { startDate: null, daysCompleted: [], profileGenerated: false, profileText: '' };
-  return data.daily_answers || {
-    startDate: null,
-    daysCompleted: data.days_completed || [],
-    profileGenerated: false,
-    profileText: '',
-  };
+  try {
+    const { data, error } = await supabase
+      .from('onboarding_state').select('*').eq('user_id', userId).maybeSingle();
+    if (!error && data) {
+      return data.daily_answers || {
+        startDate: null,
+        daysCompleted: data.days_completed || [],
+        profileGenerated: false,
+        profileText: '',
+      };
+    }
+    if (error) console.warn('[storage] onboarding_state remote read:', error?.message || error);
+  } catch (e) {
+    console.warn('[storage] onboarding_state read threw:', e?.message || e);
+  }
+  const raw = await localGet(L.ONB, null);
+  if (!raw) return { startDate: null, daysCompleted: [], profileGenerated: false, profileText: '' };
+  return raw;
 }
 
 export async function markDayComplete(day) {
   const userId = await uid();
   const state = await getOnboardingState();
+  if (!state.daysCompleted) state.daysCompleted = [];
   if (!state.daysCompleted.includes(day)) state.daysCompleted.push(day);
   if (!state.startDate) state.startDate = new Date().toISOString();
   if (isLocalUserId(userId)) {
     await localSet(L.ONB, state);
     return;
   }
-  await dbUpsert('onboarding_state', userId, {
+  const { error } = await dbUpsert('onboarding_state', userId, {
     days_completed: state.daysCompleted,
     daily_answers: state,
   });
+  if (error) {
+    console.warn('[storage] markDayComplete remote failed — device cache', error?.message || error);
+    await localSet(L.ONB, state);
+  }
 }
 
 export async function isOnboardingComplete() {
@@ -214,7 +268,11 @@ export async function saveChatHistory(messages) {
     await localSet(L.CHAT, messages);
     return;
   }
-  await dbUpsert('chat_history', userId, { messages });
+  const { error } = await dbUpsert('chat_history', userId, { messages });
+  if (error) {
+    console.warn('[storage] chat_history remote failed — device cache', error?.message || error);
+    await localSet(L.CHAT, messages);
+  }
 }
 
 export async function getChatHistory() {
@@ -256,7 +314,11 @@ export async function saveGameStamp(day, accuracyMs) {
     await localSet(L.GAME, existing);
     return;
   }
-  await dbUpsert('game_log', userId, { entries: existing });
+  const { error } = await dbUpsert('game_log', userId, { entries: existing });
+  if (error) {
+    console.warn('[storage] game_log remote failed — device cache', error?.message || error);
+    await localSet(L.GAME, existing);
+  }
 }
 
 export async function getGameLog() {
