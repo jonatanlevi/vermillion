@@ -1,11 +1,11 @@
-// Simulate a user who registered 6 days ago (currently on day 7 — last onboarding day)
+// Simulate registration offset — drives “which program day” in mocks/tests.
 // Change DAYS_AGO to test different scenarios:
 //   0 = brand new user (day 1)
-//   7 = just finished onboarding, profile reveal tomorrow
-//   8 = profile reveal day
+//   6 = last onboarding questionnaire day (day 7)
+//   7 = profile reveal day (day 8) ← Cursor Task 01
 //   15 = mid-challenge coaching phase
 //   29 = last day of challenge
-const DAYS_AGO = 6;
+const DAYS_AGO = 7;
 const reg = new Date();
 reg.setDate(reg.getDate() - DAYS_AGO);
 reg.setHours(9, 0, 0, 0);

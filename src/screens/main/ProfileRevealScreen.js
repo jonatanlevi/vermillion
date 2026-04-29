@@ -1,16 +1,24 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
-  Animated, ActivityIndicator,
+  Animated,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { mockUser } from '../../mock/data';
-import { computeFinancialMetrics } from '../../data/dailyQuestions';
+import { computeFinancialMetrics, calcCompletion, getBlindSpots } from '../../data/dailyQuestions';
 import { classifyTier } from '../../services/financialTier';
-import { chatWithAI } from '../../services/aiService';
+import { chatWithAI, resetConversation } from '../../services/aiService';
 
-const PROFILE_PROMPT = (userData, metrics, tier) => {
-  const fmt = (n) => n > 0 ? `₪${n.toLocaleString('he-IL')}` : '—';
+const TIER_LABELS = {
+  0: { label: 'עיוור', color: '#555555', emoji: '🌫️' },
+  1: { label: 'ייצוב', color: '#E74C3C', emoji: '🔴' },
+  2: { label: 'שרידות', color: '#E67E22', emoji: '🟠' },
+  3: { label: 'בנייה', color: '#2980B9', emoji: '🔵' },
+  4: { label: 'אופטימיזציה', color: '#27AE60', emoji: '🟢' },
+};
+
+const PROFILE_PROMPT = (userData, metrics, tierObj) => {
+  const fmt = (n) => (n > 0 ? `₪${n.toLocaleString('he-IL')}` : '—');
   const m = metrics;
   return `בהתבסס על הנתונים הבאים של המשתמש, כתוב אפיון אישי תמציתי ב-4-5 משפטים.
 פתח עם "VerMillion מכיר אותך עכשיו:" ואז תאר מי עומד מולי: המצב המשפחתי, סוג העסקה,
@@ -25,8 +33,8 @@ const PROFILE_PROMPT = (userData, metrics, tier) => {
 - עודף/גירעון: ${fmt(m.monthlySurplus)} (${m.savingsRate}%)
 - סך חובות: ${fmt(m.totalDebt)}
 - שווי נקי: ${fmt(m.netWorth)}
-- כרית ביטחון: ${m.monthsEmergency !== null ? m.monthsEmergency + ' חודשים' : 'לא ידוע'}
-- שלב פיננסי: ${tier.label}
+- כרית ביטחון: ${m.monthsEmergency !== null ? `${m.monthsEmergency} חודשים` : 'לא ידוע'}
+- שלב פיננסי: ${tierObj.label}
 - מטרה עיקרית: ${m.moneyGoal || 'לא מצוין'}
 - מחסום חיסכון: ${m.savingObstacle || 'לא מצוין'}`;
 };
@@ -34,60 +42,91 @@ const PROFILE_PROMPT = (userData, metrics, tier) => {
 export default function ProfileRevealScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const [profileText, setProfileText] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [approved, setApproved] = useState(false);
+  const [generating, setGenerating] = useState(true);
+  const [aiFailed, setAiFailed] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
   const mountedRef = useRef(true);
 
-  const metrics = computeFinancialMetrics({
-    ...mockUser.dailyAnswers,
-    _age: { _computed_age: _computeAge(mockUser.dob) },
-  });
-  const tier = classifyTier(metrics, 100);
+  const { metrics, tier, tierBadge, blindSpots } = useMemo(() => {
+    const enrichedAnswers = {
+      ...mockUser.dailyAnswers,
+      _age: { _computed_age: _computeAge(mockUser.dob) },
+    };
+    const m = computeFinancialMetrics(enrichedAnswers);
+    const comp = calcCompletion(mockUser.dailyAnswers || {});
+    const t = classifyTier(m, comp);
+    const tb = TIER_LABELS[t.tier] || TIER_LABELS[0];
+    const bs = getBlindSpots(mockUser.dailyAnswers || {});
+    return { metrics: m, tier: t, tierBadge: tb, blindSpots: bs };
+  }, []);
 
   useEffect(() => {
     mountedRef.current = true;
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 0.3, duration: 600, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
     generateProfile();
-    return () => { mountedRef.current = false; };
+    return () => {
+      mountedRef.current = false;
+      loop.stop();
+    };
   }, []);
 
   async function generateProfile() {
-    const prompt = PROFILE_PROMPT(mockUser, metrics, tier);
+    if (!mountedRef.current) return;
+    setGenerating(true);
+    setAiFailed(false);
+    setProfileText('');
+    fadeAnim.setValue(0);
     try {
-      await chatWithAI(prompt, mockUser, (partial) => {
-        if (!mountedRef.current) return;
-        setProfileText(partial);
-        if (loading) setLoading(false);
-      });
+      resetConversation();
+      const prompt = PROFILE_PROMPT(mockUser, metrics, tier);
+      const result = await chatWithAI(prompt, mockUser, (partial) => {
+        if (mountedRef.current) setProfileText(partial);
+      }, 8);
+      if (!mountedRef.current) return;
+      const textOk = result && String(result).trim().length > 0;
+      if (!textOk) {
+        setProfileText(buildFallbackProfile(metrics, tier));
+        setAiFailed(true);
+      }
     } catch {
       if (mountedRef.current) {
         setProfileText(buildFallbackProfile(metrics, tier));
-        setLoading(false);
+        setAiFailed(true);
       }
     }
     if (mountedRef.current) {
-      setLoading(false);
+      setGenerating(false);
       Animated.timing(fadeAnim, { toValue: 1, duration: 700, useNativeDriver: true }).start();
     }
   }
 
   const handleApprove = () => {
-    // TODO: save profile to user storage / Supabase
     navigation.replace('MainTabs');
+  };
+
+  const handleRetry = () => {
+    generateProfile();
   };
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]} showsVerticalScrollIndicator={false}>
 
       <View style={styles.header}>
-        <View style={styles.tierBadge}>
-          <Text style={styles.tierLabel}>{tier.label}</Text>
+        <View style={[styles.tierBadge, { borderColor: tierBadge.color }]}>
+          <Text style={styles.tierEmoji}>{tierBadge.emoji}</Text>
+          <Text style={[styles.tierBadgeLabel, { color: tierBadge.color }]}>{tierBadge.label}</Text>
         </View>
         <Text style={styles.title}>האפיון שלך מוכן</Text>
         <Text style={styles.sub}>VerMillion ניתח 7 ימים של נתונים</Text>
       </View>
 
-      {/* Metrics summary */}
       <View style={styles.metricsGrid}>
         <MetricCard label="הכנסה" value={metrics.totalIncome > 0 ? `₪${metrics.totalIncome.toLocaleString()}` : '—'} accent="#27AE60" />
         <MetricCard label="הוצאות" value={metrics.totalExpenses > 0 ? `₪${metrics.totalExpenses.toLocaleString()}` : '—'} accent="#E67E22" />
@@ -95,34 +134,54 @@ export default function ProfileRevealScreen({ navigation }) {
         <MetricCard label="שווי נקי" value={metrics.netWorth !== 0 ? `₪${metrics.netWorth.toLocaleString()}` : '—'} accent="#C0392B" />
       </View>
 
-      {/* AI profile text */}
       <View style={styles.profileCard}>
         <View style={styles.profileCardHeader}>
           <View style={styles.aiDot} />
           <Text style={styles.profileCardTitle}>VerMillion AI — אפיון אישי</Text>
         </View>
 
-        {loading ? (
-          <View style={styles.loadingRow}>
-            <ActivityIndicator color="#C0392B" size="small" />
-            <Text style={styles.loadingText}>מנתח נתונים...</Text>
+        {generating ? (
+          <View style={styles.loadingWrap}>
+            <Animated.View style={[styles.loadingPulse, { opacity: pulseAnim }]} />
+            <Text style={styles.loadingText}>VerMillion מנתח 7 ימים של מידע...</Text>
+            <Text style={styles.loadingSubtext}>זה לוקח עד 30 שניות</Text>
           </View>
         ) : (
-          <Animated.View style={{ opacity: fadeAnim }}>
-            <Text style={styles.profileText}>{profileText}</Text>
-          </Animated.View>
+          <>
+            {aiFailed ? (
+              <Text style={styles.fallbackBanner}>הפרופיל נוצר מהמספרים שלך — AI Coach יעדכן בקרוב</Text>
+            ) : null}
+            <Animated.View style={{ opacity: fadeAnim }}>
+              <Text style={styles.profileText}>{profileText}</Text>
+            </Animated.View>
+            {aiFailed ? (
+              <TouchableOpacity style={styles.retryBtn} onPress={handleRetry} activeOpacity={0.85}>
+                <Text style={styles.retryBtnText}>נסה שוב</Text>
+              </TouchableOpacity>
+            ) : null}
+          </>
         )}
       </View>
 
-      {/* Tier explanation */}
       <View style={[styles.tierCard, { borderColor: tier.color }]}>
         <Text style={[styles.tierCardTitle, { color: tier.color }]}>{tier.emoji} שלב {tier.tier}: {tier.label}</Text>
         <Text style={styles.tierCardDesc}>{tier.description}</Text>
         <Text style={styles.tierCardFocus}>הפוקוס שלך: {tier.focus_hebrew}</Text>
       </View>
 
-      {/* Approve / Edit buttons */}
-      {!loading && (
+      {blindSpots.length > 0 ? (
+        <View style={styles.blindSpotsCard}>
+          <Text style={styles.blindSpotsTitle}>👁 נקודות שVerMillion עדיין לא מכיר</Text>
+          {blindSpots.slice(0, 3).map((b) => (
+            <Text key={b.key} style={styles.blindSpotItem}>• {b.blindSpot}</Text>
+          ))}
+          <TouchableOpacity onPress={() => navigation.navigate('DailyQuestions')} activeOpacity={0.85}>
+            <Text style={styles.blindSpotsAction}>השלם ← (+{blindSpots.length} נקודות)</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+
+      {!generating ? (
         <View style={styles.actionRow}>
           <TouchableOpacity style={styles.editBtn} onPress={() => navigation.navigate('DailyQuestions')} activeOpacity={0.85}>
             <Text style={styles.editBtnText}>✏️ תקן פרט</Text>
@@ -131,7 +190,7 @@ export default function ProfileRevealScreen({ navigation }) {
             <Text style={styles.approveBtnText}>✅ זה אני — נמשיך</Text>
           </TouchableOpacity>
         </View>
-      )}
+      ) : null}
 
     </ScrollView>
   );
@@ -158,7 +217,7 @@ function _computeAge(dob) {
 }
 
 function buildFallbackProfile(metrics, tier) {
-  const fmt = (n) => n > 0 ? `₪${n.toLocaleString('he-IL')}` : '—';
+  const fmt = (n) => (n > 0 ? `₪${n.toLocaleString('he-IL')}` : '—');
   return `VerMillion מכיר אותך עכשיו: הכנסה חודשית ${fmt(metrics.totalIncome)}, ` +
     `הוצאות ${fmt(metrics.totalExpenses)}, עודף ${fmt(metrics.monthlySurplus)} (${metrics.savingsRate}%). ` +
     `שווי נקי: ${fmt(metrics.netWorth)}. ` +
@@ -171,32 +230,108 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 50 },
 
   header: { alignItems: 'center', marginBottom: 24 },
-  tierBadge: { backgroundColor: '#1A0808', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 5, marginBottom: 12, borderWidth: 1, borderColor: '#C0392B44' },
-  tierLabel: { color: '#C0392B', fontSize: 12, fontWeight: '700', letterSpacing: 1 },
-  title: { fontSize: 28, fontWeight: '900', color: '#FFF', marginBottom: 6 },
-  sub: { color: '#555', fontSize: 14 },
+  tierBadge: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 8,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    marginBottom: 12,
+    backgroundColor: '#111111',
+  },
+  tierEmoji: { fontSize: 16 },
+  tierBadgeLabel: { fontSize: 13, fontWeight: '800', letterSpacing: 0.5 },
+  title: { fontSize: 28, fontWeight: '900', color: '#FFFFFF', marginBottom: 6, textAlign: 'right', alignSelf: 'stretch' },
+  sub: { color: '#888888', fontSize: 14, textAlign: 'right', alignSelf: 'stretch' },
 
   metricsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 },
-  metricCard: { flex: 1, minWidth: '45%', backgroundColor: '#111', borderRadius: 16, padding: 16, alignItems: 'center', borderWidth: 1, borderColor: '#1E1E1E' },
+  metricCard: {
+    flex: 1,
+    minWidth: '45%',
+    backgroundColor: '#111111',
+    borderRadius: 20,
+    padding: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#1A1A1A',
+  },
   metricValue: { fontSize: 22, fontWeight: '900', marginBottom: 4 },
-  metricLabel: { color: '#555', fontSize: 12 },
+  metricLabel: { color: '#888888', fontSize: 12, textAlign: 'center' },
 
-  profileCard: { backgroundColor: '#111', borderRadius: 20, padding: 20, marginBottom: 16, borderWidth: 1.5, borderColor: '#C0392B44' },
-  profileCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 },
+  profileCard: {
+    backgroundColor: '#111111',
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#1A1A1A',
+  },
+  profileCardHeader: { flexDirection: 'row-reverse', alignItems: 'center', gap: 8, marginBottom: 14 },
   aiDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#4CAF50' },
-  profileCardTitle: { color: '#888', fontSize: 13, fontWeight: '600' },
-  loadingRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  loadingText: { color: '#C0392B', fontSize: 13 },
+  profileCardTitle: { color: '#888888', fontSize: 13, fontWeight: '600', textAlign: 'right', flex: 1 },
+
+  loadingWrap: { alignItems: 'center', paddingVertical: 24 },
+  loadingPulse: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#C0392B',
+    marginBottom: 16,
+  },
+  loadingText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700', textAlign: 'center', marginBottom: 8 },
+  loadingSubtext: { color: '#888888', fontSize: 13, textAlign: 'center' },
+
+  fallbackBanner: {
+    color: '#F0C040',
+    fontSize: 13,
+    textAlign: 'right',
+    marginBottom: 12,
+    lineHeight: 20,
+  },
   profileText: { color: '#E0E0E0', fontSize: 15, lineHeight: 24, textAlign: 'right' },
 
-  tierCard: { borderRadius: 16, padding: 16, marginBottom: 24, borderWidth: 1.5, backgroundColor: '#0D0D0D' },
-  tierCardTitle: { fontSize: 16, fontWeight: '800', marginBottom: 6 },
-  tierCardDesc: { color: '#888', fontSize: 14, lineHeight: 20, marginBottom: 6 },
-  tierCardFocus: { color: '#C0392B', fontSize: 13, fontWeight: '700' },
+  retryBtn: {
+    marginTop: 16,
+    alignSelf: 'stretch',
+    backgroundColor: '#1A1A1A',
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#C0392B',
+  },
+  retryBtnText: { color: '#C0392B', fontSize: 15, fontWeight: '800' },
 
-  actionRow: { flexDirection: 'row', gap: 12 },
-  editBtn: { flex: 1, backgroundColor: '#1A1A1A', borderRadius: 14, paddingVertical: 16, alignItems: 'center', borderWidth: 1, borderColor: '#2A2A2A' },
-  editBtnText: { color: '#888', fontSize: 14, fontWeight: '700' },
+  tierCard: { borderRadius: 20, padding: 16, marginBottom: 24, borderWidth: 1.5, backgroundColor: '#111111' },
+  tierCardTitle: { fontSize: 16, fontWeight: '800', marginBottom: 6, textAlign: 'right' },
+  tierCardDesc: { color: '#888888', fontSize: 14, lineHeight: 20, marginBottom: 6, textAlign: 'right' },
+  tierCardFocus: { color: '#C0392B', fontSize: 13, fontWeight: '700', textAlign: 'right' },
+
+  blindSpotsCard: {
+    backgroundColor: '#111111',
+    borderRadius: 20,
+    padding: 18,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#1A1A1A',
+  },
+  blindSpotsTitle: { color: '#FFFFFF', fontSize: 16, fontWeight: '800', textAlign: 'right', marginBottom: 12 },
+  blindSpotItem: { color: '#888888', fontSize: 14, lineHeight: 22, textAlign: 'right', marginBottom: 6 },
+  blindSpotsAction: { color: '#F0C040', fontSize: 14, fontWeight: '700', textAlign: 'right', marginTop: 10 },
+
+  actionRow: { flexDirection: 'row-reverse', gap: 12 },
+  editBtn: {
+    flex: 1,
+    backgroundColor: '#1A1A1A',
+    borderRadius: 14,
+    paddingVertical: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#1A1A1A',
+  },
+  editBtnText: { color: '#888888', fontSize: 14, fontWeight: '700' },
   approveBtn: { flex: 2, backgroundColor: '#C0392B', borderRadius: 14, paddingVertical: 16, alignItems: 'center' },
-  approveBtnText: { color: '#FFF', fontSize: 15, fontWeight: '900' },
+  approveBtnText: { color: '#FFFFFF', fontSize: 15, fontWeight: '900' },
 });
