@@ -5,7 +5,9 @@
  * `onboarding_complete` — נקבע רק ב־ModelDownloadScreen לפני MainTabs (סיום כל המסלול).
  */
 export function isRegistrationComplete(profile) {
-  if (!profile || profile.onboarding_complete !== true) return false;
+  if (!profile) return false;
+  if (profile.profile_intake_complete !== true) return false;
+  if (profile.onboarding_complete !== true) return false;
   const name = typeof profile.name === 'string' ? profile.name.trim() : '';
   return name.length >= 2;
 }
