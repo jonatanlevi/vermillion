@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, ActivityIndicator, Dimensions } from 'react-native';
 import { useLanguage } from '../../context/LanguageContext';
 import LanguagePicker from '../../components/LanguagePicker';
-import { clearAllData } from '../../services/storage';
 import { signInWithGoogle } from '../../services/authService';
 
 const { width: SW } = Dimensions.get('window');
@@ -98,11 +97,11 @@ export default function WelcomeScreen({ navigation }) {
           </View>
 
           <TouchableOpacity
-            style={styles.phoneBtn}
-            onPress={async () => { await clearAllData(); navigation.navigate('CompleteProfile'); }}
+            style={styles.emailBtn}
+            onPress={() => navigation.navigate('Login')}
             activeOpacity={0.88}
           >
-            <Text style={styles.phoneBtnText}>{t.continuePhone}</Text>
+            <Text style={styles.emailBtnText}>{t.continueEmail}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.loginLink} onPress={() => navigation.navigate('Login')}>
@@ -180,12 +179,12 @@ const styles = StyleSheet.create({
   dividerLine: { flex: 1, height: 1, backgroundColor: '#1E1E1E' },
   dividerText: { color: '#444', fontSize: 13 },
 
-  phoneBtn: {
+  emailBtn: {
     backgroundColor: '#151515', borderRadius: 14, height: 56,
     alignItems: 'center', justifyContent: 'center',
     borderWidth: 1, borderColor: '#2A2A2A',
   },
-  phoneBtnText: { color: '#CCC', fontSize: 16, fontWeight: '600' },
+  emailBtnText: { color: '#CCC', fontSize: 16, fontWeight: '600' },
 
   loginLink: { alignItems: 'center', paddingVertical: 4 },
   loginLinkText: { color: '#555', fontSize: 14 },

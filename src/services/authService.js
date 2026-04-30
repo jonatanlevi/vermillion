@@ -19,11 +19,54 @@ WebBrowser.maybeCompleteAuthSession();
  * Required Google Cloud Console (OAuth client) — Authorized redirect URIs:
  *   https://eevmgafxfghygdaucqad.supabase.co/auth/v1/callback
  */
+/** Same redirect base as OAuth — must appear in Supabase Auth → Redirect URLs. */
+export function getAuthRedirectUrl() {
+  if (Platform.OS === 'web') {
+    return typeof window !== 'undefined' ? window.location.origin : '';
+  }
+  return Linking.createURL('/');
+}
+
+/**
+ * Passwordless email: Supabase sends a magic link and/or 6-digit code (project template).
+ * After email: user lands with session (web) or enters OTP here then verifyEmailOtp.
+ */
+export async function signInWithEmailOtp(email) {
+  const normalized = String(email || '').trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
+    const err = new Error('INVALID_EMAIL');
+    err.code = 'INVALID_EMAIL';
+    throw err;
+  }
+  const redirectTo = getAuthRedirectUrl();
+  const { error } = await supabase.auth.signInWithOtp({
+    email: normalized,
+    options: {
+      emailRedirectTo: redirectTo || undefined,
+      shouldCreateUser: true,
+    },
+  });
+  if (error) throw error;
+}
+
+export async function verifyEmailOtp(email, token) {
+  const normalized = String(email || '').trim().toLowerCase();
+  const code = String(token || '').trim().replace(/\s/g, '');
+  if (!normalized || !code) {
+    const err = new Error('MISSING_FIELDS');
+    err.code = 'MISSING_FIELDS';
+    throw err;
+  }
+  const { error } = await supabase.auth.verifyOtp({
+    email: normalized,
+    token: code,
+    type: 'email',
+  });
+  if (error) throw error;
+}
+
 export async function signInWithGoogle() {
-  const redirectTo =
-    Platform.OS === 'web'
-      ? window.location.origin
-      : Linking.createURL('/');
+  const redirectTo = getAuthRedirectUrl();
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
