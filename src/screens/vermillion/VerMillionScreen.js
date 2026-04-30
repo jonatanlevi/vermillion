@@ -172,6 +172,7 @@ export default function VerMillionScreen({ navigation }) {
   const [questionsToday, setQuestionsToday] = useState(0);
   const [pendingField, setPendingField]     = useState(null);
   const [avatarMood, setAvatarMood]   = useState('neutral');
+  const [needsFirstGame, setNeedsFirstGame] = useState(false);
   const pulseAnim  = useRef(new Animated.Value(1)).current;
   const flatListRef = useRef(null);
   const mountedRef  = useRef(true);
@@ -182,6 +183,7 @@ export default function VerMillionScreen({ navigation }) {
       setMessages([]);
       setPhase(null);
       setDayDone(false);
+      setNeedsFirstGame(false);
       setPendingField(null);
       setQuestionsToday(0);
       init();
@@ -222,16 +224,15 @@ export default function VerMillionScreen({ navigation }) {
       setPhase('onboarding');
 
       if (!commitment) {
-        // ── שלב 1: כניסה ראשונה — קודם משחק וטיימר ────────────
-        // לפי ה-flow: VerMillion → Games → לחצן טיימר, ורק אז שאלות יום 1.
+        // ── שלב 1: כניסה ראשונה — VerMillion קודם, משחק+טיימר בלחיצת CTA.
         setCurrentDay(1);
         const progress = await getDayProgress(1);
         if (!mountedRef.current) return;
         setQuestionsToday(progress.done);
         if (progress.done === 0) {
-          navigation.navigate('Games');
+          setNeedsFirstGame(true);
         } else if (progress.complete) {
-          // שאלות יום 1 נגמרו — שלח לשחק כדי לקבוע commitment
+          // שאלות יום 1 נגמרו — עבר למשחקים כדי לקבוע commitment
           if (!mountedRef.current) return;
           navigation.navigate('Games');
         } else {
@@ -401,6 +402,28 @@ export default function VerMillionScreen({ navigation }) {
     );
   }
 
+  // First-run gate: show VerMillion screen with explicit CTA to Games.
+  if (phase === 'onboarding' && needsFirstGame) {
+    return (
+      <View style={styles.firstGameGate}>
+        <Text style={styles.firstGameTitle}>VerMillion מוכן להתחיל איתך</Text>
+        <Text style={styles.firstGameSub}>
+          לפני השאלות היומיות נקבע את שעת המחויבות שלך דרך משחק קצר.
+        </Text>
+        <TouchableOpacity
+          style={styles.firstGameBtn}
+          onPress={() => {
+            setNeedsFirstGame(false);
+            navigation.navigate('Games');
+          }}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.firstGameBtnText}>🎮 המשך למשחק וטיימר</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   const moodColors = {
     neutral:  '#C0392B',
     asking:   '#E67E22',
@@ -522,6 +545,36 @@ function Bubble({ message }) {
 const styles = StyleSheet.create({
   container:   { flex: 1, backgroundColor: '#0A0A0A' },
   loadingScreen: { flex: 1, backgroundColor: '#0A0A0A', alignItems: 'center', justifyContent: 'center' },
+  firstGameGate: {
+    flex: 1,
+    backgroundColor: '#0A0A0A',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 28,
+  },
+  firstGameTitle: {
+    color: '#FFF',
+    fontSize: 28,
+    fontWeight: '900',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  firstGameSub: {
+    color: '#777',
+    fontSize: 15,
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 28,
+  },
+  firstGameBtn: {
+    backgroundColor: '#C0392B',
+    borderRadius: 16,
+    paddingVertical: 18,
+    paddingHorizontal: 26,
+    width: '100%',
+    alignItems: 'center',
+  },
+  firstGameBtnText: { color: '#FFF', fontSize: 17, fontWeight: '900' },
 
   header: {
     flexDirection: 'row', alignItems: 'center', gap: 14,
