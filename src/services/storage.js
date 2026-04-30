@@ -134,8 +134,14 @@ function getMsUntilMidnight() {
 }
 
 // ─── Profile ───────────────────────────────────────────────
-// profiles table columns: id, email, name, avatar_style, subscription, lang, onboarding_complete, profile_intake_complete, joined_at, updated_at
-const PROFILE_DB_COLUMNS = ['name', 'email', 'avatar_style', 'subscription', 'lang', 'onboarding_complete', 'profile_intake_complete'];
+// profiles table columns: id, email, name, first_name, last_name, phone, date_of_birth, id_number_last4,
+// avatar_style, subscription, lang, onboarding_complete, profile_intake_complete, joined_at, updated_at
+const PROFILE_DB_COLUMNS = [
+  'name', 'email',
+  'first_name', 'last_name', 'phone', 'date_of_birth', 'id_number_last4',
+  'avatar_style', 'subscription', 'lang',
+  'onboarding_complete', 'profile_intake_complete',
+];
 
 export async function saveProfile(data) {
   const userId = await uid();
@@ -148,10 +154,11 @@ export async function saveProfile(data) {
   for (const col of PROFILE_DB_COLUMNS) {
     if (data[col] !== undefined) dbPayload[col] = data[col];
   }
-  await supabase.from('profiles').upsert(
+  const { error } = await supabase.from('profiles').upsert(
     { id: userId, ...dbPayload, updated_at: new Date().toISOString() },
     { onConflict: 'id' }
   );
+  if (error) throw error;
 }
 
 export async function getProfile() {

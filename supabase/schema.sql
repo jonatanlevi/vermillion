@@ -9,6 +9,11 @@ create table if not exists public.profiles (
   id              uuid references auth.users(id) on delete cascade primary key,
   email           text,
   name            text,
+  first_name      text,
+  last_name       text,
+  phone           text,
+  date_of_birth   date,
+  id_number_last4 text,
   avatar_style    jsonb       default '{}',
   subscription    text        default 'free' check (subscription in ('free', 'premium')),
   lang            text        default 'he'   check (lang in ('he', 'en', 'ru')),
@@ -21,6 +26,11 @@ create table if not exists public.profiles (
 -- Existing DBs (before these columns): run once in SQL Editor if missing
 alter table public.profiles add column if not exists onboarding_complete boolean default false;
 alter table public.profiles add column if not exists profile_intake_complete boolean default false;
+alter table public.profiles add column if not exists first_name text;
+alter table public.profiles add column if not exists last_name text;
+alter table public.profiles add column if not exists phone text;
+alter table public.profiles add column if not exists date_of_birth date;
+alter table public.profiles add column if not exists id_number_last4 text;
 
 alter table public.profiles enable row level security;
 

@@ -154,9 +154,19 @@ export default function CompleteProfileScreen({ navigation }) {
         (today.getMonth() === dob.getMonth() && today.getDate() < dob.getDate())) age--;
 
     const fullName = `${values.firstName} ${values.lastName}`.trim();
+    const dateOfBirth = new Date(year, month - 1, day).toISOString().slice(0, 10);
+    const phoneDigits = values.phone.replace(/\D/g, '');
+    const phoneE164 = `${country.dial}${phoneDigits}`;
+    const idDigits = values.idNumber.replace(/\s/g, '');
+    const idLast4 = idDigits.slice(-4);
     Promise.all([
       saveProfile({
         name: fullName,
+        first_name: values.firstName.trim(),
+        last_name: values.lastName.trim(),
+        phone: phoneE164,
+        date_of_birth: dateOfBirth,
+        id_number_last4: idLast4,
         onboarding_complete: false,
         profile_intake_complete: true,
       }),
