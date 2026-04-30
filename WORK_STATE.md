@@ -21,8 +21,8 @@
 
 1. **אורח (guest stack בלבד):** `Splash` → `Welcome` | `Register` | `Login` — **אין** יותר `MainTabs` / `CompleteProfile` באורח (מניעת דילוג על הרשמה).
 2. **התחברות:** Google (OAuth + PKCE) **או** מייל (Supabase `signInWithOtp` + `verifyEmailOtp` ב־`LoginScreen`).
-3. **אחרי סשן:** `AppNavigator` — אם `!isRegistrationComplete(profile)` → **`CompleteProfile`**; אחרת → **`MainTabs`**.
-4. **שער רישום:** `src/utils/registrationGate.js` — `onboarding_complete === true` **וגם** `name` (מינימום 2 תווים) מהטופס שלנו.
+3. **אחרי סשן:** `AppNavigator` משתמש ב־`getAuthLandingRoute(profile)` — `CompleteProfile` → `AvatarAppearance` (אם יש שם אבל עדיין לא סיימו מסלול) → **`MainTabs`** רק כש־`onboarding_complete === true` (נקבע ב־**ModelDownload** לפני כניסה לאפליקציה).
+4. **שער רישום:** `registrationGate.js` — `onboarding_complete` **לא** נדלק ב־CompleteProfile (רק `false` שם); סיום מלא = שם מהטופס + דגל אחרי מסך המודל.
 5. **אחרי CompleteProfile:** אווטאר (`AvatarAppearance` → …) ואז שאר האונבורדינג לפי ניווט קיים; טאב מרכזי **VerMillion**.
 
 **Supabase (חובה לבדיקת מייל):** Authentication → Providers → **Email** מופעל; Redirect URLs כוללים את דומיין ה־Vercel.
@@ -44,7 +44,7 @@
 
 | נתיב | תפקיד |
 |------|--------|
-| `src/navigation/AppNavigator.js` | מחובר / אורח, `initialRouteName` לפי `isRegistrationComplete` |
+| `src/navigation/AppNavigator.js` | מחובר / אורח, `initialRouteName` לפי `getAuthLandingRoute` |
 | `src/context/AuthContext.js` | סשן, `loadProfile` עם טיפול ב־`error` |
 | `src/services/authService.js` | Google, מייל OTP, `getAuthRedirectUrl` |
 | `src/services/supabase.js` | לקוח Supabase, `flowType: 'pkce'`, ghost/local |
@@ -86,3 +86,4 @@ npx expo start
 - **2026-04-29:** ProfileReveal יום 8; `DAYS_AGO` לבדיקה.
 - **2026-04-30 (בוקר):** Vercel deploy scripts; PKCE; Splash; סכימה.
 - **2026-04-30 (סריקה):** תיעוד מצב מלא — Auth מייל+גוגל, stack אורח, שער רישום, TODOים, Vercel כפרודקשן.
+- **2026-04-30 (תיקון מסלול):** `onboarding_complete` רק אחרי **ModelDownload**; `CompleteProfile` שומר `false`; `getAuthLandingRoute` מכוון ל־AvatarAppearance כשיש שם ועדיין לא סיימו — מונע Google → VerMillion בלי אווטאר.

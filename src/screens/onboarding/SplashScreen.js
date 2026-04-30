@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated } from 'react-native';
 import { supabase } from '../../services/supabase';
-import { isRegistrationComplete } from '../../utils/registrationGate';
+import { getAuthLandingRoute } from '../../utils/registrationGate';
 
 export default function SplashScreen({ navigation }) {
   const scale = useRef(new Animated.Value(0.7)).current;
@@ -37,8 +37,8 @@ export default function SplashScreen({ navigation }) {
           .select('name, onboarding_complete')
           .eq('id', session.user.id)
           .maybeSingle();
-        const done = !error && isRegistrationComplete(profile);
-        navigation.replace(done ? 'MainTabs' : 'CompleteProfile');
+        const next = !error && profile ? getAuthLandingRoute(profile) : 'CompleteProfile';
+        navigation.replace(next);
       } else {
         navigation.replace('Welcome');
       }

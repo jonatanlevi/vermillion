@@ -3,6 +3,8 @@ import {
   View, Text, StyleSheet, TouchableOpacity, Animated,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAuth } from '../../context/AuthContext';
+import { saveProfile } from '../../services/storage';
 
 // llama.rn יותקן בשלב הבא (expo prebuild).
 // כרגע: mockAI פועל אוטומטית ללא הורדה.
@@ -30,7 +32,13 @@ export default function ModelDownloadScreen({ navigation }) {
     });
   }
 
-  function proceed() {
+  async function proceed() {
+    try {
+      await saveProfile({ onboarding_complete: true });
+      await reloadProfile?.();
+    } catch (_) {
+      /* still enter app; flag can be retried from settings later */
+    }
     navigation.replace('MainTabs');
   }
 

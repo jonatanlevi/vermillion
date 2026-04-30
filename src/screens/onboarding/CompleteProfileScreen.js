@@ -154,7 +154,7 @@ export default function CompleteProfileScreen({ navigation }) {
 
     const fullName = `${values.firstName} ${values.lastName}`.trim();
     Promise.all([
-      saveProfile({ name: fullName, onboarding_complete: true }),
+      saveProfile({ name: fullName, onboarding_complete: false }),
       saveFinancialData({ age }),
     ]).then(async () => {
       await reloadProfile?.();
