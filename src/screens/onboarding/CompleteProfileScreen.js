@@ -204,33 +204,29 @@ export default function CompleteProfileScreen({ navigation }) {
 
         <Animated.View style={{ transform: [{ translateX: shakeAnim }] }}>
 
-          {/* ── Row: First + Last name ── */}
-          <View style={s.row}>
-            <Field
-              label={t.cpFirstName}
-              placeholder={t.cpFirstNamePh}
-              value={values.firstName}
-              onChangeText={v => set('firstName', v)}
-              onBlur={() => blur('firstName')}
-              {...fieldState('firstName')}
-              ref={refs.firstName}
-              returnKeyType="next"
-              onSubmitEditing={() => refs.lastName.current?.focus()}
-              style={{ flex: 1 }}
-            />
-            <Field
-              label={t.cpLastName}
-              placeholder={t.cpLastNamePh}
-              value={values.lastName}
-              onChangeText={v => set('lastName', v)}
-              onBlur={() => blur('lastName')}
-              {...fieldState('lastName')}
-              ref={refs.lastName}
-              returnKeyType="next"
-              onSubmitEditing={() => refs.dobD.current?.focus()}
-              style={{ flex: 1 }}
-            />
-          </View>
+          {/* ── Name fields ── */}
+          <Field
+            label={t.cpFirstName}
+            placeholder={t.cpFirstNamePh}
+            value={values.firstName}
+            onChangeText={v => set('firstName', v)}
+            onBlur={() => blur('firstName')}
+            {...fieldState('firstName')}
+            ref={refs.firstName}
+            returnKeyType="next"
+            onSubmitEditing={() => refs.lastName.current?.focus()}
+          />
+          <Field
+            label={t.cpLastName}
+            placeholder={t.cpLastNamePh}
+            value={values.lastName}
+            onChangeText={v => set('lastName', v)}
+            onBlur={() => blur('lastName')}
+            {...fieldState('lastName')}
+            ref={refs.lastName}
+            returnKeyType="next"
+            onSubmitEditing={() => refs.dobD.current?.focus()}
+          />
 
           {/* ── Date of Birth ── */}
           <View style={s.fieldWrap}>
