@@ -222,13 +222,15 @@ export default function VerMillionScreen({ navigation }) {
       setPhase('onboarding');
 
       if (!commitment) {
-        // ── שלב 1: יום 1 לפני משחק ראשון ──────────────────────
-        // commitment נקבע רק אחרי משחק ראשון (GlassButton)
+        // ── שלב 1: כניסה ראשונה — קודם משחק וטיימר ────────────
+        // לפי ה-flow: VerMillion → Games → לחצן טיימר, ורק אז שאלות יום 1.
         setCurrentDay(1);
         const progress = await getDayProgress(1);
         if (!mountedRef.current) return;
         setQuestionsToday(progress.done);
-        if (progress.complete) {
+        if (progress.done === 0) {
+          navigation.navigate('Games');
+        } else if (progress.complete) {
           // שאלות יום 1 נגמרו — שלח לשחק כדי לקבוע commitment
           if (!mountedRef.current) return;
           navigation.navigate('Games');

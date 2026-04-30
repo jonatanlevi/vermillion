@@ -12,6 +12,7 @@ import { saveProfile } from '../../services/storage';
 
 export default function ModelDownloadScreen({ navigation }) {
   const insets = useSafeAreaInsets();
+  const { reloadProfile } = useAuth();
   const [phase, setPhase] = useState('intro'); // 'intro' | 'downloading' | 'done'
   const progressAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
