@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { Platform } from 'react-native';
 import { supabase } from '../services/supabase';
+import { clearAllData } from '../services/storage';
 
 const AuthContext = createContext(null);
 
@@ -21,7 +23,7 @@ export function AuthProvider({ children }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       const u = session?.user ?? null;
       setUser(u);
-      if (u) loadProfile(u.id);
+      if (u) { setLoading(true); loadProfile(u.id); }
       else { setProfile(null); setLoading(false); }
     });
 
@@ -41,6 +43,19 @@ export function AuthProvider({ children }) {
 
   async function signOut() {
     await supabase.auth.signOut();
+    if (Platform.OS === 'web') window.location.reload();
+  }
+
+  async function deleteAccount() {
+    try {
+      await clearAllData();
+      try { await supabase.rpc('delete_user'); } catch (_) {}
+      try { await supabase.auth.signOut(); } catch (_) {}
+    } finally {
+      setUser(null);
+      setProfile(null);
+      if (Platform.OS === 'web') window.location.reload();
+    }
   }
 
   return (
@@ -50,6 +65,7 @@ export function AuthProvider({ children }) {
         profile,
         loading,
         signOut,
+        deleteAccount,
         reloadProfile: () => user && loadProfile(user.id),
       }}
     >

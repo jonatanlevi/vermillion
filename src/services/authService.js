@@ -12,8 +12,9 @@ WebBrowser.maybeCompleteAuthSession();
  *         exchange the returned `code` for a Supabase session.
  *
  * Required Supabase Dashboard setup (Auth → URL Configuration):
- *   Site URL:        vermillion://
- *   Redirect URLs:   vermillion://**, http://localhost:8081, http://localhost:19006
+ *   Site URL:        production origin (e.g. https://your-app.vercel.app)
+ *   Redirect URLs:   same origin, http://localhost:8081, http://localhost:19006,
+ *                    vermillion://** (Expo native)
  *
  * Required Google Cloud Console (OAuth client) — Authorized redirect URIs:
  *   https://eevmgafxfghygdaucqad.supabase.co/auth/v1/callback

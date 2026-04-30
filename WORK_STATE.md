@@ -65,3 +65,8 @@ npx expo start
 - כולל: חיבור נתוני onboarding אמיתיים, loading, fallback+retry, Tier badge, Blind spots.
 - src/mock/data.js נשאר על DAYS_AGO = 7 לבדיקת יום 8.
 
+## עדכון מצב — 2026-04-30
+
+- Deploy: `deploy.bat` מעביר ל־`deploy.ps1` מתיקיית הפרויקט, מדפיס סטטוס וקוד יציאה; `deploy.ps1` בודק `expo export` ו־`vercel --prod`.
+- Auth web: `supabase` auth `flowType: pkce`; Splash לפי `onboarding_complete`; Welcome אחרי Google בלי ניווט ידני; `schema.sql` — `onboarding_complete` + טריגר פרופיל רק id+email.
+

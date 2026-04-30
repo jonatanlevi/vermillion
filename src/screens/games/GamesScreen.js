@@ -142,6 +142,9 @@ export default function GamesScreen({ navigation }) {
   const [showDailyStamp, setShowDailyStamp] = useState(false);
   const [stampAccuracy, setStampAccuracy]   = useState(null);
   const [activeDay, setActiveDay]           = useState(1);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [pickedHour, setPickedHour]         = useState(8);
+  const [pickedMinute, setPickedMinute]     = useState(0);
   const fadeAnim = useRef(new Animated.Value(1)).current;
 
   useFocusEffect(
@@ -194,12 +197,13 @@ export default function GamesScreen({ navigation }) {
     navigation.navigate('VerMillion');
   }
 
-  async function handleCommit() {
-    await saveCommitmentTime();
+  async function handleCommit(hour, minute) {
+    await saveCommitmentTime(hour, minute);
     const saved = await getCommitmentTime();
     setCommitTime(saved);
     setHasCommitment(true);
     setShowCommitBtn(false);
+    setShowTimePicker(false);
     setShowModal(true);
   }
 
@@ -235,7 +239,8 @@ export default function GamesScreen({ navigation }) {
 
         {stampAccuracy === null ? (
           <>
-            <Text style={ds.sub}>לחץ כדי לחתום — נמדד כמה היית מדויק</Text>
+            <Text style={ds.sub}>כבש את הרגע — לחץ כמה שיותר קרוב לשעה שקבעת</Text>
+            <Text style={ds.subHint}>המדידה: כמה שניות/דקות עברו מהשעה שלך עד עכשיו</Text>
             <TouchableOpacity style={ds.stampBtn} onPress={handleDailyStamp} activeOpacity={0.85}>
               <Text style={ds.stampBtnText}>⏱ חתום עכשיו</Text>
             </TouchableOpacity>
@@ -254,13 +259,39 @@ export default function GamesScreen({ navigation }) {
 
   // Post-game commitment screen
   if (showCommitBtn) {
+    if (showTimePicker) {
+      const hh = String(pickedHour).padStart(2,'0');
+      const mm = String(pickedMinute).padStart(2,'0');
+      return (
+        <View style={[styles.commitScreen, { paddingTop: insets.top + 20 }]}>
+          <Text style={tp.title}>מתי VerMillion ממתין לך?</Text>
+          <Text style={tp.sub}>בחר את שעת המחויבות היומית שלך</Text>
+          <View style={tp.row}>
+            <View style={tp.col}>
+              <TouchableOpacity onPress={() => setPickedHour(h => (h + 1) % 24)} style={tp.arrow}><Text style={tp.arrowText}>▲</Text></TouchableOpacity>
+              <Text style={tp.digit}>{hh}</Text>
+              <TouchableOpacity onPress={() => setPickedHour(h => (h + 23) % 24)} style={tp.arrow}><Text style={tp.arrowText}>▼</Text></TouchableOpacity>
+            </View>
+            <Text style={tp.colon}>:</Text>
+            <View style={tp.col}>
+              <TouchableOpacity onPress={() => setPickedMinute(m => (m + 5) % 60)} style={tp.arrow}><Text style={tp.arrowText}>▲</Text></TouchableOpacity>
+              <Text style={tp.digit}>{mm}</Text>
+              <TouchableOpacity onPress={() => setPickedMinute(m => (m + 55) % 60)} style={tp.arrow}><Text style={tp.arrowText}>▼</Text></TouchableOpacity>
+            </View>
+          </View>
+          <TouchableOpacity style={tp.confirmBtn} onPress={() => handleCommit(pickedHour, pickedMinute)} activeOpacity={0.85}>
+            <Text style={tp.confirmText}>נעל את השעה {hh}:{mm} 🔒</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
     return (
       <View style={[styles.commitScreen, { paddingTop: insets.top + 20 }]}>
         <View style={styles.scoreResult}>
           <Text style={styles.scoreResultLabel}>סיימת את המשחק</Text>
           <Text style={styles.scoreResultVal}>+{sessionScore} נקודות 🔥</Text>
         </View>
-        <GlassButton onPress={handleCommit} />
+        <GlassButton onPress={() => setShowTimePicker(true)} />
       </View>
     );
   }
@@ -408,7 +439,8 @@ const ds = StyleSheet.create({
   dayLabel:          { color: '#555', fontSize: 13, fontWeight: '700', letterSpacing: 2, marginBottom: 8 },
   title:             { color: '#FFF', fontSize: 22, fontWeight: '900', marginBottom: 12 },
   commitTimeDisplay: { color: '#D4AF37', fontSize: 64, fontWeight: '900', marginBottom: 8 },
-  sub:               { color: '#666', fontSize: 14, textAlign: 'center', marginBottom: 40, lineHeight: 22 },
+  sub:               { color: '#666', fontSize: 14, textAlign: 'center', marginBottom: 8, lineHeight: 22 },
+  subHint:           { color: '#444', fontSize: 12, textAlign: 'center', marginBottom: 32 },
   stampBtn: {
     backgroundColor: '#C0392B', borderRadius: 16,
     paddingVertical: 20, paddingHorizontal: 48, alignItems: 'center',
@@ -487,6 +519,20 @@ const gb = StyleSheet.create({
     borderRadius: 4, backgroundColor: '#4A3A28',
     borderWidth: 1, borderColor: '#5A4A38',
   },
+});
+
+// ─── Time Picker styles ─────────────────────────────────────────
+const tp = StyleSheet.create({
+  title:      { color: '#FFF', fontSize: 24, fontWeight: '900', marginBottom: 8, textAlign: 'center' },
+  sub:        { color: '#555', fontSize: 14, textAlign: 'center', marginBottom: 40 },
+  row:        { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 48 },
+  col:        { alignItems: 'center', gap: 12 },
+  arrow:      { padding: 10 },
+  arrowText:  { color: '#C0392B', fontSize: 22, fontWeight: '900' },
+  digit:      { color: '#D4AF37', fontSize: 72, fontWeight: '900', minWidth: 100, textAlign: 'center' },
+  colon:      { color: '#444', fontSize: 72, fontWeight: '900', marginBottom: 8 },
+  confirmBtn: { backgroundColor: '#C0392B', borderRadius: 16, paddingVertical: 18, paddingHorizontal: 32, alignItems: 'center', width: '100%' },
+  confirmText:{ color: '#FFF', fontSize: 16, fontWeight: '900' },
 });
 
 // ─── Commit Modal styles ────────────────────────────────────────

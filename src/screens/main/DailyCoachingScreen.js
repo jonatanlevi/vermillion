@@ -4,46 +4,62 @@ import {
   TextInput, Animated, ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { mockUser } from '../../mock/data';
 import { computeFinancialMetrics } from '../../data/dailyQuestions';
 import { classifyTier } from '../../services/financialTier';
 import { getUserTimeStatus } from '../../services/timeEngine';
 import { chatWithAI } from '../../services/aiService';
 import { COACHING_DAYS } from '../../data/coachingContent';
+import { getOnboardingState } from '../../services/storage';
 
 export default function DailyCoachingScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const ts = getUserTimeStatus(mockUser);
-  const metrics = computeFinancialMetrics(mockUser.dailyAnswers || {});
-  const tier = classifyTier(metrics, 100);
-  const dayContent = COACHING_DAYS[ts.currentDay] || COACHING_DAYS[9];
-  // Fix: tier 0 means "incomplete profile" and has no coaching content — clamp to tier 1 as minimum
-  const safeTier = Math.max(tier.tier, 1);
-  const tierContent = dayContent[safeTier] || dayContent[1];
 
+  const [userData, setUserData] = useState(null);
   const [answer, setAnswer] = useState('');
   const [aiTip, setAiTip] = useState('');
   const [loadingTip, setLoadingTip] = useState(false);
-  const [done, setDone] = useState(!!mockUser.dailyAnswers?.[ts.currentDay]?._coaching);
+  const [done, setDone] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const mountedRef = useRef(true);
+
+  const state = userData || {};
+  const userObj = { registrationDate: state.startDate || new Date().toISOString(), dailyAnswers: state };
+  const ts = getUserTimeStatus(userObj);
+  const metrics = computeFinancialMetrics(state);
+  const tier = classifyTier(metrics, 100);
+  const dayContent = COACHING_DAYS[ts.currentDay] || COACHING_DAYS[9];
+  const safeTier = Math.max(tier.tier, 1);
+  const tierContent = dayContent[safeTier] || dayContent[1];
 
   useEffect(() => {
     mountedRef.current = true;
     Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }).start();
-    if (!aiTip) loadTodayTip();
+    getOnboardingState().then(s => {
+      if (!mountedRef.current) return;
+      setUserData(s);
+      setDone(!!s?.[ts.currentDay]?._coaching);
+      loadTodayTip(s);
+    });
     return () => { mountedRef.current = false; };
   }, []);
 
-  async function loadTodayTip() {
+  async function loadTodayTip(s) {
+    if (!s) return;
     setLoadingTip(true);
-    const prompt = `בהתבסס על פרופיל המשתמש, תן טיפ פיננסי אחד קצר (3-4 משפטים) רלוונטי ל"${tierContent.topic}". ישיר, מעשי, מותאם לשלב ${tier.label}.`;
+    const realUserObj = { registrationDate: s.startDate || new Date().toISOString(), dailyAnswers: s };
+    const realMetrics = computeFinancialMetrics(s);
+    const realTier = classifyTier(realMetrics, 100);
+    const safeTierReal = Math.max(realTier.tier, 1);
+    const realTs = getUserTimeStatus(realUserObj);
+    const realDayContent = COACHING_DAYS[realTs.currentDay] || COACHING_DAYS[9];
+    const realTierContent = realDayContent[safeTierReal] || realDayContent[1];
+    const prompt = `בהתבסס על פרופיל המשתמש, תן טיפ פיננסי אחד קצר (3-4 משפטים) רלוונטי ל"${realTierContent.topic}". ישיר, מעשי, מותאם לשלב ${realTier.label}.`;
     try {
-      await chatWithAI(prompt, mockUser, (partial) => {
+      await chatWithAI(prompt, realUserObj, (partial) => {
         if (mountedRef.current) setAiTip(partial);
       });
     } catch {
-      if (mountedRef.current) setAiTip(tierContent.fallbackTip);
+      if (mountedRef.current) setAiTip(realTierContent.fallbackTip);
     }
     if (mountedRef.current) setLoadingTip(false);
   }
@@ -83,6 +99,14 @@ export default function DailyCoachingScreen({ navigation }) {
             <Text style={[styles.tierPillText, { color: tier.color }]}>{tier.emoji} {tier.label}</Text>
           </View>
         </View>
+
+        {/* Day 18 milestone */}
+        {ts.currentDay === 18 && (
+          <View style={styles.milestoneCard}>
+            <Text style={styles.milestoneTitle}>🏁 מחצית הדרך — יום 18/30</Text>
+            <Text style={styles.milestoneText}>עברת את הנקודה הקשה ביותר. 12 יום קדימה ופרס ₪45,000 מחכה לך.</Text>
+          </View>
+        )}
 
         {/* Topic */}
         <Text style={styles.topic}>{tierContent.topic}</Text>
@@ -155,6 +179,10 @@ export default function DailyCoachingScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0A0A0A' },
   content: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 50 },
+
+  milestoneCard: { backgroundColor: '#0A1A0A', borderRadius: 14, padding: 16, marginBottom: 16, borderWidth: 1.5, borderColor: '#27AE6044' },
+  milestoneTitle: { color: '#27AE60', fontSize: 14, fontWeight: '900', marginBottom: 6 },
+  milestoneText: { color: '#A0D0A0', fontSize: 14, lineHeight: 20, textAlign: 'right' },
 
   header: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 24 },
   backBtn: { padding: 8 },

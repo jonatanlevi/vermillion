@@ -69,7 +69,8 @@ export default function WelcomeScreen({ navigation }) {
               try {
                 setLoading(true);
                 await signInWithGoogle();
-                navigation.navigate('CompleteProfile');
+                // Web: full-page redirect to Google — never reaches here.
+                // Native: AuthProvider remounts stack (key auth) — initialRoute follows profile; no manual navigate.
               } catch (e) {
                 console.error('Google sign-in error:', e);
                 setLoading(false);

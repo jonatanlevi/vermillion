@@ -4,6 +4,7 @@ import {
   KeyboardAvoidingView, Platform, ScrollView, Animated, Modal, FlatList,
 } from 'react-native';
 import { useLanguage } from '../../context/LanguageContext';
+import { useAuth } from '../../context/AuthContext';
 import { saveProfile, saveFinancialData } from '../../services/storage';
 
 /* ─── Country codes ─── */
@@ -76,6 +77,7 @@ function CountryPicker({ visible, onSelect, onClose, title }) {
 /* ─── Main Screen ─── */
 export default function CompleteProfileScreen({ navigation }) {
   const { t } = useLanguage();
+  const { reloadProfile } = useAuth();
   const [values,  setValues]  = useState({ firstName:'', lastName:'', dobD:'', dobM:'', dobY:'', idNumber:'', phone:'' });
   const [errors,  setErrors]  = useState({});
   const [touched, setTouched] = useState({});
@@ -150,13 +152,16 @@ export default function CompleteProfileScreen({ navigation }) {
     if (today.getMonth() < dob.getMonth() ||
         (today.getMonth() === dob.getMonth() && today.getDate() < dob.getDate())) age--;
 
+    const fullName = `${values.firstName} ${values.lastName}`.trim();
     Promise.all([
-      saveProfile({ firstName: values.firstName, lastName: values.lastName, phone: `${country.dial}${values.phone}` }),
+      saveProfile({ name: fullName, onboarding_complete: true }),
       saveFinancialData({ age }),
-    ]).then(() => {
+    ]).then(async () => {
+      await reloadProfile?.();
       setLoading(false);
       navigation.navigate('AvatarAppearance');
-    }).catch(() => {
+    }).catch(async () => {
+      await reloadProfile?.();
       setLoading(false);
       navigation.navigate('AvatarAppearance');
     });

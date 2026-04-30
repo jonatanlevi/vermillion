@@ -87,7 +87,7 @@ function MainTabs() {
 }
 
 export default function AppNavigator() {
-  const { user, loading } = useAuth();
+  const { user, profile, loading } = useAuth();
 
   if (loading) {
     return (
@@ -97,9 +97,15 @@ export default function AppNavigator() {
     );
   }
 
+  const authInitial = profile?.onboarding_complete ? 'MainTabs' : 'CompleteProfile';
+
   return (
     <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false, animation: 'fade' }}>
+      <Stack.Navigator
+        key={user ? 'auth' : 'guest'}
+        initialRouteName={user ? authInitial : 'Splash'}
+        screenOptions={{ headerShown: false, animation: 'fade' }}
+      >
         {user ? (
           <>
             <Stack.Screen name="MainTabs"          component={MainTabs} />

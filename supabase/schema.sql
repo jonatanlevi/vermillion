@@ -12,9 +12,13 @@ create table if not exists public.profiles (
   avatar_style    jsonb       default '{}',
   subscription    text        default 'free' check (subscription in ('free', 'premium')),
   lang            text        default 'he'   check (lang in ('he', 'en', 'ru')),
+  onboarding_complete boolean default false,
   joined_at       timestamptz default now(),
   updated_at      timestamptz default now()
 );
+
+-- Existing DBs (before this column): run once in SQL Editor if missing
+alter table public.profiles add column if not exists onboarding_complete boolean default false;
 
 alter table public.profiles enable row level security;
 
@@ -135,15 +139,13 @@ drop policy if exists "manage own logs" on public.daily_logs;
 create policy "manage own logs" on public.daily_logs for all using (auth.uid() = user_id);
 
 -- ─── Auto-create profile on sign-up ───────────────────────
+-- NOTE: Only id + email from auth — ignore Google display name/avatar until the user
+-- completes CompleteProfileScreen. Routing uses profile.onboarding_complete (see AppNavigator).
 create or replace function public.handle_new_user()
 returns trigger as $$
 begin
-  insert into public.profiles (id, email, name)
-  values (
-    new.id,
-    new.email,
-    coalesce(new.raw_user_meta_data->>'full_name', split_part(new.email, '@', 1))
-  )
+  insert into public.profiles (id, email)
+  values (new.id, new.email)
   on conflict (id) do nothing;
   return new;
 end;

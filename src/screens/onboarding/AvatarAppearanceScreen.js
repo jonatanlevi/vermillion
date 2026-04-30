@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage } from '../../context/LanguageContext';
 
 export default function AvatarAppearanceScreen({ navigation }) {
   const { t } = useLanguage();
+  const insets = useSafeAreaInsets();
   const QUESTIONS = t.avatarQuestions;
 
   const [answers, setAnswers] = useState({});
@@ -39,7 +41,7 @@ export default function AvatarAppearanceScreen({ navigation }) {
       }).join(' · ');
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top + 16 }]}>
 
       {/* Progress */}
       <View style={styles.header}>
@@ -57,6 +59,7 @@ export default function AvatarAppearanceScreen({ navigation }) {
       {/* Step label */}
       <View style={styles.stepLabel}>
         <Text style={styles.stepBadge}>{t.avatarStepBadge}</Text>
+        <Text style={styles.stepExplain}>האווטר שלך ישתנה חזותית לפי הטייר הפיננסי שלך — ביום 8 תראה מי אתה באמת</Text>
       </View>
 
       {/* Avatar preview */}
@@ -95,7 +98,7 @@ export default function AvatarAppearanceScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0A0A0A', paddingTop: 56, paddingHorizontal: 24 },
+  container: { flex: 1, backgroundColor: '#0A0A0A', paddingHorizontal: 24 },
 
   header: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 24 },
   back: { color: '#555', fontSize: 22 },
@@ -106,6 +109,7 @@ const styles = StyleSheet.create({
 
   stepLabel: { marginBottom: 24 },
   stepBadge: { color: '#C0392B', fontSize: 12, fontWeight: '700', letterSpacing: 2 },
+  stepExplain: { color: '#444', fontSize: 12, marginTop: 6, lineHeight: 18 },
 
   avatarPreview: { alignItems: 'center', marginBottom: 32 },
   avatarCircle: {

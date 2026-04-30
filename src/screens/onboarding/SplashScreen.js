@@ -31,12 +31,13 @@ export default function SplashScreen({ navigation }) {
       if (navigated) return;
       navigated = true;
       if (session?.user) {
-        const { data: profile } = await supabase
+        const { data: profile, error } = await supabase
           .from('profiles')
-          .select('name')
+          .select('onboarding_complete')
           .eq('id', session.user.id)
           .maybeSingle();
-        navigation.replace(profile?.name ? 'MainTabs' : 'CompleteProfile');
+        const done = !error && profile?.onboarding_complete === true;
+        navigation.replace(done ? 'MainTabs' : 'CompleteProfile');
       } else {
         navigation.replace('Welcome');
       }

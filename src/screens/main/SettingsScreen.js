@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { mockUser } from '../../mock/data';
+import { useAuth } from '../../context/AuthContext';
 import { getAIStatus, resetConversation } from '../../services/aiService';
-import { getUserTimeStatus } from '../../services/timeEngine';
 import { CONFIG } from '../../config';
 
 const AI_MODEL_ROWS = [
@@ -41,9 +40,8 @@ function Divider() {
 
 export default function SettingsScreen({ navigation }) {
   const insets = useSafeAreaInsets();
+  const { profile, signOut, deleteAccount } = useAuth();
   const [aiOnline, setAiOnline] = useState(null);
-  const ts = getUserTimeStatus(mockUser);
-  const isPremium = mockUser.subscription === 'premium';
 
   useEffect(() => {
     getAIStatus().then(setAiOnline);
@@ -56,27 +54,30 @@ export default function SettingsScreen({ navigation }) {
     aiOnline === null ? '#888' : aiOnline ? '#4CAF50' : '#F39C12';
 
   const handleCancelSubscription = () => {
-    Alert.alert(
-      'ביטול מנוי',
-      'האם לבטל את המנוי? פעולה זו תיכנס לתוקף בסוף תקופת החיוב.',
-      [{ text: 'ביטול', style: 'cancel' }, { text: 'אישור', style: 'destructive' }]
-    );
+    if (Platform.OS === 'web') window.alert('ביטול מנוי יתאפשר בגרסה הבאה.');
   };
 
   const handleResetQuestionnaire = () => {
-    Alert.alert('איפוס', 'השאלון יאופס בגרסה הבאה');
+    if (Platform.OS === 'web') window.alert('איפוס השאלון יתאפשר בגרסה הבאה.');
   };
 
   const handleClearChat = () => {
     resetConversation();
-    Alert.alert('', 'היסטוריית השיחה נמחקה.');
+    if (Platform.OS === 'web') window.alert('היסטוריית השיחה נמחקה.');
   };
 
   const handleLogout = () => {
-    Alert.alert('יציאה מהחשבון', 'האם אתה בטוח?', [
-      { text: 'ביטול', style: 'cancel' },
-      { text: 'יציאה', style: 'destructive', onPress: () => navigation.replace('Splash') },
-    ]);
+    const confirmed = Platform.OS === 'web'
+      ? window.confirm('יציאה מהחשבון — האם אתה בטוח?')
+      : true;
+    if (confirmed) signOut();
+  };
+
+  const handleDeleteAccount = () => {
+    const confirmed = Platform.OS === 'web'
+      ? window.confirm('מחיקת חשבון לצמיתות — כל הנתונים יימחקו. האם אתה בטוח?')
+      : true;
+    if (confirmed) deleteAccount();
   };
 
   return (
@@ -92,13 +93,9 @@ export default function SettingsScreen({ navigation }) {
 
         <SectionHeader title="חשבון" />
         <View style={s.card}>
-          <SettingRow label="שם" value={mockUser.name} />
+          <SettingRow label="שם" value={profile?.name || '—'} />
           <Divider />
-          <SettingRow
-            label="מנוי"
-            value={isPremium ? 'פרמיום ✓' : 'חינמי'}
-            valueStyle={{ color: isPremium ? '#4CAF50' : '#888888' }}
-          />
+          <SettingRow label="אימייל" value={profile?.email || '—'} />
           <Divider />
           <SettingRow
             label="ביטול מנוי"
@@ -139,8 +136,6 @@ export default function SettingsScreen({ navigation }) {
             valueStyle={s.redValue}
             onPress={handleResetQuestionnaire}
           />
-          <Divider />
-          <SettingRow label="שלב נוכחי" value={ts.phase} />
         </View>
 
         <SectionHeader title="אודות" />
@@ -152,6 +147,10 @@ export default function SettingsScreen({ navigation }) {
 
         <TouchableOpacity style={s.logoutBtn} onPress={handleLogout}>
           <Text style={s.logoutText}>יציאה מהחשבון</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={s.deleteBtn} onPress={handleDeleteAccount}>
+          <Text style={s.deleteText}>מחק חשבון לצמיתות</Text>
         </TouchableOpacity>
 
         <Text style={s.footer}>₪79/חודש · ₪749/שנה</Text>
@@ -255,6 +254,19 @@ const s = StyleSheet.create({
     color: '#C0392B',
     fontSize: 16,
     fontWeight: '600',
+  },
+  deleteBtn: {
+    marginTop: 12,
+    borderRadius: 14,
+    paddingVertical: 16,
+    alignItems: 'center',
+    minHeight: 48,
+    justifyContent: 'center',
+  },
+  deleteText: {
+    color: '#444',
+    fontSize: 13,
+    fontWeight: '500',
   },
   footer: {
     color: '#444444',

@@ -81,9 +81,12 @@ async function dbUpsert(table, userId, payload) {
 }
 
 // ─── Commitment ─────────────────────────────────────────────
-export async function saveCommitmentTime() {
+export async function saveCommitmentTime(hour, minute) {
   const userId = await uid();
   const now = new Date();
+  if (hour !== undefined && minute !== undefined) {
+    now.setHours(hour, minute, 0, 0);
+  }
   const payload = {
     committed_at: now.toISOString(),
     streak_days: 0,
@@ -131,6 +134,9 @@ function getMsUntilMidnight() {
 }
 
 // ─── Profile ───────────────────────────────────────────────
+// profiles table columns: id, email, name, avatar_style, subscription, lang, onboarding_complete, joined_at, updated_at
+const PROFILE_DB_COLUMNS = ['name', 'email', 'avatar_style', 'subscription', 'lang', 'onboarding_complete'];
+
 export async function saveProfile(data) {
   const userId = await uid();
   if (isLocalUserId(userId)) {
@@ -138,8 +144,12 @@ export async function saveProfile(data) {
     await localSet(L.PROF, { ...prev, ...data, updated_at: new Date().toISOString() });
     return;
   }
+  const dbPayload = {};
+  for (const col of PROFILE_DB_COLUMNS) {
+    if (data[col] !== undefined) dbPayload[col] = data[col];
+  }
   await supabase.from('profiles').upsert(
-    { id: userId, ...data, updated_at: new Date().toISOString() },
+    { id: userId, ...dbPayload, updated_at: new Date().toISOString() },
     { onConflict: 'id' }
   );
 }

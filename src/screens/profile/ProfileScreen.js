@@ -5,7 +5,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import { getFinancialData, getOnboardingState, clearAllData } from '../../services/storage';
+import { getFinancialData, getOnboardingState } from '../../services/storage';
+import { useAuth } from '../../context/AuthContext';
 import { computeSkills, DAY_PLAN } from '../../services/onboardingAI';
 
 const TIER_LABELS = ['עיוור', 'ייצוב', 'שרידות', 'בנייה', 'אופטימיזציה'];
@@ -87,6 +88,7 @@ function LeaderboardModal({ visible, onClose }) {
 
 export default function ProfileScreen({ navigation }) {
   const insets = useSafeAreaInsets();
+  const { profile, signOut } = useAuth();
   const [financial, setFinancial]   = useState({});
   const [onboarding, setOnboarding] = useState({});
   const [skills, setSkills]         = useState(null);
@@ -162,7 +164,7 @@ export default function ProfileScreen({ navigation }) {
           <Text style={styles.avatarLetter}>V</Text>
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={styles.userName}>VerMillion שלך</Text>
+          <Text style={styles.userName}>{profile?.name || 'VerMillion שלך'}</Text>
           <View style={[styles.tierBadge, { backgroundColor: tierColor + '22', borderColor: tierColor + '66' }]}>
             <Text style={[styles.tierLabel, { color: tierColor }]}>{TIER_LABELS[tier]}</Text>
           </View>
@@ -170,6 +172,9 @@ export default function ProfileScreen({ navigation }) {
         <TouchableOpacity style={styles.lbBtn} onPress={() => setShowLB(true)}>
           <Text style={styles.lbBtnIcon}>🏆</Text>
           <Text style={styles.lbBtnText}>לוח זוכים</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.settingsIcon} onPress={() => navigation.navigate('Settings')}>
+          <Text style={styles.settingsIconText}>⚙️</Text>
         </TouchableOpacity>
       </View>
 
@@ -267,15 +272,8 @@ export default function ProfileScreen({ navigation }) {
         </View>
       </View>
 
-      {/* Logout */}
-      <TouchableOpacity
-        style={styles.logoutBtn}
-        onPress={async () => {
-          await clearAllData();
-          navigation.getParent()?.replace('MainTabs');
-        }}
-      >
-        <Text style={styles.logoutText}>איפוס נתונים (dev)</Text>
+      <TouchableOpacity style={styles.logoutBtn} onPress={signOut}>
+        <Text style={styles.logoutText}>יציאה מהחשבון</Text>
       </TouchableOpacity>
 
       <LeaderboardModal visible={showLB} onClose={() => setShowLB(false)} />
@@ -300,6 +298,8 @@ const styles = StyleSheet.create({
   lbBtn: { alignItems: 'center', gap: 3, padding: 8 },
   lbBtnIcon: { fontSize: 22 },
   lbBtnText: { color: '#888', fontSize: 10, fontWeight: '600' },
+  settingsIcon: { padding: 8 },
+  settingsIconText: { fontSize: 22 },
 
   scoreCard: {
     flexDirection: 'row', backgroundColor: '#111', borderRadius: 16,
@@ -350,8 +350,8 @@ const styles = StyleSheet.create({
   achieveIcon:  { fontSize: 24, marginBottom: 6 },
   achieveLabel: { color: '#888', fontSize: 10, fontWeight: '600' },
 
-  logoutBtn: { alignItems: 'center', paddingVertical: 12, marginTop: 8 },
-  logoutText:{ color: '#2A2A2A', fontSize: 12 },
+  logoutBtn: { alignItems: 'center', paddingVertical: 14, marginTop: 8 },
+  logoutText:{ color: '#C0392B', fontSize: 15, fontWeight: '600' },
 
   // Modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'flex-end' },

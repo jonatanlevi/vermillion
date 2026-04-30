@@ -20,7 +20,8 @@ export const supabase = createClient(SUPABASE_URL || '', SUPABASE_ANON || '', {
     autoRefreshToken:   true,
     persistSession:     true,
     detectSessionInUrl: Platform.OS === 'web',
-    flowType:           Platform.OS === 'web' ? 'implicit' : 'pkce',
+    // Web OAuth (Vercel / SPA): Supabase returns ?code=… — PKCE is required. Implicit flow breaks login.
+    flowType:           'pkce',
   },
 });
 
