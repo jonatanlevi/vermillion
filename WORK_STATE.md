@@ -89,3 +89,4 @@ npx expo start
 - **2026-04-30 (תיקון מסלול):** `onboarding_complete` רק אחרי **ModelDownload**; `CompleteProfile` שומר `onboarding_complete: false` + **`profile_intake_complete: true`** (רק אחרי טופס ההרשמה שלנו — לא מזוהה מגוגל). `getAuthLandingRoute`: MainTabs | AvatarAppearance (אם intake) | CompleteProfile.
 - **SQL:** להריץ ב־Supabase אם העמודה חסרה: `alter table public.profiles add column if not exists profile_intake_complete boolean default false;`
 - **2026-04-30 (הקשחת flow):** VerMillion לא מדלג אוטומטית; מסך מעבר מפורש למשחק ראשון+Timer כדי לשמור סדר חווייתי.
+- **2026-04-30 (תיקון הרשמה):** שמירת email בפרופיל הוקשחה: `ensureProfileExists` עושה upsert `id+email`, trigger `handle_new_user` משלים email גם ב-conflict, ו-`CompleteProfile` לא ממשיך ל-Avatar אם שמירה נכשלה.

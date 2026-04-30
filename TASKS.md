@@ -45,6 +45,7 @@
 - [x] **שער רישום** — `registrationGate.js` + Splash + `AppNavigator` מסונכרנים.
 - [x] **הקשחת Google ≠ הרשמה** — `profile_intake_complete` נוסף ל־schema ול־gate; שם מגוגל לא מדלג על CompleteProfile.
 - [x] **Flow מוצר מחייב** — VerMillion שלב מפורש לפני משחק ראשון, עם CTA ל־Games ולחצן Timer.
+- [x] **תיקון email בפרופיל** — `profiles.email` מתמלא ב-upsert מהאפליקציה וב-trigger ב-conflict; CompleteProfile עוצר על שגיאת שמירה.
 - [x] **OAuth web** — PKCE ב־`supabase.js`; `loadProfile` עם טיפול בשגיאות.
 - [x] **Deploy Vercel** — `deploy.bat` / `deploy.ps1`, `vercel.json`, alias קבוע.
 - [x] **סכימת profiles** — `onboarding_complete` + `profile_intake_complete`, טריגר id+email בלבד (ב־`schema.sql`).

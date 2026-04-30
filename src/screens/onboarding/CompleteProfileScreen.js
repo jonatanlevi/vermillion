@@ -85,6 +85,7 @@ export default function CompleteProfileScreen({ navigation }) {
   const [country, setCountry] = useState(COUNTRIES[0]);
   const [showPicker, setShowPicker] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   const shakeAnim = useRef(new Animated.Value(0)).current;
 
@@ -142,6 +143,7 @@ export default function CompleteProfileScreen({ navigation }) {
     setErrors(errs);
     if (Object.keys(errs).length > 0) { shake(); return; }
 
+    setSubmitError('');
     setLoading(true);
 
     const year  = parseInt(values.dobY, 10);
@@ -162,6 +164,7 @@ export default function CompleteProfileScreen({ navigation }) {
     Promise.all([
       saveProfile({
         name: fullName,
+        email: user?.email || undefined,
         first_name: values.firstName.trim(),
         last_name: values.lastName.trim(),
         phone: phoneE164,
@@ -176,11 +179,10 @@ export default function CompleteProfileScreen({ navigation }) {
       await reloadProfile?.();
       setLoading(false);
       navigation.navigate('AvatarAppearance');
-    }).catch(async () => {
-      markLocalProfileIntakeComplete(user?.id);
-      await reloadProfile?.();
+    }).catch(async (e) => {
+      console.error('[CompleteProfile] save failed:', e?.message || e);
       setLoading(false);
-      navigation.navigate('AvatarAppearance');
+      setSubmitError('שמירת הפרטים נכשלה. בדקו חיבור ונסו שוב.');
     });
   };
 
@@ -366,6 +368,7 @@ export default function CompleteProfileScreen({ navigation }) {
             {loading ? t.cpSaving : t.cpSubmit}
           </Text>
         </TouchableOpacity>
+        {!!submitError && <Text style={s.errorText}>{submitError}</Text>}
 
       </ScrollView>
 

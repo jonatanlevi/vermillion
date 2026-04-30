@@ -158,7 +158,9 @@ returns trigger as $$
 begin
   insert into public.profiles (id, email)
   values (new.id, new.email)
-  on conflict (id) do nothing;
+  on conflict (id) do update
+    set email = coalesce(public.profiles.email, excluded.email),
+        updated_at = now();
   return new;
 end;
 $$ language plpgsql security definer;

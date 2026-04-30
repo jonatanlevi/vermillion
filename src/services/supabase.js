@@ -57,17 +57,16 @@ export async function clearDeviceLocalIdentity() {
   await AsyncStorage.removeItem(LOCAL_USER_KEY);
 }
 
-async function ensureProfileExists(userId) {
-  if (isLocalUserId(userId)) return;
+async function ensureProfileExists(user) {
+  const userId = user?.id;
+  if (!userId || isLocalUserId(userId)) return;
   try {
-    const { data: existing } = await supabase
+    const payload = { id: userId };
+    if (user?.email) payload.email = user.email;
+    const { error } = await supabase
       .from('profiles')
-      .select('id')
-      .eq('id', userId)
-      .maybeSingle();
-    if (!existing) {
-      await supabase.from('profiles').insert({ id: userId });
-    }
+      .upsert(payload, { onConflict: 'id' });
+    if (error) throw error;
   } catch (e) {
     console.warn('[supabase] ensureProfileExists:', e?.message || e);
   }
@@ -93,7 +92,7 @@ export async function getOrCreateUser() {
 
     let user = session?.user;
     if (user) {
-      await ensureProfileExists(user.id);
+      await ensureProfileExists(user);
       return user;
     }
 
@@ -102,7 +101,7 @@ export async function getOrCreateUser() {
     user = data?.user;
     if (!user) throw new Error('Anonymous sign-in returned no user');
 
-    await ensureProfileExists(user.id);
+    await ensureProfileExists(user);
     return user;
   } catch (e) {
     console.warn(
