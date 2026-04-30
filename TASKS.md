@@ -1,72 +1,50 @@
-# VerMillion — TASKS.md
-> Backlog חי. עדכן אחרי כל task שמסתיים.
-> עדיפות: 🔴 קריטי | 🟡 חשוב | 🟢 שיפור
+# VerMillion — TASKS.md (תוכנית עבודה)
+
+> עדכן אחרי כל משימה שמסתיימת.  
+> עדיפות: **P0** קריטי לפני בטא | **P1** חשוב | **P2** שיפור
 
 ---
 
-## 🔴 קריטי — חייב לעבוד לפני Demo
+## P0 — אימות ובטא (עכשיו)
 
-- [x] **Games — Budget Battle** — החלקה על הוצאות שמור/קצץ עם PanResponder
-- [x] **Games — Financial Quiz** — 12 שאלות מותאמות tier, הסבר אחרי כל תשובה
-- [x] **ChallengeScreen — Premium gate** — paywall לmissing + attempts display + safe area
-- [ ] **SafeArea fix** — החלף `paddingTop: 60` ב-`useSafeAreaInsets()` בכל הscreens
-- [x] **Duplicate cleanup** — מחק `src/services/ai/` ✅
-- [x] **Connect aiPrompts + aiKnowledge** — aiService משתמש ב-buildSystemPrompt המלא עם few-shots + guardrails + knowledge base ✅
+- [ ] **בדיקת Auth בפרוד** — Google + מייל OTP על `vermillion-ashen.vercel.app`; וידוא Redirect URLs + Email provider ב־Supabase.
+- [ ] **אחרי מייל — זרימה מלאה** — CompleteProfile → אווטאר → Subscription/ModelDownload (אם רלוונטי) → MainTabs / VerMillion.
+- [ ] **DailyCoaching** — לממש שמירת השלמת יום (`TODO` ב־`DailyCoachingScreen.js`) כדי שלא יאבדו נתונים בריענון.
 
 ---
 
-## 🟡 חשוב — UX / Flow
+## P1 — UX / מוצר (Ghost + איכות)
 
-- [ ] **Settings Screen** — שפה, notifications, logout, subscription management
-- [ ] **Onboarding flow test** — עבור Splash→Register→Avatar→Subscription→Home מהתחלה
-- [ ] **Free user flow** — בדוק שהpaywall עובד נכון ב-3 נקודות (Home, AICoach, Challenge)
-- [ ] **ProfileReveal** — בדוק שgeneration עובד עם mockUser day 8
-- [ ] **DailyCoaching** — בדוק days 9-30 עם כל 4 tiers
-- [ ] **Score multiplier** — בדוק שdeviation calculation נכון
-- [ ] **Streak display** — בדוק שmissed days שוברים streak
-
----
-
-## 🟢 שיפורים — Quality & Polish
-
-- [ ] **Font**: הכנס Heebo (Google Fonts) לכל הטקסטים העבריים
-- [ ] **Animations**: הוסף micro-animations לbuttons + card reveals
-- [ ] **Haptics**: `expo-haptics` בפעולות חשובות (send message, complete task)
-- [ ] **Error boundaries**: wrap screens בerror boundaries
-- [ ] **Loading states**: skeleton screens במקום spinners ריקים
-- [ ] **Empty states**: תמונות/copy לscreens ריקים (leaderboard ריק, no messages)
+- [ ] **Ghost day-08 P0** — ChallengeScreen: שורת הסבר מעל שעון Personal Time; AICoach: ברכה עם `computeFinancialMetrics` (לא גנרית).
+- [ ] **SafeArea** — החלפת `paddingTop` קבוע ב־`useSafeAreaInsets()` במסכים שנותרו.
+- [ ] **Onboarding regression** — Splash → Welcome → Login/Register → OAuth/OTP → CompleteProfile → Avatar → אפליקציה (רשימת בדיקה ידנית).
+- [ ] **Settings** — שפה, התראות (עתידי), logout/delete כבר קיימים חלקית — לאחד ולוודא web.
+- [ ] **ProfileReveal** — בדיקה עם נתוני `getOnboardingState` אמיתיים (לא רק mock) ביום 8.
+- [ ] **Free vs Premium** — לוודא paywall בשלוש נקודות לפי המפרט הקיים.
 
 ---
 
-## 🔵 Future — Backend & Production
+## P2 — Polish
 
-- [ ] **Supabase** — auth + database + realtime leaderboard
-- [ ] **RevenueCat** — subscription management iOS + Android
-- [ ] **Push notifications** — daily reminder, streak alert
-- [ ] **Analytics** — Mixpanel/PostHog לfunnel analysis
-- [ ] **App Store** — prepare screenshots, metadata
-- [ ] **Privacy Policy** — חובה לApp Store
+- [ ] פונט Heebo לעברית.
+- [ ] Micro-animations, haptics בפעולות מפתח.
+- [ ] Error boundaries; skeleton במקום spinner ריק; empty states.
 
 ---
 
-## ✅ הושלם
+## Backend / עתיד
 
-- [x] Time engine (timeEngine.js) — currentDay, phase, deviation, multiplier
-- [x] Financial tier system (financialTier.js) — 4 tiers
-- [x] Mock AI fallback (mockAI.js) — keyword-based Hebrew responses
-- [x] Daily questions rewrite — 7 days lifestyle + financial
-- [x] computeFinancialMetrics — income, expenses, debt, netWorth, savingsRate
-- [x] HomeScreen — dynamic based on currentDay + phase + subscription
-- [x] AICoachScreen — Ollama status, error bubbles, streaming
-- [x] Ollama fix — localhost:11434
-- [x] Chinese hallucination guard — regex + fallback
-- [x] ProfileRevealScreen
-- [x] DailyCoachingScreen
-- [x] SubscriptionScreen
-- [x] PREMIUM_FEATURES + canUseFeature() in mock/data.js
-- [x] CLAUDE.md — project DNA
-- [x] TASKS.md — backlog חי
-- [x] AGENTS.md — roles + workflow
-- [x] scripts/coder.ps1 — coder agent launcher (qwen2.5-coder:7b)
-- [x] scripts/hebrew.ps1 — Hebrew content agent (qwen2.5:3b)
-- [x] scripts/task.ps1 — one-shot task runner
+- [ ] RevenueCat / IAP (`SubscriptionScreen` TODO).
+- [ ] Push, Analytics, App Store, Privacy Policy.
+
+---
+
+## הושלם לאחרונה (סמן ואל תמחק — היסטוריה)
+
+- [x] **Auth מחדש** — Google + מייל OTP; guest stack רק Splash/Welcome/Register/Login; ביטול כניסה מזויפת ל־MainTabs.
+- [x] **שער רישום** — `registrationGate.js` + Splash + `AppNavigator` מסונכרנים.
+- [x] **OAuth web** — PKCE ב־`supabase.js`; `loadProfile` עם טיפול בשגיאות.
+- [x] **Deploy Vercel** — `deploy.bat` / `deploy.ps1`, `vercel.json`, alias קבוע.
+- [x] **סכימת profiles** — `onboarding_complete`, טריגר id+email בלבד (ב־`schema.sql`).
+- [x] **Games** — Budget Battle, Financial Quiz (פריטים ישנים מ־TASKS המקורי).
+- [x] **aiService** — buildSystemPrompt + knowledge (נקי מ־`src/services/ai/` כפול).
