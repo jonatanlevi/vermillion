@@ -32,9 +32,19 @@ export function AuthProvider({ children }) {
 
   async function loadProfile(userId) {
     try {
-      const { data } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
-      setProfile(data ?? null);
-    } catch {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
+      if (error) {
+        console.warn('[auth] loadProfile:', error.message || error);
+        setProfile(null);
+      } else {
+        setProfile(data ?? null);
+      }
+    } catch (e) {
+      console.warn('[auth] loadProfile threw:', e?.message || e);
       setProfile(null);
     } finally {
       setLoading(false);

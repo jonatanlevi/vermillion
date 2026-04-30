@@ -4,6 +4,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useAuth } from '../context/AuthContext';
+import { isRegistrationComplete } from '../utils/registrationGate';
 
 import SplashScreen           from '../screens/onboarding/SplashScreen';
 import WelcomeScreen          from '../screens/onboarding/WelcomeScreen';
@@ -97,7 +98,7 @@ export default function AppNavigator() {
     );
   }
 
-  const authInitial = profile?.onboarding_complete ? 'MainTabs' : 'CompleteProfile';
+  const authInitial = isRegistrationComplete(profile) ? 'MainTabs' : 'CompleteProfile';
 
   return (
     <NavigationContainer>

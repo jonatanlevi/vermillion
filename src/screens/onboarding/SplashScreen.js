@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated } from 'react-native';
 import { supabase } from '../../services/supabase';
+import { isRegistrationComplete } from '../../utils/registrationGate';
 
 export default function SplashScreen({ navigation }) {
   const scale = useRef(new Animated.Value(0.7)).current;
@@ -33,10 +34,10 @@ export default function SplashScreen({ navigation }) {
       if (session?.user) {
         const { data: profile, error } = await supabase
           .from('profiles')
-          .select('onboarding_complete')
+          .select('name, onboarding_complete')
           .eq('id', session.user.id)
           .maybeSingle();
-        const done = !error && profile?.onboarding_complete === true;
+        const done = !error && isRegistrationComplete(profile);
         navigation.replace(done ? 'MainTabs' : 'CompleteProfile');
       } else {
         navigation.replace('Welcome');
