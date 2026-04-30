@@ -6,6 +6,7 @@ import {
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { saveProfile, saveFinancialData } from '../../services/storage';
+import { markLocalProfileIntakeComplete } from '../../utils/registrationGate';
 
 /* ─── Country codes ─── */
 const COUNTRIES = [
@@ -77,7 +78,7 @@ function CountryPicker({ visible, onSelect, onClose, title }) {
 /* ─── Main Screen ─── */
 export default function CompleteProfileScreen({ navigation }) {
   const { t } = useLanguage();
-  const { reloadProfile } = useAuth();
+  const { user, reloadProfile } = useAuth();
   const [values,  setValues]  = useState({ firstName:'', lastName:'', dobD:'', dobM:'', dobY:'', idNumber:'', phone:'' });
   const [errors,  setErrors]  = useState({});
   const [touched, setTouched] = useState({});
@@ -161,10 +162,12 @@ export default function CompleteProfileScreen({ navigation }) {
       }),
       saveFinancialData({ age }),
     ]).then(async () => {
+      markLocalProfileIntakeComplete(user?.id);
       await reloadProfile?.();
       setLoading(false);
       navigation.navigate('AvatarAppearance');
     }).catch(async () => {
+      markLocalProfileIntakeComplete(user?.id);
       await reloadProfile?.();
       setLoading(false);
       navigation.navigate('AvatarAppearance');
