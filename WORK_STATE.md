@@ -21,9 +21,9 @@
 
 1. **אורח (guest stack בלבד):** `Splash` → `Welcome` | `Register` | `Login` — **אין** יותר `MainTabs` / `CompleteProfile` באורח (מניעת דילוג על הרשמה).
 2. **התחברות:** Google (OAuth + PKCE) **או** מייל (Supabase `signInWithOtp` + `verifyEmailOtp` ב־`LoginScreen`).
-3. **אחרי סשן:** `AppNavigator` משתמש ב־`getAuthLandingRoute(profile)` — `CompleteProfile` → `AvatarAppearance` (אם יש שם אבל עדיין לא סיימו מסלול) → **`MainTabs`** רק כש־`onboarding_complete === true` (נקבע ב־**ModelDownload** לפני כניסה לאפליקציה).
-4. **שער רישום:** `registrationGate.js` — `onboarding_complete` **לא** נדלק ב־CompleteProfile (רק `false` שם); סיום מלא = שם מהטופס + דגל אחרי מסך המודל.
-5. **אחרי CompleteProfile:** אווטאר (`AvatarAppearance` → …) ואז שאר האונבורדינג לפי ניווט קיים; טאב מרכזי **VerMillion**.
+3. **אחרי סשן:** `AppNavigator` משתמש ב־`getAuthLandingRoute(profile)` — `CompleteProfile` (אם intake לא הושלם) → `AvatarAppearance` (אם intake הושלם) → **`MainTabs`** רק כש־`onboarding_complete === true`.
+4. **שער רישום:** `registrationGate.js` — `profile_intake_complete` נקבע **רק** אחרי טופס ההרשמה שלנו (לא מגוגל), ו־`onboarding_complete` נקבע רק ב־**ModelDownload** לפני כניסה לאפליקציה.
+5. **סדר מאולץ במסלול ראשון:** Auth → CompleteProfile → Avatar → ModelDownload → VerMillion (מסך מעבר) → Games → GlassButton Timer.
 
 **Supabase (חובה לבדיקת מייל):** Authentication → Providers → **Email** מופעל; Redirect URLs כוללים את דומיין ה־Vercel.
 
@@ -31,10 +31,10 @@
 
 ## Git (אחרונים על `main`)
 
-- `98e9655` — זרימת Google או מייל OTP; הסרת טלפון/מזויף; stack אורח מצומצם.
-- `9ff852c` — שער `isRegistrationComplete` (שם + דגל).
-- `b687cf5` — PKCE web, Splash, deploy Vercel, `schema` / טריגר פרופיל.
-- `719e89f` — ProfileReveal יום 8.
+- `0c848d1` — VerMillion מציג שלב מעבר מפורש לפני משחק ראשון (לא קפיצה אוטומטית).
+- `5406e08` — אכיפת journey ראשון: VerMillion → Games Timer לפני שאלות יום 1.
+- `a2eb0d2` — הקשחת gate: דרישת `profile_intake_complete` לגישה ל־MainTabs.
+- `54ed9e6` — הוספת `profile_intake_complete` ל־schema + gate (Google לא מדלג על טופס).
 
 ענף: `main`, עץ עבודה נקי מול `origin/main` (נכון לסריקה).
 
@@ -50,7 +50,7 @@
 | `src/services/supabase.js` | לקוח Supabase, `flowType: 'pkce'`, ghost/local |
 | `src/services/storage.js` | פרופיל / onboarding / fallback |
 | `src/screens/onboarding/SplashScreen.js` | אותו שער רישום כמו Navigator |
-| `supabase/schema.sql` | `profiles` + `onboarding_complete`, טריגר `handle_new_user` (id+email בלבד) |
+| `supabase/schema.sql` | `profiles` + `onboarding_complete` + `profile_intake_complete`, טריגר `handle_new_user` (id+email בלבד) |
 
 ---
 
@@ -63,7 +63,7 @@
 
 ## המלצות תפעול (לא חוסם אם חסר)
 
-- להריץ / לעדכן `supabase/schema.sql` בפרויקט Supabase (עמודת `onboarding_complete` וכו').
+- להריץ / לעדכן `supabase/schema.sql` בפרויקט Supabase (כולל `profile_intake_complete`).
 - Ollama: `ollama pull` למודלים ב־`src/config.js`.
 - דוח Ghost יום 8 — P0 UX (ChallengeScreen הסבר שעון; AICoach ברכה עם מספרים) — ראה `ghost-feedback/` (ב־`.gitignore`).
 
@@ -88,3 +88,4 @@ npx expo start
 - **2026-04-30 (סריקה):** תיעוד מצב מלא — Auth מייל+גוגל, stack אורח, שער רישום, TODOים, Vercel כפרודקשן.
 - **2026-04-30 (תיקון מסלול):** `onboarding_complete` רק אחרי **ModelDownload**; `CompleteProfile` שומר `onboarding_complete: false` + **`profile_intake_complete: true`** (רק אחרי טופס ההרשמה שלנו — לא מזוהה מגוגל). `getAuthLandingRoute`: MainTabs | AvatarAppearance (אם intake) | CompleteProfile.
 - **SQL:** להריץ ב־Supabase אם העמודה חסרה: `alter table public.profiles add column if not exists profile_intake_complete boolean default false;`
+- **2026-04-30 (הקשחת flow):** VerMillion לא מדלג אוטומטית; מסך מעבר מפורש למשחק ראשון+Timer כדי לשמור סדר חווייתי.

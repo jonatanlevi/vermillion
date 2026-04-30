@@ -7,8 +7,8 @@
 
 ## P0 — אימות ובטא (עכשיו)
 
-- [ ] **בדיקת Auth בפרוד** — Google + מייל OTP על `vermillion-ashen.vercel.app`; וידוא Redirect URLs + Email provider ב־Supabase.
-- [ ] **אחרי מייל — זרימה מלאה** — CompleteProfile → אווטאר → Subscription/ModelDownload (אם רלוונטי) → MainTabs / VerMillion.
+- [ ] **בדיקת Auth בפרוד** — Google + מייל OTP על `vermillion-ashen.vercel.app`; וידוא Redirect URLs + Email provider ב־Supabase + הרצת SQL ל־`profile_intake_complete`.
+- [ ] **בדיקת סדר flow מחייב** — Auth → CompleteProfile → Avatar → ModelDownload → VerMillion → Games → Timer (למשתמש חדש ונקי).
 - [ ] **DailyCoaching** — לממש שמירת השלמת יום (`TODO` ב־`DailyCoachingScreen.js`) כדי שלא יאבדו נתונים בריענון.
 
 ---
@@ -43,8 +43,10 @@
 
 - [x] **Auth מחדש** — Google + מייל OTP; guest stack רק Splash/Welcome/Register/Login; ביטול כניסה מזויפת ל־MainTabs.
 - [x] **שער רישום** — `registrationGate.js` + Splash + `AppNavigator` מסונכרנים.
+- [x] **הקשחת Google ≠ הרשמה** — `profile_intake_complete` נוסף ל־schema ול־gate; שם מגוגל לא מדלג על CompleteProfile.
+- [x] **Flow מוצר מחייב** — VerMillion שלב מפורש לפני משחק ראשון, עם CTA ל־Games ולחצן Timer.
 - [x] **OAuth web** — PKCE ב־`supabase.js`; `loadProfile` עם טיפול בשגיאות.
 - [x] **Deploy Vercel** — `deploy.bat` / `deploy.ps1`, `vercel.json`, alias קבוע.
-- [x] **סכימת profiles** — `onboarding_complete`, טריגר id+email בלבד (ב־`schema.sql`).
+- [x] **סכימת profiles** — `onboarding_complete` + `profile_intake_complete`, טריגר id+email בלבד (ב־`schema.sql`).
 - [x] **Games** — Budget Battle, Financial Quiz (פריטים ישנים מ־TASKS המקורי).
 - [x] **aiService** — buildSystemPrompt + knowledge (נקי מ־`src/services/ai/` כפול).
