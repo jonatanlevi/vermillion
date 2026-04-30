@@ -34,7 +34,7 @@ export default function SplashScreen({ navigation }) {
       if (session?.user) {
         const { data: profile, error } = await supabase
           .from('profiles')
-          .select('name, onboarding_complete')
+          .select('name, onboarding_complete, profile_intake_complete')
           .eq('id', session.user.id)
           .maybeSingle();
         const next = !error && profile ? getAuthLandingRoute(profile) : 'CompleteProfile';

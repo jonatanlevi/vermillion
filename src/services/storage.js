@@ -134,8 +134,8 @@ function getMsUntilMidnight() {
 }
 
 // ─── Profile ───────────────────────────────────────────────
-// profiles table columns: id, email, name, avatar_style, subscription, lang, onboarding_complete, joined_at, updated_at
-const PROFILE_DB_COLUMNS = ['name', 'email', 'avatar_style', 'subscription', 'lang', 'onboarding_complete'];
+// profiles table columns: id, email, name, avatar_style, subscription, lang, onboarding_complete, profile_intake_complete, joined_at, updated_at
+const PROFILE_DB_COLUMNS = ['name', 'email', 'avatar_style', 'subscription', 'lang', 'onboarding_complete', 'profile_intake_complete'];
 
 export async function saveProfile(data) {
   const userId = await uid();

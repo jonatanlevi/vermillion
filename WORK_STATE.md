@@ -86,4 +86,5 @@ npx expo start
 - **2026-04-29:** ProfileReveal יום 8; `DAYS_AGO` לבדיקה.
 - **2026-04-30 (בוקר):** Vercel deploy scripts; PKCE; Splash; סכימה.
 - **2026-04-30 (סריקה):** תיעוד מצב מלא — Auth מייל+גוגל, stack אורח, שער רישום, TODOים, Vercel כפרודקשן.
-- **2026-04-30 (תיקון מסלול):** `onboarding_complete` רק אחרי **ModelDownload**; `CompleteProfile` שומר `false`; `getAuthLandingRoute` מכוון ל־AvatarAppearance כשיש שם ועדיין לא סיימו — מונע Google → VerMillion בלי אווטאר.
+- **2026-04-30 (תיקון מסלול):** `onboarding_complete` רק אחרי **ModelDownload**; `CompleteProfile` שומר `onboarding_complete: false` + **`profile_intake_complete: true`** (רק אחרי טופס ההרשמה שלנו — לא מזוהה מגוגל). `getAuthLandingRoute`: MainTabs | AvatarAppearance (אם intake) | CompleteProfile.
+- **SQL:** להריץ ב־Supabase אם העמודה חסרה: `alter table public.profiles add column if not exists profile_intake_complete boolean default false;`
