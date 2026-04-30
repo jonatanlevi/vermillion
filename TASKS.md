@@ -46,6 +46,9 @@
 - [x] **הקשחת Google ≠ הרשמה** — `profile_intake_complete` נוסף ל־schema ול־gate; שם מגוגל לא מדלג על CompleteProfile.
 - [x] **Flow מוצר מחייב** — VerMillion שלב מפורש לפני משחק ראשון, עם CTA ל־Games ולחצן Timer.
 - [x] **תיקון email בפרופיל** — `profiles.email` מתמלא ב-upsert מהאפליקציה וב-trigger ב-conflict; CompleteProfile עוצר על שגיאת שמירה.
+- [x] **שמירת פרטי Intake מלאים** — `first_name`, `last_name`, `phone`, `date_of_birth`, `id_number_last4` נשמרים ל-`profiles`.
+- [x] **מניעת loop אחרי refresh** — fallback מקומי ל-`profile_intake_complete`.
+- [x] **תיקון UI טופס** — שדות שם בשורות נפרדות ותיקוני RTL באנדרואיד.
 - [x] **OAuth web** — PKCE ב־`supabase.js`; `loadProfile` עם טיפול בשגיאות.
 - [x] **Deploy Vercel** — `deploy.bat` / `deploy.ps1`, `vercel.json`, alias קבוע.
 - [x] **סכימת profiles** — `onboarding_complete` + `profile_intake_complete`, טריגר id+email בלבד (ב־`schema.sql`).

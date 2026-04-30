@@ -31,10 +31,10 @@
 
 ## Git (אחרונים על `main`)
 
-- `0c848d1` — VerMillion מציג שלב מעבר מפורש לפני משחק ראשון (לא קפיצה אוטומטית).
-- `5406e08` — אכיפת journey ראשון: VerMillion → Games Timer לפני שאלות יום 1.
-- `a2eb0d2` — הקשחת gate: דרישת `profile_intake_complete` לגישה ל־MainTabs.
-- `54ed9e6` — הוספת `profile_intake_complete` ל־schema + gate (Google לא מדלג על טופס).
+- `77973f4` — תיקון הרשמה: email נשמר בפרופיל גם ב-conflict + חסימת מעבר אם שמירה נכשלת.
+- `390c6ac` — שמירת פרטי הרשמה מלאים ל-`profiles` (first/last/phone/dob/id_last4) + שגיאות saveProfile לא נבלעות.
+- `ddfe925` — fallback מקומי ל־`profile_intake_complete` כדי למנוע חזרה ל־CompleteProfile אחרי רענון.
+- `cf10378` — תיקון UI לשדות שם (שורות נפרדות) ב־CompleteProfile.
 
 ענף: `main`, עץ עבודה נקי מול `origin/main` (נכון לסריקה).
 
@@ -50,7 +50,7 @@
 | `src/services/supabase.js` | לקוח Supabase, `flowType: 'pkce'`, ghost/local |
 | `src/services/storage.js` | פרופיל / onboarding / fallback |
 | `src/screens/onboarding/SplashScreen.js` | אותו שער רישום כמו Navigator |
-| `supabase/schema.sql` | `profiles` + `onboarding_complete` + `profile_intake_complete`, טריגר `handle_new_user` (id+email בלבד) |
+| `supabase/schema.sql` | `profiles` + intake fields + `onboarding_complete` + `profile_intake_complete`, טריגר `handle_new_user` משלים email גם ב-conflict |
 
 ---
 
@@ -90,3 +90,4 @@ npx expo start
 - **SQL:** להריץ ב־Supabase אם העמודה חסרה: `alter table public.profiles add column if not exists profile_intake_complete boolean default false;`
 - **2026-04-30 (הקשחת flow):** VerMillion לא מדלג אוטומטית; מסך מעבר מפורש למשחק ראשון+Timer כדי לשמור סדר חווייתי.
 - **2026-04-30 (תיקון הרשמה):** שמירת email בפרופיל הוקשחה: `ensureProfileExists` עושה upsert `id+email`, trigger `handle_new_user` משלים email גם ב-conflict, ו-`CompleteProfile` לא ממשיך ל-Avatar אם שמירה נכשלה.
+- **2026-04-30 (סגירה סופית):** פרטי הרשמה מלאים נשמרים ב-`profiles`; תיקון לולאת רענון; תיקון RTL בשדות השם; deploy מעודכן בפרודקשן.
