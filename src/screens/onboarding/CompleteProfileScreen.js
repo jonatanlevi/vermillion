@@ -393,6 +393,8 @@ const Field = React.forwardRef(function Field(
           autoCapitalize={autoCapitalize || 'words'}
           returnKeyType={returnKeyType || 'next'}
           onSubmitEditing={onSubmitEditing}
+          textAlign="right"
+          writingDirection="rtl"
         />
         {isValid && <Text style={s.validCheck}>✓</Text>}
       </View>
@@ -421,7 +423,7 @@ const s = StyleSheet.create({
   subtitle:  { color: '#555', fontSize: 14, lineHeight: 22 },
 
   /* Row (first+last) */
-  row: { flexDirection: 'row', gap: 12 },
+  row: { flexDirection: 'row-reverse', gap: 12 },
 
   /* Field */
   fieldWrap:  { marginBottom: 18 },
@@ -429,7 +431,14 @@ const s = StyleSheet.create({
   inputWrap:  { flexDirection: 'row', alignItems: 'center', backgroundColor: '#111', borderRadius: 14, borderWidth: 1, borderColor: '#1E1E1E', paddingHorizontal: 16, height: 56 },
   inputWrapError: { borderColor: '#E74C3C', backgroundColor: '#130A0A' },
   inputWrapValid: { borderColor: '#27AE60' },
-  input:      { color: '#FFF', fontSize: 16, height: '100%' },
+  input:      {
+    color: '#FFF',
+    fontSize: 16,
+    height: '100%',
+    textAlignVertical: 'center',
+    includeFontPadding: false,
+    paddingVertical: 0,
+  },
   validCheck: { color: '#27AE60', fontSize: 16, fontWeight: '700', marginLeft: 8 },
   errorText:  { color: '#E74C3C', fontSize: 12, marginTop: 5 },
   hintText:   { color: '#444', fontSize: 11, marginTop: 4 },
