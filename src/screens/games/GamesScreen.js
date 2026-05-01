@@ -5,17 +5,25 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import RunnerGame from '../../components/RunnerGame';
-import BreakoutGame from '../../components/BreakoutGame';
-import ObstacleGame from '../../components/ObstacleGame';
+import RunnerGame    from '../../components/RunnerGame';
+import BreakoutGame  from '../../components/BreakoutGame';
+import ObstacleGame  from '../../components/ObstacleGame';
+import BubblePopGame from '../../components/BubblePopGame';
+import ReflexGame    from '../../components/ReflexGame';
+import TimingGame    from '../../components/TimingGame';
+import SpeedTapGame  from '../../components/SpeedTapGame';
 import { saveCommitmentTime, getCommitmentTime, saveGameStamp, getGameLog, getLeaderboard } from '../../services/storage';
 import { getOnboardingState } from '../../services/storage';
 import { useAuth } from '../../context/AuthContext';
 
 const GAMES = [
-  { key: 'runner',   label: 'ריצת VerMillion', emoji: '🏃', desc: 'קפוץ מעל חובות וריביות',    color: '#C0392B' },
-  { key: 'breakout', label: 'שבור את החובות',  emoji: '🧱', desc: 'כדור ומחבט — שבור הכל',     color: '#E67E22' },
-  { key: 'obstacle', label: 'מרוץ המכשולים',   emoji: '🐦', desc: 'עוף מעל המכשולים הפיננסיים', color: '#8E44AD' },
+  { key: 'runner',    label: 'ריצת VerMillion',   emoji: '🏃', desc: 'קפוץ מעל חובות וריביות',       color: '#C0392B' },
+  { key: 'breakout',  label: 'שבור את החובות',    emoji: '🧱', desc: 'כדור ומחבט — שבור הכל',        color: '#E67E22' },
+  { key: 'obstacle',  label: 'מרוץ המכשולים',     emoji: '🐦', desc: 'עוף מעל המכשולים הפיננסיים',   color: '#8E44AD' },
+  { key: 'bubblepop', label: 'פוצץ את הבזבוזים',  emoji: '💸', desc: 'פוצץ הוצאות לפני שיברחו',      color: '#3498DB' },
+  { key: 'reflex',    label: 'רפלקסים פיננסיים',  emoji: '🪙', desc: 'לכוד מטבעות לפני שנעלמים',    color: '#D4AF37' },
+  { key: 'timing',    label: 'דיוק המשקיע',        emoji: '🎯', desc: 'קנה בדיוק בזמן הנכון',         color: '#2ECC71' },
+  { key: 'speedtap',  label: 'מהירות הכסף',        emoji: '⚡', desc: 'הקש נכון, הימנע מהשגוי',       color: '#F39C12' },
 ];
 
 
@@ -275,9 +283,13 @@ export default function GamesScreen({ navigation }) {
         <TouchableOpacity style={styles.exitBtn} onPress={() => setActiveGame(null)}>
           <Text style={styles.exitBtnText}>✕ יציאה</Text>
         </TouchableOpacity>
-        {activeGame === 'runner'   && <RunnerGame   onFinish={handleGameFinish} />}
-        {activeGame === 'breakout' && <BreakoutGame onFinish={handleGameFinish} />}
-        {activeGame === 'obstacle' && <ObstacleGame onFinish={handleGameFinish} />}
+        {activeGame === 'runner'    && <RunnerGame    onFinish={handleGameFinish} />}
+        {activeGame === 'breakout'  && <BreakoutGame  onFinish={handleGameFinish} />}
+        {activeGame === 'obstacle'  && <ObstacleGame  onFinish={handleGameFinish} />}
+        {activeGame === 'bubblepop' && <BubblePopGame onFinish={handleGameFinish} />}
+        {activeGame === 'reflex'    && <ReflexGame    onFinish={handleGameFinish} />}
+        {activeGame === 'timing'    && <TimingGame    onFinish={handleGameFinish} />}
+        {activeGame === 'speedtap'  && <SpeedTapGame  onFinish={handleGameFinish} />}
       </Animated.View>
     );
   }
