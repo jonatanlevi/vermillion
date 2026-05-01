@@ -119,10 +119,15 @@ export async function getCommitmentTime() {
 
 export function getMsUntilCommitment(commitment) {
   if (!commitment) return getMsUntilMidnight();
-  const now = new Date();
+  const now  = new Date();
   const next = new Date(now);
   next.setHours(commitment.hour, commitment.minute, 0, 0);
-  if (next <= now) next.setDate(next.getDate() + 1);
+
+  // אם ה-commitment נקבע היום — הסשן הראשון הוא מחר (לא באותו יום)
+  const setAt    = commitment.setAt ? new Date(commitment.setAt) : null;
+  const setToday = setAt && setAt.toDateString() === now.toDateString();
+
+  if (next <= now || setToday) next.setDate(next.getDate() + 1);
   return next.getTime() - now.getTime();
 }
 
@@ -323,18 +328,60 @@ export async function getDailyLog() {
 }
 
 // ─── Game log ─────────────────────────────────────────────────
-export async function saveGameStamp(day, accuracyMs) {
-  const userId = await uid();
-  const existing = await getGameLog();
-  existing[day] = { accuracyMs, stampedAt: new Date().toISOString() };
+export async function saveGameStamp(day) {
+  const userId   = await uid();
+  const monthKey = new Date().toISOString().slice(0, 7);
+
   if (isLocalUserId(userId)) {
+    const existing = await getGameLog();
+    existing[day] = { msDiff: 0, score: 1, stampedAt: new Date().toISOString() };
     await localSet(L.GAME, existing);
-    return;
+    return { score: 1, ms_diff: 0 };
   }
-  const { error } = await dbUpsert('game_log', userId, { entries: existing });
-  if (error) {
-    console.warn('[storage] game_log remote failed — device cache', error?.message || error);
+
+  try {
+    const { data, error } = await supabase.functions.invoke('stamp', {
+      body: { day, month_key: monthKey },
+      headers: { 'x-vermillion-secret': process.env.EXPO_PUBLIC_APP_SECRET || '' },
+    });
+    if (error) throw error;
+
+    const existing = await getGameLog();
+    existing[day] = { msDiff: data.ms_diff, score: data.score, stampedAt: new Date().toISOString() };
     await localSet(L.GAME, existing);
+
+    return { score: data.score, ms_diff: data.ms_diff };
+  } catch (e) {
+    console.warn('[storage] stamp edge function failed:', e?.message || e);
+    return { score: 1, ms_diff: 0 };
+  }
+}
+
+export async function getLeaderboard(monthKey) {
+  const key = monthKey || new Date().toISOString().slice(0, 7);
+  try {
+    const { data, error } = await supabase
+      .from('daily_stamps')
+      .select('user_id, score, ms_diff, profiles(name)')
+      .eq('month_key', key);
+    if (error || !data) return [];
+
+    const grouped = {};
+    for (const row of data) {
+      const uid = row.user_id;
+      if (!grouped[uid]) {
+        grouped[uid] = { user_id: uid, name: row.profiles?.name || 'אנונימי', total_score: 0, total_ms_diff: 0, days: 0 };
+      }
+      grouped[uid].total_score    += row.score;
+      grouped[uid].total_ms_diff  += row.ms_diff;
+      grouped[uid].days++;
+    }
+    return Object.values(grouped)
+      .sort((a, b) => b.total_score - a.total_score || a.total_ms_diff - b.total_ms_diff)
+      .map((u, i) => ({ ...u, rank: i + 1 }));
+  } catch (e) {
+    console.warn('[storage] getLeaderboard:', e?.message || e);
+    return [];
   }
 }
 
@@ -354,6 +401,15 @@ export async function clearAllData() {
   const remoteId = session?.user?.id;
 
   await localRemoveAll();
+
+  // Clear user-specific registration flags so re-registration routes correctly
+  if (remoteId && Platform.OS === 'web' && typeof localStorage !== 'undefined') {
+    try {
+      localStorage.removeItem(`@vermillion/intake_complete/${remoteId}`);
+      localStorage.removeItem(`@vermillion/onboarding_complete/${remoteId}`);
+    } catch {}
+  }
+
   await clearDeviceLocalIdentity();
 
   if (remoteId && !isLocalUserId(remoteId)) {
@@ -364,6 +420,7 @@ export async function clearAllData() {
         supabase.from('chat_history').delete().eq('user_id', remoteId),
         supabase.from('commitment').delete().eq('user_id', remoteId),
         supabase.from('game_log').delete().eq('user_id', remoteId),
+        supabase.from('daily_stamps').delete().eq('user_id', remoteId),
       ]);
       await supabase.from('profiles').delete().eq('id', remoteId);
     } catch (_) { /* ignore */ }

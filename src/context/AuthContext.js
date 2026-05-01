@@ -58,9 +58,9 @@ export function AuthProvider({ children }) {
 
   async function deleteAccount() {
     try {
-      await clearAllData();
+      // delete_user must run BEFORE clearAllData — clearAllData calls signOut which kills the session
       try { await supabase.rpc('delete_user'); } catch (_) {}
-      try { await supabase.auth.signOut(); } catch (_) {}
+      await clearAllData();
     } finally {
       setUser(null);
       setProfile(null);

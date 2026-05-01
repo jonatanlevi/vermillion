@@ -65,7 +65,30 @@ Project: `eevmgafxfghygdaucqad.supabase.co`
   ```
   (החלף `YOUR-NETLIFY-DOMAIN` אחרי שתפרוס ל-Netlify)
 
-## 4. אימות שהכל עובד
+## 4. פריסת Edge Function — stamp (Anti-Cheat)
+
+הפונקציה `supabase/functions/stamp/index.ts` מחשבת ניקוד בצד השרת.
+הלקוח **לא** שולח ms_diff — השרת קורא את שעת ה-commitment מה-DB ומחשב לבד.
+
+### פריסה
+```bash
+# חד-פעמי: התקן CLI + קשר לפרויקט
+npm install -g supabase
+supabase login
+supabase link --project-ref eevmgafxfghygdaucqad
+
+# פרוס את הפונקציה
+supabase functions deploy stamp
+```
+
+### RLS — חסום INSERT ישיר מהלקוח
+הרץ ב-SQL Editor:
+```sql
+drop policy if exists "insert own stamps" on public.daily_stamps;
+```
+(כבר כלול ב-schema.sql המעודכן — הרץ רק אם הטבלה כבר קיימת)
+
+## 5. אימות שהכל עובד
 
 הרץ את האפליקציה (`npm start`), לחץ "המשך עם Google", צריך להיפתח דפדפן Google,
 לבחור חשבון, ולחזור לאפליקציה כשאתה מחובר.

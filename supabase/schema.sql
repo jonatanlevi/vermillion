@@ -169,3 +169,30 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
+
+-- ─── Daily Stamps (scoring) ───────────────────────────────
+create table if not exists public.daily_stamps (
+  id               uuid        default gen_random_uuid() primary key,
+  user_id          uuid        references auth.users(id) on delete cascade not null,
+  day              int         not null,
+  month_key        text        not null,           -- 'YYYY-MM'
+  stamped_at       timestamptz not null default now(),
+  committed_hour   int         not null,
+  committed_minute int         not null,
+  ms_diff          bigint      not null,           -- absolute diff from committed time
+  score            int         not null,           -- max(1, round(1000*(1-ms_diff/86400000)))
+  unique(user_id, day, month_key)
+);
+
+alter table public.daily_stamps enable row level security;
+
+drop policy if exists "read all stamps"    on public.daily_stamps;
+drop policy if exists "insert own stamps"  on public.daily_stamps;
+drop policy if exists "update own stamps"  on public.daily_stamps;
+drop policy if exists "delete own stamps"  on public.daily_stamps;
+
+-- SELECT: everyone can read (leaderboard)
+create policy "read all stamps" on public.daily_stamps for select using (true);
+-- INSERT/UPDATE: blocked for direct clients — only the 'stamp' Edge Function (service role) may write
+-- DELETE: own rows only (admin cleanup / testing)
+create policy "delete own stamps" on public.daily_stamps for delete using (auth.uid() = user_id);

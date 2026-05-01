@@ -2,7 +2,6 @@ import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, Easing } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import CharacterFigure, { THEMES, ARCHETYPES } from '../../components/CharacterFigure';
-import { mockUser } from '../../mock/data';
 
 const { width: SW } = Dimensions.get('window');
 
@@ -116,15 +115,7 @@ export default function AvatarRevealScreen({ navigation, route }) {
         <Animated.View style={[s.btnWrap, { opacity: btnOp }]}>
           <TouchableOpacity
             style={[s.btn, { backgroundColor: theme.accent }]}
-            onPress={() => {
-              // שמירת נתוני האווטאר ב-mockUser
-              mockUser.vermillion = {
-                name: name,
-                appearance: appearance,
-                tone: tone
-              };
-              navigation.replace('ModelDownload');
-            }}
+            onPress={() => navigation.replace('ModelDownload')}
             activeOpacity={0.85}
           >
             <Text style={s.btnText}>צאו לאתגר הראשון ▶</Text>

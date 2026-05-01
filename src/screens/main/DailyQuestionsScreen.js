@@ -3,10 +3,10 @@ import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
   ScrollView, Animated, KeyboardAvoidingView, Platform, Modal,
 } from 'react-native';
-import { mockUser } from '../../mock/data';
 import { DAY_QUESTIONS, DAY_META, calcCompletion, detectCashFlowAlert } from '../../data/dailyQuestions';
 import { useLanguage } from '../../context/LanguageContext';
 import { getUserTimeStatus } from '../../services/timeEngine';
+import { getOnboardingState, markDayComplete, saveOnboardingState } from '../../services/storage';
 
 /* ─── Skip warning dialog ─── */
 function SkipDialog({ visible, blindSpot, onSkip, onStay, t }) {
@@ -287,9 +287,13 @@ function CashFlowAlert({ data, onContinue }) {
 /* ─── Main Screen ─── */
 export default function DailyQuestionsScreen({ navigation }) {
   const { t } = useLanguage();
-  const ts = getUserTimeStatus(mockUser);
-  const day = ts.currentDay <= 7 ? ts.currentDay : 7;
-  const meta = DAY_META[day];
+
+  const [onbState, setOnbState]   = useState(null);
+
+  const regDate = onbState?.startDate || new Date().toISOString();
+  const ts      = getUserTimeStatus({ registrationDate: regDate, dailyAnswers: onbState || {} });
+  const day     = ts.currentDay <= 7 ? ts.currentDay : 7;
+  const meta    = DAY_META[day];
   const dayData = DAY_QUESTIONS[day];
   const dayColor = meta?.color || '#C0392B';
 
@@ -310,6 +314,18 @@ export default function DailyQuestionsScreen({ navigation }) {
   const fadeAnim  = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
 
+  useEffect(() => {
+    getOnboardingState().then(s => {
+      setOnbState(s);
+      const realDay = (() => {
+        const rd = s?.startDate || new Date().toISOString();
+        const realTs = getUserTimeStatus({ registrationDate: rd, dailyAnswers: s || {} });
+        return realTs.currentDay <= 7 ? realTs.currentDay : 7;
+      })();
+      if ((s?.daysCompleted || []).includes(realDay)) setDone(true);
+    });
+  }, []);
+
   // Filter questions by showIf — supports both single value and values[]
   const visibleQuestions = useMemo(() =>
     (dayData?.questions || []).filter(q => {
@@ -323,10 +339,10 @@ export default function DailyQuestionsScreen({ navigation }) {
   const current  = visibleQuestions[step];
   const isLast   = step === visibleQuestions.length - 1;
   const progress = visibleQuestions.length > 0 ? (step + 1) / visibleQuestions.length : 0;
-  const completion = calcCompletion(mockUser.dailyAnswers || {});
+  const completion = calcCompletion(onbState || {});
 
   // Equity hint for mortgage owners (Day 5)
-  const isOwner = mockUser.dailyAnswers?.[1]?.housing_type === 'owner';
+  const isOwner = onbState?.[1]?.housing_type === 'owner';
   const enrichedQuestion = current ? {
     ...current,
     hint: (current.equityHint && isOwner)
@@ -347,27 +363,28 @@ export default function DailyQuestionsScreen({ navigation }) {
   const currentAnswer = answers[current?.key];
   const hasAnswer = currentAnswer !== undefined && currentAnswer !== '' && currentAnswer !== '__skipped__';
 
-  const finalizeDay = (ans) => {
-    if (!mockUser.dailyAnswers) mockUser.dailyAnswers = {};
-    mockUser.dailyAnswers[day] = { ...ans, _answeredAt: new Date().toISOString() };
+  const finalizeDay = async (ans) => {
+    const dayAnswers = { ...ans, _answeredAt: new Date().toISOString() };
+    await saveOnboardingState({ [day]: dayAnswers });
+    await markDayComplete(day);
+    setOnbState(s => ({ ...(s || {}), [day]: dayAnswers }));
   };
 
-  const triggerDayEnd = (newAnswers) => {
-    // Day 5: check for hidden income before showing cash flow alert
+  const triggerDayEnd = async (newAnswers) => {
     if (day === 5) {
-      const allAnswers = { ...(mockUser.dailyAnswers || {}), [day]: newAnswers };
+      const allAnswers = { ...(onbState || {}), [day]: newAnswers };
       const alert = detectCashFlowAlert(allAnswers);
       if (alert) {
-        finalizeDay(newAnswers);
-        setIncomeCheckData(alert); // show income check first
+        await finalizeDay(newAnswers);
+        setIncomeCheckData(alert);
         return;
       }
     }
-    finalizeDay(newAnswers);
+    await finalizeDay(newAnswers);
     setDone(true);
   };
 
-  const advance = (ans) => {
+  const advance = async (ans) => {
     const newAnswers = { ...answers, [current.key]: ans };
     setAnswers(newAnswers);
 
@@ -378,7 +395,7 @@ export default function DailyQuestionsScreen({ navigation }) {
     }
 
     if (isLast) {
-      triggerDayEnd(newAnswers);
+      await triggerDayEnd(newAnswers);
     } else {
       setStep(s => s + 1);
     }
@@ -386,9 +403,9 @@ export default function DailyQuestionsScreen({ navigation }) {
 
   const skip = () => { setShowSkip(false); advance('__skipped__'); };
 
-  const continueAfterAck = () => {
+  const continueAfterAck = async () => {
     setLifeEventAck(null);
-    if (isLast) { triggerDayEnd(answers); } else { setStep(s => s + 1); }
+    if (isLast) { await triggerDayEnd(answers); } else { setStep(s => s + 1); }
   };
 
   // Income check: user confirmed extra income → recalculate
@@ -396,20 +413,19 @@ export default function DailyQuestionsScreen({ navigation }) {
     const prev = incomeCheckData;
     setIncomeCheckData(null);
     if (extraAmount > 0) {
-      // Patch the saved Day 4 answers with extra income and recalculate
-      const day4 = mockUser.dailyAnswers?.[4] || {};
+      const day4 = onbState?.[4] || {};
       const patchedAnswers = {
-        ...(mockUser.dailyAnswers || {}),
+        ...(onbState || {}),
         4: { ...day4, side_income: String((parseFloat(day4.side_income || 0) + extraAmount)) },
       };
       const updated = detectCashFlowAlert(patchedAnswers);
       if (updated) {
-        setCashFlowAlert(updated); // still in deficit, but updated numbers
+        setCashFlowAlert(updated);
       } else {
-        setDone(true); // extra income fixed the gap
+        setDone(true);
       }
     } else {
-      setCashFlowAlert(prev); // no change, show alert with original numbers
+      setCashFlowAlert(prev);
     }
   };
 

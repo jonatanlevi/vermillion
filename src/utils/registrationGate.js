@@ -10,9 +10,10 @@ export function isRegistrationComplete(profile) {
     profile.profile_intake_complete === true ||
     readLocalIntakeCompletion(profile.id) === true;
   if (!intakeDone) return false;
-  if (profile.onboarding_complete !== true) return false;
-  const name = typeof profile.name === 'string' ? profile.name.trim() : '';
-  return name.length >= 2;
+  const onboardingDone =
+    profile.onboarding_complete === true ||
+    readLocalOnboardingComplete(profile.id) === true;
+  return onboardingDone;
 }
 
 /**
@@ -27,6 +28,8 @@ export function getAuthLandingRoute(profile) {
   return 'CompleteProfile';
 }
 
+// ─── localStorage helpers (web-only; graceful no-op on native) ───
+
 function readLocalIntakeCompletion(userId) {
   if (!userId || typeof localStorage === 'undefined') return false;
   try {
@@ -40,7 +43,21 @@ export function markLocalProfileIntakeComplete(userId) {
   if (!userId || typeof localStorage === 'undefined') return;
   try {
     localStorage.setItem(`@vermillion/intake_complete/${userId}`, '1');
+  } catch {}
+}
+
+function readLocalOnboardingComplete(userId) {
+  if (!userId || typeof localStorage === 'undefined') return false;
+  try {
+    return localStorage.getItem(`@vermillion/onboarding_complete/${userId}`) === '1';
   } catch {
-    // ignore local storage errors (private mode / quota)
+    return false;
   }
+}
+
+export function markLocalOnboardingComplete(userId) {
+  if (!userId || typeof localStorage === 'undefined') return;
+  try {
+    localStorage.setItem(`@vermillion/onboarding_complete/${userId}`, '1');
+  } catch {}
 }

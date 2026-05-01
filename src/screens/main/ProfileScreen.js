@@ -1,25 +1,42 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { mockUser } from '../../mock/data';
 import { useLanguage } from '../../context/LanguageContext';
+import { useAuth } from '../../context/AuthContext';
 import LanguagePicker from '../../components/LanguagePicker';
 import { THEMES, ARCHETYPES } from '../../components/CharacterFigure';
 import VermillionAvatar from '../../components/VermillionAvatar';
 import { DAY_META, calcCompletion, getBlindSpots } from '../../data/dailyQuestions';
-import { getUserTimeStatus } from '../../services/timeEngine';
+import { getUserTimeStatus, calcStreak } from '../../services/timeEngine';
+import { getOnboardingState } from '../../services/storage';
 
 export default function ProfileScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { t } = useLanguage();
-  const vm         = mockUser.vermillion;
+  const { profile, signOut } = useAuth();
+
+  const [onbState, setOnbState] = useState(null);
+
+  useEffect(() => {
+    getOnboardingState().then(setOnbState);
+  }, []);
+
+  const avatarStyle = (() => {
+    try { return typeof profile?.avatar_style === 'string' ? JSON.parse(profile.avatar_style) : (profile?.avatar_style || {}); }
+    catch { return {}; }
+  })();
+
+  const vm         = avatarStyle;
   const theme      = THEMES[vm?.appearance?.colors] || THEMES.fire;
   const archetype  = ARCHETYPES[vm?.appearance?.style] || ARCHETYPES.sage;
-  const completion = calcCompletion(mockUser.dailyAnswers || {});
-  const blindSpots = getBlindSpots(mockUser.dailyAnswers || {}).slice(0, 3);
-  const ts         = getUserTimeStatus(mockUser);
-  const isPremium  = mockUser.subscription === 'premium';
+  const dailyAnswers = onbState || {};
+  const completion = calcCompletion(dailyAnswers);
+  const blindSpots = getBlindSpots(dailyAnswers).slice(0, 3);
+  const regDate    = onbState?.startDate || new Date().toISOString();
+  const ts         = getUserTimeStatus({ registrationDate: regDate, dailyAnswers });
+  const streak     = calcStreak(dailyAnswers, regDate);
+  const isPremium  = profile?.subscription === 'premium';
 
   return (
     <ScrollView style={s.container} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
@@ -43,9 +60,9 @@ export default function ProfileScreen({ navigation }) {
                   : `יום ${ts.currentDay}/30`}
               </Text>
             </View>
-            <Text style={s.userName}>{mockUser.name}</Text>
+            <Text style={s.userName}>{profile?.name || profile?.email || '—'}</Text>
             <Text style={[s.vmName, { color: theme.accent }]}>{vm?.name || 'VerMillion'}</Text>
-            <Text style={s.userPhone}>{mockUser.phone}</Text>
+            <Text style={s.userPhone}>{profile?.phone || ''}</Text>
 
             <View style={[s.subBadge, { borderColor: isPremium ? '#27AE60' : '#333' }]}>
               <Text style={[s.subText, { color: isPremium ? '#27AE60' : '#666' }]}>
@@ -62,9 +79,9 @@ export default function ProfileScreen({ navigation }) {
 
       {/* ── STATS ── */}
       <View style={s.statsGrid}>
-        <StatBox label={t.rankLabel}     value={`#${mockUser.rank}`}           color="#F0C040" />
-        <StatBox label={t.streakLabel}   value={`${mockUser.streak} 🔥`}       color="#E74C3C" />
-        <StatBox label={t.accuracyLabel} value={`${mockUser.score}%`}          color="#2ECC71" />
+        <StatBox label={t.rankLabel}     value="—"                             color="#F0C040" />
+        <StatBox label={t.streakLabel}   value={`${streak} 🔥`}               color="#E74C3C" />
+        <StatBox label="ימי אתגר"        value={`${(onbState?.daysCompleted || []).length}`} color="#2ECC71" />
         <StatBox label="ימים"
           value={(ts.phase === 'lifestyle' || ts.phase === 'financial')
             ? `${ts.currentDay}/7`
@@ -137,7 +154,7 @@ export default function ProfileScreen({ navigation }) {
         <MenuItem icon="🔔" label="התראות"        onPress={() => {}} />
         <MenuItem icon="📋" label="תנאי שימוש"    onPress={() => {}} />
         <MenuItem icon="❓" label="עזרה ותמיכה"   onPress={() => {}} />
-        <MenuItem icon="🚪" label="התנתקות"       onPress={() => navigation.replace('Welcome')} danger />
+        <MenuItem icon="🚪" label="התנתקות"       onPress={signOut} danger />
       </View>
 
     </ScrollView>

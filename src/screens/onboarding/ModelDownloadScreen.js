@@ -5,6 +5,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
 import { saveProfile } from '../../services/storage';
+import { markLocalOnboardingComplete } from '../../utils/registrationGate';
 
 // llama.rn יותקן בשלב הבא (expo prebuild).
 // כרגע: mockAI פועל אוטומטית ללא הורדה.
@@ -12,7 +13,7 @@ import { saveProfile } from '../../services/storage';
 
 export default function ModelDownloadScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const { reloadProfile } = useAuth();
+  const { user, reloadProfile } = useAuth();
   const [phase, setPhase] = useState('intro'); // 'intro' | 'downloading' | 'done'
   const progressAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -36,9 +37,10 @@ export default function ModelDownloadScreen({ navigation }) {
   async function proceed() {
     try {
       await saveProfile({ onboarding_complete: true });
+      markLocalOnboardingComplete(user?.id);
       await reloadProfile?.();
     } catch (_) {
-      /* still enter app; flag can be retried from settings later */
+      markLocalOnboardingComplete(user?.id);
     }
     navigation.replace('MainTabs');
   }

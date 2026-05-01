@@ -5,6 +5,12 @@ if ($LASTEXITCODE -ne 0) {
   exit $LASTEXITCODE
 }
 
+# Patch dist/index.html — dark background and block bounce ONLY
+$htmlPath = "dist\index.html"
+$styleInject = "<style>body, html { background-color: #0A0A0A; overscroll-behavior: none; }</style></head>"
+(Get-Content $htmlPath -Raw) -replace '</head>', $styleInject | Set-Content $htmlPath -NoNewline
+Write-Host "Patched index.html with dark background and bounce prevention" -ForegroundColor DarkGray
+
 Write-Host "Configuring Vercel project..." -ForegroundColor Cyan
 New-Item -ItemType Directory -Force -Path "dist\.vercel" | Out-Null
 Copy-Item "vercel.json" "dist\vercel.json" -Force

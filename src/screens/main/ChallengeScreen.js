@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
-import { mockUser, mockTodayChallenge, canUseFeature } from '../../mock/data';
+import { canUseFeature } from '../../mock/data';
+import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ObstacleGame from '../../components/ObstacleGame';
@@ -13,23 +14,26 @@ const GAME_MODES = [
   { key: 'breakout',label: 'שבור את החובות', emoji: '🧱', desc: 'כדור ומחבט — שבור את הבלוקים' },
 ];
 
+const DAILY_ATTEMPTS = 3;
+
 function formatTime(h, m, s, ms) {
   return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.${String(ms).padStart(3,'0')}`;
 }
 
 export default function ChallengeScreen({ navigation }) {
   const { t } = useLanguage();
+  const { profile } = useAuth();
   const insets = useSafeAreaInsets();
-  const isPremium = canUseFeature(mockUser, 'weekChallenge');
+  const isPremium = canUseFeature(profile, 'weekChallenge');
 
   const [gameMode, setGameMode] = useState(null); // null=picker, 'flappy', 'quiz'
   const [phase, setPhase] = useState('intro');
-  const [personalTime, setPersonalTime] = useState(mockUser.personal_time ?? null);
+  const [personalTime, setPersonalTime] = useState(null);
   const [clockDisplay, setClockDisplay] = useState('');
   const [stampResult, setStampResult] = useState(null);
-  const [attemptsLeft, setAttemptsLeft] = useState(mockTodayChallenge.attempts_left);
+  const [attemptsLeft, setAttemptsLeft] = useState(DAILY_ATTEMPTS);
   const clockRef = useRef(null);
-  const personalTimeRef = useRef(mockUser.personal_time ?? null);
+  const personalTimeRef = useRef(null);
 
   useEffect(() => {
     if (clockRef.current) clearInterval(clockRef.current);
@@ -107,7 +111,7 @@ export default function ChallengeScreen({ navigation }) {
       <View style={styles.container}>
         <View style={[styles.centered, { paddingTop: insets.top + 24 }]}>
           <Text style={styles.pickerTitle}>בחר אתגר להיום</Text>
-          <AttemptsRow attemptsLeft={attemptsLeft} total={mockTodayChallenge.attempts_left} />
+          <AttemptsRow attemptsLeft={attemptsLeft} total={DAILY_ATTEMPTS} />
           <View style={styles.pickerCards}>
             {GAME_MODES.map(mode => (
               <TouchableOpacity
@@ -173,7 +177,7 @@ export default function ChallengeScreen({ navigation }) {
         <View style={[styles.centered, { paddingTop: insets.top + 24 }]}>
           <Text style={styles.label}>{t.challengeGameType}</Text>
 
-          <AttemptsRow attemptsLeft={attemptsLeft} total={mockTodayChallenge.attempts_left} />
+          <AttemptsRow attemptsLeft={attemptsLeft} total={DAILY_ATTEMPTS} />
 
           {attemptsLeft === 0 ? (
             <View style={styles.infoCard}>
@@ -258,7 +262,7 @@ export default function ChallengeScreen({ navigation }) {
                 {stampResult.diff >= 1000 && <Text style={styles.resultEmoji}>📚</Text>}
               </View>
 
-              <AttemptsRow attemptsLeft={attemptsLeft} total={mockTodayChallenge.attempts_left} />
+              <AttemptsRow attemptsLeft={attemptsLeft} total={DAILY_ATTEMPTS} />
 
               {attemptsLeft > 0 ? (
                 <TouchableOpacity style={styles.retryBtn} onPress={reset}>

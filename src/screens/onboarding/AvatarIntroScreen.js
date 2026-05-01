@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { useLanguage } from '../../context/LanguageContext';
-import { mockUser } from '../../mock/data';
 import { saveFinancialData } from '../../services/storage';
 
 function parseStatus(text) {
@@ -37,12 +36,7 @@ export default function AvatarIntroScreen({ navigation, route }) {
 
   const next = () => {
     if (!val.trim()) return;
-    
-    // שמירת התשובות של יום 1 ב-mockUser
-    if (!mockUser.dailyAnswers) mockUser.dailyAnswers = {};
     const newDay1Answers = { ...answers, [current.key]: val };
-    mockUser.dailyAnswers[1] = newDay1Answers;
-
     if (isLast) {
       saveFinancialData({
         familyStatus:   parseStatus(newDay1Answers.status),

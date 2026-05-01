@@ -9,7 +9,7 @@ import { classifyTier } from '../../services/financialTier';
 import { getUserTimeStatus } from '../../services/timeEngine';
 import { chatWithAI } from '../../services/aiService';
 import { COACHING_DAYS } from '../../data/coachingContent';
-import { getOnboardingState } from '../../services/storage';
+import { getOnboardingState, saveOnboardingState, markDayComplete } from '../../services/storage';
 
 export default function DailyCoachingScreen({ navigation }) {
   const insets = useSafeAreaInsets();
@@ -37,7 +37,8 @@ export default function DailyCoachingScreen({ navigation }) {
     getOnboardingState().then(s => {
       if (!mountedRef.current) return;
       setUserData(s);
-      setDone(!!s?.[ts.currentDay]?._coaching);
+      const realTs = getUserTimeStatus({ registrationDate: s?.startDate || new Date().toISOString(), dailyAnswers: s || {} });
+      setDone(!!s?.[realTs.currentDay]?._coaching || (s?.daysCompleted || []).includes(realTs.currentDay));
       loadTodayTip(s);
     });
     return () => { mountedRef.current = false; };
@@ -64,9 +65,13 @@ export default function DailyCoachingScreen({ navigation }) {
     if (mountedRef.current) setLoadingTip(false);
   }
 
-  function handleComplete() {
+  async function handleComplete() {
     if (!answer.trim()) return;
-    // TODO: save to storage
+    const dayKey = ts.currentDay;
+    await saveOnboardingState({
+      [dayKey]: { _coaching: answer.trim(), _answeredAt: new Date().toISOString() },
+    });
+    await markDayComplete(dayKey);
     setDone(true);
   }
 

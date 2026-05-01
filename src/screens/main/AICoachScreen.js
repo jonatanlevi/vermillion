@@ -4,7 +4,6 @@ import {
   FlatList, KeyboardAvoidingView, Platform, ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { mockUser } from '../../mock/data';
 import { chatWithAI, getAIStatus } from '../../services/aiService';
 import { askTeam } from '../../services/agents';
 import {
@@ -37,6 +36,7 @@ export default function AICoachScreen({ navigation }) {
   const [pendingField, setPendingField] = useState(null);
   const flatListRef = useRef(null);
   const mountedRef = useRef(true);
+  const onboardingStateRef = useRef({});
 
   useEffect(() => {
     mountedRef.current = true;
@@ -48,6 +48,7 @@ export default function AICoachScreen({ navigation }) {
   async function init() {
     const complete = await isOnboardingComplete();
     const state = await getOnboardingState();
+    onboardingStateRef.current = state;
     const day = getDayNumber(state.startDate);
     setCurrentDay(day);
 
@@ -141,7 +142,7 @@ export default function AICoachScreen({ navigation }) {
         setMessages(prev => [...prev, { id: partialId, role: 'assistant', text: '' }]);
 
         if (USE_AGENT_TEAM) {
-          const { response } = await askTeam(text, mockUser, (progress) => {
+          const { response } = await askTeam(text, onboardingStateRef.current, (progress) => {
             if (!mountedRef.current) return;
             let stageText = '';
             if (progress.stage === 'routing')      stageText = '🎭 מנתב לסוכנים...';
@@ -154,7 +155,7 @@ export default function AICoachScreen({ navigation }) {
             setMessages(prev => prev.map(m => m.id === partialId ? { ...m, text: response || 'לא הגיעה תשובה — נסה שוב.' } : m));
           }
         } else {
-          await chatWithAI(text, mockUser, (partial) => {
+          await chatWithAI(text, onboardingStateRef.current, (partial) => {
             if (!mountedRef.current) return;
             setMessages(prev => prev.map(m => m.id === partialId ? { ...m, text: partial } : m));
             flatListRef.current?.scrollToEnd({ animated: false });

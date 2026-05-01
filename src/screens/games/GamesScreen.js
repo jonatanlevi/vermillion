@@ -8,8 +8,9 @@ import { useFocusEffect } from '@react-navigation/native';
 import RunnerGame from '../../components/RunnerGame';
 import BreakoutGame from '../../components/BreakoutGame';
 import ObstacleGame from '../../components/ObstacleGame';
-import { saveCommitmentTime, getCommitmentTime, saveGameStamp, getGameLog } from '../../services/storage';
+import { saveCommitmentTime, getCommitmentTime, saveGameStamp, getGameLog, getLeaderboard } from '../../services/storage';
 import { getOnboardingState } from '../../services/storage';
+import { useAuth } from '../../context/AuthContext';
 
 const GAMES = [
   { key: 'runner',   label: 'ריצת VerMillion', emoji: '🏃', desc: 'קפוץ מעל חובות וריביות',    color: '#C0392B' },
@@ -17,9 +18,6 @@ const GAMES = [
   { key: 'obstacle', label: 'מרוץ המכשולים',   emoji: '🐦', desc: 'עוף מעל המכשולים הפיננסיים', color: '#8E44AD' },
 ];
 
-const MONTH_DAYS_LEFT = 23;
-const USER_SCORE      = 2340;
-const USER_RANK       = 3;
 
 // ─── Glass Dome Button ─────────────────────────────────────────
 function GlassButton({ onPress }) {
@@ -129,12 +127,57 @@ function CommitModal({ visible, time, onClose }) {
   );
 }
 
+// ─── Daily stamp guidance card ─────────────────────────────────
+function DailyStampCard({ commitTime, todayStamped, activeDay }) {
+  const h   = commitTime ? String(commitTime.hour).padStart(2, '0')   : '--';
+  const m   = commitTime ? String(commitTime.minute).padStart(2, '0') : '--';
+  const now = new Date();
+  const nowH = String(now.getHours()).padStart(2, '0');
+  const nowM = String(now.getMinutes()).padStart(2, '0');
+
+  const gate = new Date(now);
+  if (commitTime) gate.setHours(commitTime.hour, commitTime.minute, 0, 0);
+  const timeReached = commitTime && now >= gate;
+
+  if (todayStamped) {
+    return (
+      <View style={dsc.card}>
+        <Text style={dsc.doneText}>✅ חתמת היום! שחק לכיף בלבד</Text>
+      </View>
+    );
+  }
+
+  if (!timeReached) {
+    return (
+      <View style={dsc.card}>
+        <View style={dsc.topRow}>
+          <Text style={dsc.icon}>🔒</Text>
+          <Text style={dsc.dayText}>חזור ב-{h}:{m} לחתום</Text>
+        </View>
+        <Text style={dsc.times}>עכשיו: {nowH}:{nowM}  ·  נעול עד {h}:{m}</Text>
+        <Text style={dsc.hintLocked}>שחק עכשיו לכיף — stamp נפתח בזמן שקבעת</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={[dsc.card, dsc.cardActive]}>
+      <View style={dsc.topRow}>
+        <Text style={dsc.icon}>⏱</Text>
+        <Text style={dsc.dayText}>הגיע הזמן — שחק וחתום!</Text>
+      </View>
+      <Text style={dsc.times}>קבעת: {h}:{m}  ·  עכשיו: {nowH}:{nowM}</Text>
+      <Text style={dsc.hint}>כל משחק יפתח את כפתור החתימה →</Text>
+    </View>
+  );
+}
+
 // ─── Main screen ───────────────────────────────────────────────
 export default function GamesScreen({ navigation }) {
   const insets = useSafeAreaInsets();
+  const { user } = useAuth();
   const [activeGame, setActiveGame]         = useState(null);
   const [sessionScore, setSessionScore]     = useState(0);
-  const [totalScore, setTotalScore]         = useState(USER_SCORE);
   const [showCommitBtn, setShowCommitBtn]   = useState(false);
   const [commitTime, setCommitTime]         = useState(null);
   const [showModal, setShowModal]           = useState(false);
@@ -142,6 +185,11 @@ export default function GamesScreen({ navigation }) {
   const [showDailyStamp, setShowDailyStamp] = useState(false);
   const [stampAccuracy, setStampAccuracy]   = useState(null);
   const [activeDay, setActiveDay]           = useState(1);
+  const [todayStamped, setTodayStamped]     = useState(false);
+  const [userRank, setUserRank]             = useState(null);
+  const [leaderScore, setLeaderScore]       = useState(0);
+  const [daysLeft, setDaysLeft]             = useState(0);
+  const calendarDay = new Date().getDate();
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [pickedHour, setPickedHour]         = useState(8);
   const [pickedMinute, setPickedMinute]     = useState(0);
@@ -149,12 +197,31 @@ export default function GamesScreen({ navigation }) {
 
   useFocusEffect(
     useCallback(() => {
-      Promise.all([getCommitmentTime(), getOnboardingState()]).then(([c, state]) => {
-        if (c) { setHasCommitment(true); setCommitTime(c); }
-        const day = Math.min((state?.daysCompleted || []).length + 1, 7);
-        setActiveDay(day);
+      const now = new Date();
+      const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+      setDaysLeft(daysInMonth - now.getDate());
+
+      Promise.all([getCommitmentTime(), getOnboardingState(), getGameLog()]).then(([c, state, log]) => {
+        const onbDay = Math.min((state?.daysCompleted || []).length + 1, 7);
+        setActiveDay(onbDay);
+        if (c) {
+          setHasCommitment(true);
+          setCommitTime(c);
+          const entry = log[new Date().getDate()];
+          const stampedToday = !!entry &&
+            new Date(entry.stampedAt).toDateString() === new Date().toDateString();
+          setTodayStamped(stampedToday);
+        }
       });
-    }, [])
+
+      if (user?.id) {
+        getLeaderboard().then(board => {
+          const entry = board.find(e => e.user_id === user.id);
+          setUserRank(entry?.rank ?? null);
+          setLeaderScore(entry?.total_score ?? 0);
+        }).catch(() => {});
+      }
+    }, [user?.id])
   );
 
   function selectGame(key) {
@@ -167,33 +234,28 @@ export default function GamesScreen({ navigation }) {
 
   async function handleGameFinish(score) {
     setSessionScore(score);
-    setTotalScore(prev => prev + score);
     setActiveGame(null);
     if (!hasCommitment) {
-      setShowCommitBtn(true); // יום 1: GlassButton לקביעת commitment
-    } else {
-      setShowDailyStamp(true); // יום 2+: חתום דיוק
+      setShowCommitBtn(true);
+      return;
     }
+    if (todayStamped) return;
+    const now  = new Date();
+    const gate = new Date(now);
+    gate.setHours(commitTime.hour, commitTime.minute, 0, 0);
+    if (now >= gate) setShowDailyStamp(true);
+    // לפני הזמן — רק מציג ניקוד, stamp נעול
   }
 
   async function handleDailyStamp() {
-    // חישוב דיוק — כמה ms מזמן ה-commitment
-    const now  = new Date();
-    let diffMs = 0;
-    if (commitTime) {
-      const gate = new Date(now);
-      gate.setHours(commitTime.hour, commitTime.minute, 0, 0);
-      diffMs = Math.abs(now.getTime() - gate.getTime());
-      // אם הפרש > 12 שעות → כנראה timestamp של מחר, חשב הפוך
-      if (diffMs > 43200000) diffMs = 86400000 - diffMs;
-    }
-    setStampAccuracy(diffMs);
-    await saveGameStamp(activeDay, diffMs);
+    const result = await saveGameStamp(calendarDay);
+    setStampAccuracy(result?.ms_diff ?? 0);
   }
 
   function handleStampDone() {
     setShowDailyStamp(false);
     setStampAccuracy(null);
+    setTodayStamped(true);
     navigation.navigate('VerMillion');
   }
 
@@ -307,19 +369,19 @@ export default function GamesScreen({ navigation }) {
         <View style={styles.header}>
           <Text style={styles.title}>אתגר החודש</Text>
           <View style={styles.daysLeftBadge}>
-            <Text style={styles.daysLeftText}>{MONTH_DAYS_LEFT} ימים</Text>
+            <Text style={styles.daysLeftText}>{daysLeft} ימים</Text>
           </View>
         </View>
 
         {/* Score bar */}
         <View style={styles.scoreCard}>
           <View style={styles.scoreItem}>
-            <Text style={styles.scoreValue}>#{USER_RANK}</Text>
+            <Text style={styles.scoreValue}>{userRank ? `#${userRank}` : '-'}</Text>
             <Text style={styles.scoreLabel}>דירוג</Text>
           </View>
           <View style={styles.scoreDivider} />
           <View style={styles.scoreItem}>
-            <Text style={styles.scoreValue}>{totalScore.toLocaleString()}</Text>
+            <Text style={styles.scoreValue}>{leaderScore.toLocaleString()}</Text>
             <Text style={styles.scoreLabel}>ניקוד</Text>
           </View>
           <View style={styles.scoreDivider} />
@@ -333,6 +395,14 @@ export default function GamesScreen({ navigation }) {
           <View style={styles.sessionBanner}>
             <Text style={styles.sessionText}>+{sessionScore} נקודות הסשן האחרון 🔥</Text>
           </View>
+        )}
+
+        {hasCommitment && (
+          <DailyStampCard
+            commitTime={commitTime}
+            todayStamped={todayStamped}
+            activeDay={activeDay}
+          />
         )}
 
         <Text style={styles.sectionTitle}>בחר משחק</Text>
@@ -429,9 +499,24 @@ const styles = StyleSheet.create({
     flex: 1, backgroundColor: '#0A0A0A',
     alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24,
   },
-  scoreResult:    { alignItems: 'center', marginBottom: 48 },
+  scoreResult:     { alignItems: 'center', marginBottom: 48 },
   scoreResultLabel:{ color: '#555', fontSize: 14, marginBottom: 6 },
-  scoreResultVal: { color: '#FFF', fontSize: 28, fontWeight: '900' },
+  scoreResultVal:  { color: '#FFF', fontSize: 28, fontWeight: '900' },
+});
+
+const dsc = StyleSheet.create({
+  card: {
+    backgroundColor: '#0D0D1A', borderRadius: 14, padding: 14,
+    marginBottom: 16, borderWidth: 1, borderColor: '#C0392B44',
+  },
+  topRow:  { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
+  icon:    { fontSize: 18 },
+  dayText: { color: '#FFF', fontSize: 15, fontWeight: '800', textAlign: 'right', flex: 1 },
+  times:   { color: '#888', fontSize: 13, textAlign: 'right', marginBottom: 4 },
+  hint:    { color: '#C0392B', fontSize: 12, fontWeight: '700', textAlign: 'right' },
+  cardActive:  { borderColor: '#C0392BAA' },
+  doneText:    { color: '#27AE60', fontSize: 14, fontWeight: '700', textAlign: 'center' },
+  hintLocked:  { color: '#555', fontSize: 12, textAlign: 'right' },
 });
 
 // ─── Daily Stamp styles ─────────────────────────────────────────

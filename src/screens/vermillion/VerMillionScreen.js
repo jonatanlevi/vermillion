@@ -173,6 +173,7 @@ export default function VerMillionScreen({ navigation }) {
   const [pendingField, setPendingField]     = useState(null);
   const [avatarMood, setAvatarMood]   = useState('neutral');
   const [needsFirstGame, setNeedsFirstGame] = useState(false);
+  const [showCrisisBar, setShowCrisisBar] = useState(false);
   const pulseAnim  = useRef(new Animated.Value(1)).current;
   const flatListRef = useRef(null);
   const mountedRef  = useRef(true);
@@ -259,7 +260,8 @@ export default function VerMillionScreen({ navigation }) {
           } else {
             // הזמן הגיע — בדוק אם המשתמש כבר שיחק ביום הזה
             const gameLog = await getGameLog();
-            if (gameLog[day]) {
+            const calendarDay = new Date().getDate();
+            if (gameLog[calendarDay]) {
               await askNextOnboardingQuestion(day, progress.done);
             } else {
               // לא שיחק עדיין — שלח למשחקים
@@ -357,12 +359,23 @@ export default function VerMillionScreen({ navigation }) {
         const partialId = nextId();
         setMessages(prev => [...prev, { id: partialId, role: 'assistant', text: '...' }]);
 
-        const { response } = await askTeam(text, {}, (progress) => {
+        const AGENT_HE = { ANALYST: 'אנליסט', STRATEGIST: 'אסטרטג', PSYCHOLOGIST: 'פסיכולוג', COACH: 'מאמן', CRISIS: 'תמיכה' };
+        const doneAgents = [];
+
+        const { response, isCrisis } = await askTeam(text, {}, (progress) => {
           if (!mountedRef.current) return;
           let t = '';
-          if (progress.stage === 'routing')      t = '🎭 מנתח...';
-          if (progress.stage === 'thinking')     t = '🧠 חושב...';
-          if (progress.stage === 'synthesizing') t = '✨ מסכם...';
+          if (progress.stage === 'routing') {
+            t = '🔍 מנתב לסוכנים מומחים...';
+          } else if (progress.stage === 'thinking') {
+            const names = (progress.agents || []).map(a => AGENT_HE[a] || a).join(' · ');
+            t = `🧠 ${names} חושבים בשבילך...`;
+          } else if (progress.stage === 'agent_done') {
+            doneAgents.push(AGENT_HE[progress.agent] || progress.agent);
+            t = doneAgents.map(n => `✓ ${n}`).join('   ') + '\n⏳ מסיים...';
+          } else if (progress.stage === 'synthesizing') {
+            t = '✨ מאחד את התובנות...';
+          }
           if (t) setMessages(prev => prev.map(m => m.id === partialId ? { ...m, text: t } : m));
         });
 
@@ -370,6 +383,7 @@ export default function VerMillionScreen({ navigation }) {
         if (mountedRef.current) {
           setMessages(prev => prev.map(m => m.id === partialId ? { ...m, text: finalText } : m));
           await appendChatMessage({ id: partialId, role: 'assistant', text: finalText });
+          if (isCrisis) setShowCrisisBar(true);
         }
         setAvatarMood('neutral');
       }
@@ -474,6 +488,17 @@ export default function VerMillionScreen({ navigation }) {
         onContentSizeChange={() => flatListRef.current?.scrollToEnd()}
         showsVerticalScrollIndicator={false}
       />
+
+      {showCrisisBar && (
+        <TouchableOpacity
+          style={styles.crisisBar}
+          onPress={() => setShowCrisisBar(false)}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.crisisBarText}>🆘 פעמונים — סיוע מיידי: 1-800-355-350</Text>
+          <Text style={styles.crisisBarSub}>לחץ לסגירה</Text>
+        </TouchableOpacity>
+      )}
 
       <View style={styles.inputRow}>
         <TextInput
@@ -618,6 +643,15 @@ const styles = StyleSheet.create({
   sendBtn:        { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center' },
   sendBtnDisabled:{ backgroundColor: '#222' },
   sendBtnText:    { color: '#FFF', fontSize: 22, fontWeight: '700' },
+
+  crisisBar: {
+    backgroundColor: '#7B0000',
+    paddingVertical: 12, paddingHorizontal: 20,
+    borderTopWidth: 1, borderTopColor: '#C0392B',
+    alignItems: 'center',
+  },
+  crisisBarText: { color: '#FFF', fontSize: 15, fontWeight: '800', textAlign: 'center' },
+  crisisBarSub:  { color: '#FF9999', fontSize: 11, marginTop: 2 },
 });
 
 // ─── DNA Timer styles ──────────────────────────────────────────

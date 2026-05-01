@@ -1,6 +1,21 @@
 import { runAgent } from './_runAgent';
 import { CONFIG } from '../../config';
 
+const CRISIS_KEYWORDS = [
+  // שורש ע.ק.ל — כל ההטיות
+  'עיקול', 'עיקלו', 'עיקלו לי', 'עוקל', 'מעקלים', 'מעקל',
+  // הוצאה לפועל
+  'הוצאה לפועל', 'להוציא לפועל', 'מוציאים לפועל', 'הוציאו לפועל',
+  // פשיטת רגל / חדלות פירעון
+  'פשיטת רגל', 'פשט רגל', 'חדלות פירעון', 'כינוס נכסים', 'כונס נכסים',
+  // מצוקה קשה
+  'אין לי מה לאכול', 'אין כסף לאוכל', 'אין לי אוכל',
+  'חוסר אונים', 'חוסר תקווה', 'אין תקווה',
+  'לא רואה מוצא', 'אין מוצא', 'אין לי ברירה',
+  'הכל אבוד', 'לא יכול יותר', 'נואש', 'נואשת',
+  'לא רוצה להמשיך', 'לא שווה להמשיך',
+];
+
 const ROUTER_PROMPT = `אתה ה-ROUTER של מערכת AI פיננסית.
 המשימה שלך: לסווג שאלת משתמש ולהחליט אילו סוכנים צריכים להגיב.
 
@@ -22,7 +37,17 @@ const ROUTER_PROMPT = `אתה ה-ROUTER של מערכת AI פיננסית.
 "כמה אני מוציא?" → ANALYST
 "אני רוצה דירה אבל אין לי כסף" → ANALYST,PSYCHOLOGIST,STRATEGIST`;
 
+function detectCrisis(message) {
+  const lower = message.toLowerCase();
+  return CRISIS_KEYWORDS.some(kw => lower.includes(kw));
+}
+
 export async function route(userMessage) {
+  // Crisis detection — pure JS, no LLM needed, no latency
+  if (detectCrisis(userMessage)) {
+    return ['CRISIS'];
+  }
+
   const raw = await runAgent({
     model: CONFIG.AI_MODEL,
     systemPrompt: ROUTER_PROMPT,
@@ -34,10 +59,6 @@ export async function route(userMessage) {
   const validAgents = ['ANALYST', 'STRATEGIST', 'PSYCHOLOGIST', 'COACH'];
   const matched = validAgents.filter(name => raw.toUpperCase().includes(name));
 
-  // Fallback: if router failed, use sensible default
-  if (matched.length === 0) {
-    return ['ANALYST', 'STRATEGIST'];
-  }
-
+  if (matched.length === 0) return ['ANALYST', 'STRATEGIST'];
   return matched;
 }

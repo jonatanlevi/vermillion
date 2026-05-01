@@ -156,7 +156,7 @@ export default function CompleteProfileScreen({ navigation }) {
         (today.getMonth() === dob.getMonth() && today.getDate() < dob.getDate())) age--;
 
     const fullName = `${values.firstName} ${values.lastName}`.trim();
-    const dateOfBirth = new Date(year, month - 1, day).toISOString().slice(0, 10);
+    const dateOfBirth = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
     const phoneDigits = values.phone.replace(/\D/g, '');
     const phoneE164 = `${country.dial}${phoneDigits}`;
     const idDigits = values.idNumber.replace(/\s/g, '');
@@ -446,7 +446,7 @@ const s = StyleSheet.create({
   input:      {
     color: '#FFF',
     fontSize: 16,
-    height: '100%',
+    alignSelf: 'stretch',
     textAlignVertical: 'center',
     includeFontPadding: false,
     paddingVertical: 0,

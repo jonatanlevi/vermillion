@@ -15,7 +15,8 @@
 - **AI**: Ollama local (`localhost:11434`) → fallback mockAI
 - **Models**: qwen2.5:3b (in-app), qwen2.5-coder:7b (dev agent)
 - **State**: useState/useEffect — אין Redux/Zustand עדיין
-- **Backend**: אין עדיין — הכל mock data
+- **Backend**: Supabase (auth, profiles, daily_stamps, onboarding_state, financial_data)
+- **Deploy**: Vercel — `https://vermillion-ashen.vercel.app` | `.\deploy.ps1`
 - **Language**: עברית ראשונה, RTL
 
 ---
@@ -84,10 +85,11 @@ src/
     mockAI.js          # Keyword-based Hebrew fallback AI
     financialTier.js   # classifyTier() → tier 0-4
     timeEngine.js      # getCurrentDay(), getPhase(), getUserTimeStatus()
-    aiPrompts.js       # (לא מחובר עדיין לaiService)
-    aiKnowledge.js     # (לא מחובר עדיין לaiService)
-    ai/aiPrompts.js    # (כפול — לנקות)
-    ai/aiKnowledge.js  # (כפול — לנקות)
+    aiPrompts.js       # (לא מחובר עדיין לaiService — TODO)
+    aiKnowledge.js     # (לא מחובר עדיין לaiService — TODO)
+    storage.js         # כל persistence: profile, financial, onboarding, stamps
+    supabase.js        # Supabase client + PKCE
+    agents/            # multi-agent AI system (orchestrator, coach, analyst, …)
 ```
 
 ---
@@ -175,14 +177,11 @@ Stack modals from Home:
 ---
 
 ## Known Issues (TODO)
-- [ ] SafeArea: hardcoded `paddingTop: 60` — צריך `useSafeAreaInsets()`
-- [ ] Duplicate files: `src/services/ai/` כפול של `src/services/`
+- [ ] SafeArea: hardcoded `paddingTop: 60` במסכים ישנים — צריך `useSafeAreaInsets()`
 - [ ] `aiPrompts.js` + `aiKnowledge.js` לא מחוברים ל-`aiService.js`
-- [ ] Games: Budget Battle + Financial Quiz לא בנויים עדיין
-- [ ] Settings screen חסר
-- [ ] אין backend — הכל mock
-- [ ] אין authentication אמיתי
-- [ ] Payment integration (RevenueCat/Stripe) לא בנוי
+- [ ] Payment integration (RevenueCat/Stripe) לא בנוי — `SubscriptionScreen` מציג UI בלבד
+- [ ] Weekly milestones — ימים 7, 14, 21, 25 ב-DailyCoachingScreen
+- [ ] Grace days — 2/חודש, streak לא נשבר
 
 ---
 
@@ -190,6 +189,6 @@ Stack modals from Home:
 - **No comments** על קוד ברור — רק WHY לא-ברור
 - **Hebrew strings** ישירות בקוד — אין i18n מלא עדיין
 - **StyleSheet.create** תמיד — לא inline styles
-- **mockUser** מ-`src/mock/data.js` — הנתונים הם ground truth
+- **mock/data.js** — לסימולציית ghost ובדיקות בלבד. אין שימוש ב-mockUser במסכי production
 - **No TypeScript** עדיין — plain JS
 - **Imports**: relative paths, לא absolute

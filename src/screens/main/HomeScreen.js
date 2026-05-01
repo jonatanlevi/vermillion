@@ -1,19 +1,36 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Animated } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { mockUser, mockPrizePool, canUseFeature } from '../../mock/data';
 import { useLanguage } from '../../context/LanguageContext';
+import { useAuth } from '../../context/AuthContext';
 import LanguagePicker from '../../components/LanguagePicker';
 import { DAY_META, calcCompletion } from '../../data/dailyQuestions';
 import { getUserTimeStatus } from '../../services/timeEngine';
+import { getOnboardingState } from '../../services/storage';
+
+const PRIZE_POOL = {
+  month: 'אפריל 2026',
+  total: 45000,
+  distribution: [{ rank: 1, amount: 25000 }, { rank: 2, amount: 15000 }, { rank: 3, amount: 5000 }],
+};
 
 export default function HomeScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { t } = useLanguage();
-  const ts = getUserTimeStatus(mockUser);
-  const completion = calcCompletion(mockUser.dailyAnswers || {});
-  const isPremium = mockUser.subscription === 'premium';
+  const { profile } = useAuth();
+
+  const [onbState, setOnbState] = useState(null);
+
+  useEffect(() => {
+    getOnboardingState().then(setOnbState);
+  }, []);
+
+  const dailyAnswers = onbState || {};
+  const regDate      = onbState?.startDate || new Date().toISOString();
+  const ts           = getUserTimeStatus({ registrationDate: regDate, dailyAnswers });
+  const completion   = calcCompletion(dailyAnswers);
+  const isPremium    = profile?.subscription === 'premium';
 
   const todayMeta = DAY_META[ts.currentDay];
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -36,7 +53,7 @@ export default function HomeScreen({ navigation }) {
         {/* Header */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.greeting}>{t.greeting(mockUser.name.split(' ')[0])}</Text>
+            <Text style={styles.greeting}>{t.greeting((profile?.name || profile?.email || '').split(' ')[0])}</Text>
             <Text style={styles.date}>{ts.hebrewDate}</Text>
           </View>
           <View style={styles.headerRight}>
@@ -258,9 +275,9 @@ export default function HomeScreen({ navigation }) {
 
         {/* Stats */}
         <View style={styles.statsRow}>
-          <StatCard icon="🏆" label={t.rankLabel}     value={isPremium ? `#${mockUser.rank}` : '—'} accent="#F0C040" />
-          <StatCard icon="🔥" label={t.streakLabel}   value={`${ts.streak}d`}                       accent="#E74C3C" />
-          <StatCard icon="🎯" label={t.accuracyLabel} value={isPremium ? `${mockUser.score}%` : '—'} accent="#2ECC71" />
+          <StatCard icon="🏆" label={t.rankLabel}     value="—"                  accent="#F0C040" />
+          <StatCard icon="🔥" label={t.streakLabel}   value={`${ts.streak}d`}    accent="#E74C3C" />
+          <StatCard icon="✅" label="ימים הושלמו"     value={`${(onbState?.daysCompleted || []).length}`} accent="#2ECC71" />
         </View>
 
         {/* Prize Pool */}
@@ -270,16 +287,16 @@ export default function HomeScreen({ navigation }) {
           activeOpacity={0.88}
         >
           <View style={styles.prizeLeft}>
-            <Text style={styles.prizeMonth}>{mockPrizePool.month}</Text>
+            <Text style={styles.prizeMonth}>{PRIZE_POOL.month}</Text>
             <Text style={styles.prizeTitle}>{t.prizePoolTitle}</Text>
             <View style={styles.prizeAmountRow}>
               <Text style={styles.prizeCurrency}>{t.currencySymbol}</Text>
-              <Text style={styles.prizeAmount}>{mockPrizePool.total.toLocaleString()}</Text>
+              <Text style={styles.prizeAmount}>{PRIZE_POOL.total.toLocaleString()}</Text>
             </View>
             <Text style={styles.prizeAction}>{isPremium ? t.seeFullRank : '🔒 למנויים בלבד'}</Text>
           </View>
           <View style={styles.prizeRight}>
-            {mockPrizePool.distribution.slice(0, 3).map((p, i) => (
+            {PRIZE_POOL.distribution.slice(0, 3).map((p, i) => (
               <View key={p.rank} style={styles.prizeRow}>
                 <Text style={styles.prizeMedal}>{['🥇','🥈','🥉'][i]}</Text>
                 <Text style={[styles.prizeRowAmount, i === 0 && styles.prizeRowAmountFirst]}>

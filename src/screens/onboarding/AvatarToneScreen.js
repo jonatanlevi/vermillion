@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useLanguage } from '../../context/LanguageContext';
-import { mockUser } from '../../mock/data';
 
 export default function AvatarToneScreen({ navigation, route }) {
   const { appearance } = route.params;
@@ -19,18 +18,6 @@ export default function AvatarToneScreen({ navigation, route }) {
     const newAnswers = { ...answers, [current.key]: value };
     setAnswers(newAnswers);
     
-    // מיפוי בחירת המשתמש לפרסונה של ה-AI
-    if (current.key === 'advice_style') {
-      const personaMap = {
-        direct: 'strategist',
-        gentle: 'mentor',
-        tough: 'partner'
-      };
-      if (!mockUser.vermillion) mockUser.vermillion = { tone: {} };
-      if (!mockUser.vermillion.tone) mockUser.vermillion.tone = {};
-      mockUser.vermillion.tone.advice_style = personaMap[value] || 'strategist';
-    }
-
     setTimeout(() => {
       if (isLast) {
         navigation.navigate('AvatarIntro', { appearance, tone: newAnswers });
