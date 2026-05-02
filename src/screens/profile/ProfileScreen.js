@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, Modal, FlatList,
+  ActivityIndicator, Modal, FlatList, Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { getFinancialData, getOnboardingState } from '../../services/storage';
 import { useAuth } from '../../context/AuthContext';
 import { computeSkills, DAY_PLAN } from '../../services/onboardingAI';
+import { supabase } from '../../services/supabase';
+import VermillionAvatar from '../../components/VermillionAvatar';
 
 const TIER_LABELS = ['עיוור', 'ייצוב', 'שרידות', 'בנייה', 'אופטימיזציה'];
 const TIER_COLORS = ['#444', '#E74C3C', '#E67E22', '#3498DB', '#D4AF37'];
@@ -23,12 +25,20 @@ const LEADERBOARD = [
 ];
 
 const SKILL_LABELS = {
-  saving:   { label: 'חיסכון',     icon: '💰', desc: 'יחס חיסכון מהכנסה' },
-  debtMgmt: { label: 'ניהול חוב',  icon: '📉', desc: 'יחס חוב להכנסה' },
-  planning: { label: 'תכנון',      icon: '🎯', desc: 'מטרות פיננסיות' },
-  mindset:  { label: 'מנטליות',    icon: '🧠', desc: 'רמת לחץ פיננסי' },
-  investment:{ label: 'השקעות',    icon: '📈', desc: 'נכסים ותיק השקעות' },
+  saving:    { label: 'חיסכון',    icon: '💰', desc: 'יחס חיסכון מהכנסה' },
+  debtMgmt:  { label: 'ניהול חוב', icon: '📉', desc: 'יחס חוב להכנסה' },
+  planning:  { label: 'תכנון',     icon: '🎯', desc: 'מטרות פיננסיות' },
+  mindset:   { label: 'מנטליות',   icon: '🧠', desc: 'רמת לחץ פיננסי' },
+  investment:{ label: 'השקעות',   icon: '📈', desc: 'נכסים ותיק השקעות' },
 };
+
+const STORE_ITEMS = [
+  { id: 'glasses',     name: 'משקפי ראייה', desc: 'מראה מקצועי',  icon: '🔬', price: 80  },
+  { id: 'beard',       name: 'זקן',          desc: 'בוגר ומנוסה',  icon: '🧔', price: 100 },
+  { id: 'sunglasses',  name: 'שמשיות',        desc: 'סגנון רחוב',   icon: '🕶️', price: 150 },
+  { id: 'hat',         name: 'כובע',          desc: 'אריסטוקרטי',   icon: '🎩', price: 250 },
+  { id: 'gold_hoodie', name: 'הודי זהב',     desc: 'אקסקלוסיבי',   icon: '✨', price: 500 },
+];
 
 function SkillBar({ skill, value, color }) {
   const meta = SKILL_LABELS[skill] || { label: skill, icon: '•', desc: '' };
@@ -60,13 +70,11 @@ function LeaderboardModal({ visible, onClose }) {
               <Text style={styles.modalCloseText}>✕</Text>
             </TouchableOpacity>
           </View>
-
           <View style={styles.prizeBox}>
             <Text style={styles.prizeLabel}>פרס חודשי</Text>
             <Text style={styles.prizeAmt}>₪45,000</Text>
             <Text style={styles.prizeNote}>27 ימים נותרו</Text>
           </View>
-
           <FlatList
             data={LEADERBOARD}
             keyExtractor={item => String(item.rank)}
@@ -88,17 +96,16 @@ function LeaderboardModal({ visible, onClose }) {
 
 export default function ProfileScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const { profile, signOut } = useAuth();
+  const { user, profile, signOut, reloadProfile } = useAuth();
   const [financial, setFinancial]   = useState({});
   const [onboarding, setOnboarding] = useState({});
   const [skills, setSkills]         = useState(null);
   const [loading, setLoading]       = useState(true);
   const [showLB, setShowLB]         = useState(false);
+  const [purchasing, setPurchasing] = useState(null);
 
   useFocusEffect(
-    useCallback(() => {
-      loadData();
-    }, [])
+    useCallback(() => { loadData(); }, [])
   );
 
   async function loadData() {
@@ -106,15 +113,40 @@ export default function ProfileScreen({ navigation }) {
     const [fin, ob] = await Promise.all([getFinancialData(), getOnboardingState()]);
     setFinancial(fin);
     setOnboarding(ob);
-
     if (Object.keys(fin).length > 0) {
-      const surplus = (fin.netIncome || 0) - (fin.housingCost || 0)
-        - (fin.fixedExpenses || 0) - (fin.variableExpenses || 0);
-      const totalDebt = (fin.creditDebt || 0) + (fin.loans || 0) + (fin.overdraft || 0);
+      const surplus    = (fin.netIncome || 0) - (fin.housingCost || 0) - (fin.fixedExpenses || 0) - (fin.variableExpenses || 0);
+      const totalDebt  = (fin.creditDebt || 0) + (fin.loans || 0) + (fin.overdraft || 0);
       const savingsRate = fin.netIncome > 0 ? Math.round((surplus / fin.netIncome) * 100) : 0;
       setSkills(computeSkills(fin, surplus, totalDebt, savingsRate));
     }
     setLoading(false);
+  }
+
+  async function handlePurchase(item) {
+    if (!user?.id || user.id.startsWith('local_')) {
+      Alert.alert('חשבון נדרש', 'התחבר כדי לרכוש פריטים');
+      return;
+    }
+    const coins    = profile?.v_coins ?? 0;
+    const owned    = (profile?.equipment || []).includes(item.id);
+    if (owned || coins < item.price) return;
+
+    setPurchasing(item.id);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          v_coins:   coins - item.price,
+          equipment: [...(profile.equipment || []), item.id],
+        })
+        .eq('id', user.id);
+      if (error) throw error;
+      await reloadProfile();
+    } catch (e) {
+      Alert.alert('שגיאה', 'הרכישה נכשלה — נסה שוב');
+    } finally {
+      setPurchasing(null);
+    }
   }
 
   function getTier() {
@@ -139,10 +171,12 @@ export default function ProfileScreen({ navigation }) {
     return allFields.filter(f => financial[f] !== undefined && financial[f] !== null).length;
   }
 
-  const answered = countAnswered();
-  const totalQ   = 21;
-  const tier     = getTier();
-  const tierColor = TIER_COLORS[tier];
+  const answered   = countAnswered();
+  const totalQ     = 21;
+  const tier       = getTier();
+  const tierColor  = TIER_COLORS[tier];
+  const vCoins     = profile?.v_coins ?? 0;
+  const equipment  = profile?.equipment || [];
 
   if (loading) {
     return (
@@ -160,9 +194,13 @@ export default function ProfileScreen({ navigation }) {
     >
       {/* Header */}
       <View style={styles.header}>
-        <View style={[styles.avatarCircle, { borderColor: tierColor }]}>
-          <Text style={styles.avatarLetter}>V</Text>
-        </View>
+        <VermillionAvatar
+          userId={user?.id}
+          equipment={equipment}
+          size={56}
+          showGlow={true}
+          accentColor={tierColor}
+        />
         <View style={{ flex: 1 }}>
           <Text style={styles.userName}>{profile?.name || 'VerMillion שלך'}</Text>
           <View style={[styles.tierBadge, { backgroundColor: tierColor + '22', borderColor: tierColor + '66' }]}>
@@ -178,7 +216,7 @@ export default function ProfileScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      {/* Score row */}
+      {/* Score row — includes V-Coins */}
       <View style={styles.scoreCard}>
         <View style={styles.scoreItem}>
           <Text style={styles.scoreVal}>#3</Text>
@@ -191,8 +229,10 @@ export default function ProfileScreen({ navigation }) {
         </View>
         <View style={styles.divider} />
         <View style={styles.scoreItem}>
-          <Text style={styles.scoreVal}>27</Text>
-          <Text style={styles.scoreKey}>ימים נותרו</Text>
+          <Text style={[styles.scoreVal, { color: '#D4AF37', fontSize: 18 }]}>
+            💰 {vCoins.toLocaleString()}
+          </Text>
+          <Text style={styles.scoreKey}>V-Coins</Text>
         </View>
       </View>
 
@@ -202,7 +242,6 @@ export default function ProfileScreen({ navigation }) {
           <Text style={styles.sectionTitle}>כישורי VerMillion</Text>
           <Text style={styles.sectionSub}>{answered}/{totalQ} שאלות</Text>
         </View>
-
         {skills ? (
           <View style={styles.skillsCard}>
             {Object.entries(skills).map(([key, val]) => (
@@ -214,8 +253,6 @@ export default function ProfileScreen({ navigation }) {
             <Text style={styles.emptySkillsText}>הכישורים יחושבו לאחר שתענה על שאלות היכרות</Text>
           </View>
         )}
-
-        {/* Build skills button */}
         <TouchableOpacity
           style={styles.buildBtn}
           onPress={() => navigation.navigate('VerMillion')}
@@ -227,20 +264,20 @@ export default function ProfileScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      {/* Financial summary (if data exists) */}
+      {/* Financial summary */}
       {financial.netIncome ? (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>סיכום פיננסי</Text>
           <View style={styles.finCard}>
             {[
-              { label: 'הכנסה נטו',  val: financial.netIncome,   prefix: '₪' },
-              { label: 'הוצאות קבועות', val: (financial.housingCost || 0) + (financial.fixedExpenses || 0), prefix: '₪' },
-              { label: 'הוצאות משתנות', val: financial.variableExpenses, prefix: '₪' },
-              { label: 'חוב כולל',   val: (financial.creditDebt || 0) + (financial.loans || 0) + (financial.overdraft || 0), prefix: '₪' },
-              { label: 'חיסכון נזיל', val: financial.savings,   prefix: '₪' },
+              { label: 'הכנסה נטו',       val: financial.netIncome },
+              { label: 'הוצאות קבועות',   val: (financial.housingCost || 0) + (financial.fixedExpenses || 0) },
+              { label: 'הוצאות משתנות',   val: financial.variableExpenses },
+              { label: 'חוב כולל',        val: (financial.creditDebt || 0) + (financial.loans || 0) + (financial.overdraft || 0) },
+              { label: 'חיסכון נזיל',     val: financial.savings },
             ].filter(r => r.val !== undefined && r.val !== null).map((row, i) => (
               <View key={i} style={styles.finRow}>
-                <Text style={styles.finVal}>{row.prefix}{(row.val || 0).toLocaleString('he-IL')}</Text>
+                <Text style={styles.finVal}>₪{(row.val || 0).toLocaleString('he-IL')}</Text>
                 <Text style={styles.finLabel}>{row.label}</Text>
               </View>
             ))}
@@ -259,16 +296,65 @@ export default function ProfileScreen({ navigation }) {
         <Text style={styles.sectionTitle}>הישגים</Text>
         <View style={styles.achieveRow}>
           {[
-            { icon: '🔥', label: '7 ימים', locked: answered < 21 },
-            { icon: '💬', label: 'שיחה ראשונה', locked: false },
-            { icon: '🏆', label: 'TOP 10', locked: true },
-            { icon: '⭐', label: 'PREMIUM', locked: true },
+            { icon: '🔥', label: '7 ימים',       locked: answered < 21 },
+            { icon: '💬', label: 'שיחה ראשונה',   locked: false },
+            { icon: '🏆', label: 'TOP 10',         locked: true },
+            { icon: '⭐', label: 'PREMIUM',        locked: true },
           ].map((a, i) => (
             <View key={i} style={[styles.achieveBadge, a.locked && styles.achieveLocked]}>
               <Text style={styles.achieveIcon}>{a.locked ? '🔒' : a.icon}</Text>
               <Text style={[styles.achieveLabel, a.locked && { color: '#333' }]}>{a.label}</Text>
             </View>
           ))}
+        </View>
+      </View>
+
+      {/* Store */}
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>🛍️ חנות שדרוגים</Text>
+          <View style={styles.coinsChip}>
+            <Text style={styles.coinsChipText}>💰 {vCoins}</Text>
+          </View>
+        </View>
+        <Text style={styles.storeHint}>שדרג את האווטאר שלך עם V-Coins</Text>
+
+        <View style={styles.storeList}>
+          {STORE_ITEMS.map(item => {
+            const owned   = equipment.includes(item.id);
+            const canBuy  = vCoins >= item.price;
+            const loading = purchasing === item.id;
+
+            return (
+              <TouchableOpacity
+                key={item.id}
+                style={[styles.storeItem, owned && styles.storeItemOwned]}
+                onPress={() => !owned && !loading && handlePurchase(item)}
+                activeOpacity={owned ? 1 : 0.8}
+              >
+                <View style={[styles.storeItemIconWrap, owned && { backgroundColor: '#D4AF3722', borderColor: '#D4AF37' }]}>
+                  <Text style={styles.storeItemIcon}>{item.icon}</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.storeItemName, owned && { color: '#D4AF37' }]}>{item.name}</Text>
+                  <Text style={styles.storeItemDesc}>{item.desc}</Text>
+                </View>
+                {loading ? (
+                  <ActivityIndicator size="small" color="#D4AF37" />
+                ) : owned ? (
+                  <View style={styles.ownedBadge}>
+                    <Text style={styles.ownedText}>✅ נרכש</Text>
+                  </View>
+                ) : (
+                  <View style={[styles.buyBtn, !canBuy && styles.buyBtnDisabled]}>
+                    <Text style={[styles.buyBtnText, !canBuy && { color: '#555' }]}>
+                      💰 {item.price}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
+          })}
         </View>
       </View>
 
@@ -287,18 +373,13 @@ const styles = StyleSheet.create({
   center:    { flex: 1, backgroundColor: '#0A0A0A', alignItems: 'center', justifyContent: 'center' },
 
   header: { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 16 },
-  avatarCircle: {
-    width: 56, height: 56, borderRadius: 28, borderWidth: 2.5,
-    backgroundColor: '#C0392B', alignItems: 'center', justifyContent: 'center',
-  },
-  avatarLetter: { color: '#FFF', fontSize: 22, fontWeight: '900' },
-  userName: { color: '#FFF', fontSize: 17, fontWeight: '800', marginBottom: 4 },
-  tierBadge: { alignSelf: 'flex-start', borderRadius: 8, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 3 },
-  tierLabel: { fontSize: 12, fontWeight: '800' },
-  lbBtn: { alignItems: 'center', gap: 3, padding: 8 },
-  lbBtnIcon: { fontSize: 22 },
-  lbBtnText: { color: '#888', fontSize: 10, fontWeight: '600' },
-  settingsIcon: { padding: 8 },
+  userName:   { color: '#FFF', fontSize: 17, fontWeight: '800', marginBottom: 4 },
+  tierBadge:  { alignSelf: 'flex-start', borderRadius: 8, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 3 },
+  tierLabel:  { fontSize: 12, fontWeight: '800' },
+  lbBtn:      { alignItems: 'center', gap: 3, padding: 8 },
+  lbBtnIcon:  { fontSize: 22 },
+  lbBtnText:  { color: '#888', fontSize: 10, fontWeight: '600' },
+  settingsIcon:     { padding: 8 },
   settingsIconText: { fontSize: 22 },
 
   scoreCard: {
@@ -330,17 +411,14 @@ const styles = StyleSheet.create({
   emptySkills:     { backgroundColor: '#111', borderRadius: 16, padding: 24, borderWidth: 1, borderColor: '#1E1E1E', alignItems: 'center' },
   emptySkillsText: { color: '#444', fontSize: 14, textAlign: 'center' },
 
-  buildBtn:     {
-    marginTop: 12, backgroundColor: '#C0392B', borderRadius: 14,
-    height: 50, alignItems: 'center', justifyContent: 'center',
-  },
+  buildBtn:     { marginTop: 12, backgroundColor: '#C0392B', borderRadius: 14, height: 50, alignItems: 'center', justifyContent: 'center' },
   buildBtnText: { color: '#FFF', fontSize: 14, fontWeight: '800' },
 
   finCard: { backgroundColor: '#111', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#1E1E1E' },
   finRow:  { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#181818' },
   finVal:  { color: '#FFF', fontSize: 15, fontWeight: '700' },
   finLabel:{ color: '#666', fontSize: 13 },
-  goalBox: { marginTop: 10, backgroundColor: '#0D1A0D', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#1A3A1A' },
+  goalBox:  { marginTop: 10, backgroundColor: '#0D1A0D', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#1A3A1A' },
   goalLabel:{ color: '#4CAF50', fontSize: 11, fontWeight: '700', marginBottom: 4 },
   goalText: { color: '#E0E0E0', fontSize: 14, fontStyle: 'italic' },
 
@@ -350,23 +428,48 @@ const styles = StyleSheet.create({
   achieveIcon:  { fontSize: 24, marginBottom: 6 },
   achieveLabel: { color: '#888', fontSize: 10, fontWeight: '600' },
 
+  // Store
+  storeHint: { color: '#555', fontSize: 12, marginBottom: 12 },
+  coinsChip: { backgroundColor: '#1A1400', borderRadius: 10, borderWidth: 1, borderColor: '#D4AF3744', paddingHorizontal: 10, paddingVertical: 4 },
+  coinsChipText: { color: '#D4AF37', fontSize: 13, fontWeight: '800' },
+  storeList: { gap: 10 },
+  storeItem: {
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    backgroundColor: '#111', borderRadius: 16, padding: 14,
+    borderWidth: 1, borderColor: '#1E1E1E',
+  },
+  storeItemOwned: { borderColor: '#D4AF3744', backgroundColor: '#1A1400' },
+  storeItemIconWrap: {
+    width: 48, height: 48, borderRadius: 12,
+    backgroundColor: '#1A1A1A', borderWidth: 1, borderColor: '#2A2A2A',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  storeItemIcon: { fontSize: 24 },
+  storeItemName: { color: '#FFF', fontSize: 15, fontWeight: '800', textAlign: 'right', marginBottom: 2 },
+  storeItemDesc: { color: '#555', fontSize: 12, textAlign: 'right' },
+  ownedBadge:    { backgroundColor: '#1A2A1A', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: '#2ECC7144' },
+  ownedText:     { color: '#2ECC71', fontSize: 12, fontWeight: '700' },
+  buyBtn:        { backgroundColor: '#1A1400', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1, borderColor: '#D4AF3766' },
+  buyBtnDisabled:{ backgroundColor: '#111', borderColor: '#222' },
+  buyBtnText:    { color: '#D4AF37', fontSize: 13, fontWeight: '800' },
+
   logoutBtn: { alignItems: 'center', paddingVertical: 14, marginTop: 8 },
   logoutText:{ color: '#C0392B', fontSize: 15, fontWeight: '600' },
 
   // Modal
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'flex-end' },
-  modalCard:    { backgroundColor: '#111', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, maxHeight: '80%' },
-  modalHeader:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  modalTitle:   { color: '#FFF', fontSize: 17, fontWeight: '800' },
-  modalClose:   { padding: 6 },
+  modalOverlay:   { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'flex-end' },
+  modalCard:      { backgroundColor: '#111', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, maxHeight: '80%' },
+  modalHeader:    { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  modalTitle:     { color: '#FFF', fontSize: 17, fontWeight: '800' },
+  modalClose:     { padding: 6 },
   modalCloseText: { color: '#666', fontSize: 18 },
-  prizeBox:     { backgroundColor: '#1A1400', borderRadius: 14, padding: 16, marginBottom: 16, alignItems: 'center', borderWidth: 1, borderColor: '#D4AF3744' },
-  prizeLabel:   { color: '#7A6A20', fontSize: 12, marginBottom: 4 },
-  prizeAmt:     { color: '#D4AF37', fontSize: 32, fontWeight: '900' },
-  prizeNote:    { color: '#7A6A20', fontSize: 11, marginTop: 4 },
-  lbRow:        { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#1A1A1A' },
-  lbRowUser:    { backgroundColor: '#1A0808', borderRadius: 10, paddingHorizontal: 8 },
-  lbRank:       { color: '#D4AF37', fontSize: 18, width: 40, textAlign: 'center' },
-  lbName:       { flex: 1, color: '#DDD', fontSize: 14, textAlign: 'right' },
-  lbScore:      { color: '#888', fontSize: 13, marginLeft: 12 },
+  prizeBox:       { backgroundColor: '#1A1400', borderRadius: 14, padding: 16, marginBottom: 16, alignItems: 'center', borderWidth: 1, borderColor: '#D4AF3744' },
+  prizeLabel:     { color: '#7A6A20', fontSize: 12, marginBottom: 4 },
+  prizeAmt:       { color: '#D4AF37', fontSize: 32, fontWeight: '900' },
+  prizeNote:      { color: '#7A6A20', fontSize: 11, marginTop: 4 },
+  lbRow:          { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#1A1A1A' },
+  lbRowUser:      { backgroundColor: '#1A0808', borderRadius: 10, paddingHorizontal: 8 },
+  lbRank:         { color: '#D4AF37', fontSize: 18, width: 40, textAlign: 'center' },
+  lbName:         { flex: 1, color: '#DDD', fontSize: 14, textAlign: 'right' },
+  lbScore:        { color: '#888', fontSize: 13, marginLeft: 12 },
 });
