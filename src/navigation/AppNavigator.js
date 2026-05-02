@@ -22,6 +22,7 @@ import GamesScreen      from '../screens/games/GamesScreen';
 import VerMillionScreen from '../screens/vermillion/VerMillionScreen';
 import ProfileScreen    from '../screens/profile/ProfileScreen';
 
+import HomeScreen           from '../screens/main/HomeScreen';
 import DailyQuestionsScreen from '../screens/main/DailyQuestionsScreen';
 import DailyCoachingScreen  from '../screens/main/DailyCoachingScreen';
 import ProfileRevealScreen  from '../screens/main/ProfileRevealScreen';
@@ -117,6 +118,7 @@ export default function AppNavigator() {
             <Stack.Screen name="AvatarReveal"      component={AvatarRevealScreen} />
             <Stack.Screen name="Subscription"      component={SubscriptionScreen} />
             <Stack.Screen name="ModelDownload"     component={ModelDownloadScreen} />
+            <Stack.Screen name="Home"              component={HomeScreen} />
             <Stack.Screen name="DailyQuestions"    component={DailyQuestionsScreen} />
             <Stack.Screen name="DailyCoaching"     component={DailyCoachingScreen} />
             <Stack.Screen name="ProfileReveal"     component={ProfileRevealScreen} />

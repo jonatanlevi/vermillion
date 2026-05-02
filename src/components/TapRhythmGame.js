@@ -96,7 +96,7 @@ export default function TapRhythmGame({ onFinish }) {
         nextRound();
       }, 400);
     } else {
-      const pts = zone === 'perfect' ? 1 : 1;
+      const pts = zone === 'perfect' ? 2 : 1;
       scoreRef.current += pts;
       comboRef.current += 1;
       setScore(scoreRef.current);

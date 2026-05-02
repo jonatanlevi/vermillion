@@ -17,7 +17,7 @@ const BOMBS  = ['💣', '❌', '📉'];
 
 let _id = 0;
 function makeItem(score) {
-  const isBomb = Math.random() < 0.28 + score * 0.01;
+  const isBomb = Math.random() < Math.min(0.28 + score * 0.01, 0.45);
   const lane   = Math.floor(Math.random() * LANES);
   return {
     id: ++_id,

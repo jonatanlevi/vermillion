@@ -300,7 +300,10 @@ export default function GamesScreen({ navigation }) {
   if (activeGame) {
     return (
       <Animated.View style={[styles.gameFullscreen, { opacity: fadeAnim, paddingTop: insets.top }]}>
-        <TouchableOpacity style={styles.exitBtn} onPress={() => setActiveGame(null)}>
+        <TouchableOpacity style={styles.exitBtn} onPress={() => {
+          setActiveGame(null);
+          if (!hasCommitment) setShowCommitBtn(true);
+        }}>
           <Text style={styles.exitBtnText}>✕ יציאה</Text>
         </TouchableOpacity>
         {activeGame === 'runner'    && <RunnerGame    onFinish={handleGameFinish} />}

@@ -6,7 +6,7 @@ const W = SW - 48;
 const H = 290;
 const WIN_COUNT = 15;
 const MAX_MISS  = 3;
-const TIMEOUT_MS = 2400;
+const TIMEOUT_MS = 3500;
 
 const ITEMS = [
   { label: '💼 משכורת',      category: 'income'  },

@@ -8,7 +8,7 @@ const BALL_R     = 10;
 const PADDLE_W   = 80;
 const PADDLE_H   = 14;
 const PADDLE_Y   = H - 24;
-const PADDLE_SPD = 38;
+const PADDLE_SPD = 5;
 const WIN_HITS   = 25;
 
 export default function PingPongGame({ onFinish }) {
@@ -21,9 +21,10 @@ export default function PingPongGame({ onFinish }) {
   const vx = useRef(3.2);
   const vy = useRef(3.8);
   const px = useRef(W / 2 - PADDLE_W / 2);
-  const hitsRef   = useRef(0);
-  const statusRef = useRef('idle');
-  const loopRef   = useRef(null);
+  const hitsRef    = useRef(0);
+  const statusRef  = useRef('idle');
+  const loopRef    = useRef(null);
+  const movingDir  = useRef(0);
 
   const die = useCallback(() => {
     clearInterval(loopRef.current);
@@ -41,6 +42,10 @@ export default function PingPongGame({ onFinish }) {
   const startLoop = useCallback(() => {
     loopRef.current = setInterval(() => {
       if (statusRef.current !== 'running') return;
+
+      if (movingDir.current !== 0) {
+        px.current = Math.max(0, Math.min(W - PADDLE_W, px.current + movingDir.current * PADDLE_SPD));
+      }
 
       bx.current += vx.current;
       by.current += vy.current;
@@ -85,15 +90,13 @@ export default function PingPongGame({ onFinish }) {
     }, 16);
   }, [die, win]);
 
-  const moveLeft  = () => { px.current = Math.max(0, px.current - PADDLE_SPD); };
-  const moveRight = () => { px.current = Math.min(W - PADDLE_W, px.current + PADDLE_SPD); };
-
   const startGame = () => {
     clearInterval(loopRef.current);
     bx.current = W / 2; by.current = H / 2;
     vx.current = 3.2 * (Math.random() > 0.5 ? 1 : -1);
     vy.current = 3.8;
     px.current = W / 2 - PADDLE_W / 2;
+    movingDir.current = 0;
     hitsRef.current = 0;
     statusRef.current = 'running';
     setHits(0);
@@ -165,10 +168,18 @@ export default function PingPongGame({ onFinish }) {
 
       {status === 'running' && (
         <View style={s.controls}>
-          <TouchableOpacity onPressIn={moveLeft}  onPress={moveLeft}  style={s.ctrlBtn} activeOpacity={0.7}>
+          <TouchableOpacity
+            onPressIn={() => { movingDir.current = -1; }}
+            onPressOut={() => { movingDir.current = 0; }}
+            style={s.ctrlBtn} activeOpacity={0.7}
+          >
             <Text style={s.ctrlLabel}>←</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPressIn={moveRight} onPress={moveRight} style={s.ctrlBtn} activeOpacity={0.7}>
+          <TouchableOpacity
+            onPressIn={() => { movingDir.current = 1; }}
+            onPressOut={() => { movingDir.current = 0; }}
+            style={s.ctrlBtn} activeOpacity={0.7}
+          >
             <Text style={s.ctrlLabel}>→</Text>
           </TouchableOpacity>
         </View>

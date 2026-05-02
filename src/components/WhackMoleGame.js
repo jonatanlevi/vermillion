@@ -17,7 +17,7 @@ const HOLES = [
 ];
 
 const MOLES = [
-  { type: 'coin', label: '₪',  color: '#D4AF37', good: true  },
+  { type: 'coin', label: '🪙', color: '#D4AF37', good: true  },
   { type: 'coin', label: '💰', color: '#D4AF37', good: true  },
   { type: 'bomb', label: '💣', color: '#E74C3C', good: false },
 ];

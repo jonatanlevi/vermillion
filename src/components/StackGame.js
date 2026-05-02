@@ -40,7 +40,7 @@ export default function StackGame({ onFinish }) {
   const startLoop = useCallback(() => {
     loopRef.current = setInterval(() => {
       if (statusRef.current !== 'running') return;
-      const speed = BASE_SPD + scoreRef.current * 0.35;
+      const speed = Math.min(BASE_SPD + scoreRef.current * 0.35, 7);
       movX.current += movDir.current * speed;
       const hw = movW.current / 2;
       if (movX.current + hw > W - 4) { movX.current = W - 4 - hw; movDir.current = -1; }

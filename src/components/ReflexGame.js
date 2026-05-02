@@ -70,7 +70,7 @@ export default function ReflexGame({ onFinish }) {
     scoreRef.current += 1;
     setScore(scoreRef.current);
     if (scoreRef.current >= WIN_COUNT) { win(); return; }
-    const delay = Math.max(100, 280 - scoreRef.current * 8);
+    const delay = Math.max(200, 350 - scoreRef.current * 5);
     timerRef.current = setTimeout(showNext, delay);
   }, [showNext, win]);
 

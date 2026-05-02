@@ -191,7 +191,7 @@ export default function ObstacleGame({ onFinish }) {
           {status === 'idle' && (
             <View style={styles.overlay}>
               <Text style={styles.overlayBird}>🐦</Text>
-              <Text style={styles.overlayTitle}>Flappy VerMillion</Text>
+              <Text style={styles.overlayTitle}>מרוץ המכשולים</Text>
               <Text style={styles.overlayHint}>לחץ לטוס בין הצינורות{'\n'}עבור 8 צינורות לסיום</Text>
               <View style={styles.overlayBtn}>
                 <Text style={styles.overlayBtnText}>לחץ לאיפשהו להתחיל</Text>

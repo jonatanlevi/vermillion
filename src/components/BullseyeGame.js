@@ -44,7 +44,7 @@ export default function BullseyeGame({ onFinish }) {
       if (statusRef.current !== 'running') return;
       const base   = 0.045 + scoreRef.current * 0.003;
       angle.current += base;
-      orbit.current = R2 + Math.sin(angle.current * 0.7) * (R2 + 10);
+      orbit.current = R2 + Math.sin(angle.current * 0.7) * (R3 - R2);
       const x = CX + Math.cos(angle.current) * orbit.current;
       const y = CY + Math.sin(angle.current * 1.3) * orbit.current * 0.6;
       setDotPos({ x, y });

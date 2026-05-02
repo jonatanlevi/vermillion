@@ -304,11 +304,18 @@ export default function VerMillionScreen({ navigation }) {
         addMsg('assistant', 'רגע אחד — מכין את האפיון האישי שלך...');
         setTimeout(async () => {
           if (!mountedRef.current) return;
-          const { profileText } = await generateProfile();
-          setMessages(prev => [
-            ...prev.slice(0, -1),
-            { id: nextId(), role: 'assistant', text: `${profileText}\n\n✅ VerMillion שלך מוכן לגמרי.\nמעכשיו יש לך יועץ פיננסי אישי — שלך בלבד.` },
-          ]);
+          try {
+            const { profileText } = await generateProfile();
+            setMessages(prev => [
+              ...prev.slice(0, -1),
+              { id: nextId(), role: 'assistant', text: `${profileText}\n\n✅ VerMillion שלך מוכן לגמרי.\nמעכשיו יש לך יועץ פיננסי אישי — שלך בלבד.` },
+            ]);
+          } catch {
+            setMessages(prev => [
+              ...prev.slice(0, -1),
+              { id: nextId(), role: 'assistant', text: 'האפיון שלך מוכן! VerMillion ילמד אותך טוב יותר מיום ליום.\n\n✅ אנחנו מתחילים!' },
+            ]);
+          }
           setPhase('coaching');
         }, 1500);
       } else {
