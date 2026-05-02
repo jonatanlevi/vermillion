@@ -15,6 +15,9 @@ import SpeedTapGame   from '../../components/SpeedTapGame';
 import StackGame      from '../../components/StackGame';
 import CatchGame      from '../../components/CatchGame';
 import TapRhythmGame  from '../../components/TapRhythmGame';
+import PingPongGame   from '../../components/PingPongGame';
+import MemoryTapGame  from '../../components/MemoryTapGame';
+import ColorBoomGame  from '../../components/ColorBoomGame';
 import { saveCommitmentTime, getCommitmentTime, saveGameStamp, getGameLog, getLeaderboard } from '../../services/storage';
 import { getOnboardingState } from '../../services/storage';
 import { useAuth } from '../../context/AuthContext';
@@ -30,6 +33,9 @@ const GAMES = [
   { key: 'stack',     label: 'מגדל החיסכון',       emoji: '🏗️', desc: 'ערום בלוקים — הדיוק קובע',     color: '#D4AF37' },
   { key: 'catch',     label: 'לכוד הזדמנויות',     emoji: '🧺', desc: 'לכוד מטבעות, הימנע מפצצות',   color: '#1ABC9C' },
   { key: 'taprhythm', label: 'קצב המשקיע',          emoji: '🎵', desc: 'הקש בדיוק כשהטבעת מגיעה',     color: '#9B59B6' },
+  { key: 'pingpong',  label: 'מנצח הריבית',         emoji: '🏓', desc: 'אל תתן לכדור ליפול',           color: '#E74C3C' },
+  { key: 'memorytap', label: 'זיכרון פיננסי',        emoji: '🧠', desc: 'שנן וחזור על הרצף',            color: '#3498DB' },
+  { key: 'colorboom', label: 'פוצץ הנכון',           emoji: '🎨', desc: 'פוצץ רק את הצבע הנדרש',       color: '#E67E22' },
 ];
 
 
@@ -299,6 +305,9 @@ export default function GamesScreen({ navigation }) {
         {activeGame === 'stack'     && <StackGame      onFinish={handleGameFinish} />}
         {activeGame === 'catch'     && <CatchGame      onFinish={handleGameFinish} />}
         {activeGame === 'taprhythm' && <TapRhythmGame  onFinish={handleGameFinish} />}
+        {activeGame === 'pingpong'  && <PingPongGame   onFinish={handleGameFinish} />}
+        {activeGame === 'memorytap' && <MemoryTapGame  onFinish={handleGameFinish} />}
+        {activeGame === 'colorboom' && <ColorBoomGame  onFinish={handleGameFinish} />}
       </Animated.View>
     );
   }
