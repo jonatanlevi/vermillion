@@ -11,7 +11,10 @@ import ObstacleGame  from '../../components/ObstacleGame';
 import BubblePopGame from '../../components/BubblePopGame';
 import ReflexGame    from '../../components/ReflexGame';
 import TimingGame    from '../../components/TimingGame';
-import SpeedTapGame  from '../../components/SpeedTapGame';
+import SpeedTapGame   from '../../components/SpeedTapGame';
+import StackGame      from '../../components/StackGame';
+import CatchGame      from '../../components/CatchGame';
+import TapRhythmGame  from '../../components/TapRhythmGame';
 import { saveCommitmentTime, getCommitmentTime, saveGameStamp, getGameLog, getLeaderboard } from '../../services/storage';
 import { getOnboardingState } from '../../services/storage';
 import { useAuth } from '../../context/AuthContext';
@@ -24,6 +27,9 @@ const GAMES = [
   { key: 'reflex',    label: 'רפלקסים פיננסיים',  emoji: '🪙', desc: 'לכוד מטבעות לפני שנעלמים',    color: '#D4AF37' },
   { key: 'timing',    label: 'דיוק המשקיע',        emoji: '🎯', desc: 'קנה בדיוק בזמן הנכון',         color: '#2ECC71' },
   { key: 'speedtap',  label: 'מהירות הכסף',        emoji: '⚡', desc: 'הקש נכון, הימנע מהשגוי',       color: '#F39C12' },
+  { key: 'stack',     label: 'מגדל החיסכון',       emoji: '🏗️', desc: 'ערום בלוקים — הדיוק קובע',     color: '#D4AF37' },
+  { key: 'catch',     label: 'לכוד הזדמנויות',     emoji: '🧺', desc: 'לכוד מטבעות, הימנע מפצצות',   color: '#1ABC9C' },
+  { key: 'taprhythm', label: 'קצב המשקיע',          emoji: '🎵', desc: 'הקש בדיוק כשהטבעת מגיעה',     color: '#9B59B6' },
 ];
 
 
@@ -289,7 +295,10 @@ export default function GamesScreen({ navigation }) {
         {activeGame === 'bubblepop' && <BubblePopGame onFinish={handleGameFinish} />}
         {activeGame === 'reflex'    && <ReflexGame    onFinish={handleGameFinish} />}
         {activeGame === 'timing'    && <TimingGame    onFinish={handleGameFinish} />}
-        {activeGame === 'speedtap'  && <SpeedTapGame  onFinish={handleGameFinish} />}
+        {activeGame === 'speedtap'  && <SpeedTapGame   onFinish={handleGameFinish} />}
+        {activeGame === 'stack'     && <StackGame      onFinish={handleGameFinish} />}
+        {activeGame === 'catch'     && <CatchGame      onFinish={handleGameFinish} />}
+        {activeGame === 'taprhythm' && <TapRhythmGame  onFinish={handleGameFinish} />}
       </Animated.View>
     );
   }
