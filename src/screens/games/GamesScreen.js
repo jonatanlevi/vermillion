@@ -18,6 +18,10 @@ import TapRhythmGame  from '../../components/TapRhythmGame';
 import PingPongGame   from '../../components/PingPongGame';
 import MemoryTapGame  from '../../components/MemoryTapGame';
 import ColorBoomGame  from '../../components/ColorBoomGame';
+import WhackMoleGame from '../../components/WhackMoleGame';
+import DodgeGame     from '../../components/DodgeGame';
+import BullseyeGame  from '../../components/BullseyeGame';
+import SortGame      from '../../components/SortGame';
 import { saveCommitmentTime, getCommitmentTime, saveGameStamp, getGameLog, getLeaderboard } from '../../services/storage';
 import { getOnboardingState } from '../../services/storage';
 import { useAuth } from '../../context/AuthContext';
@@ -36,6 +40,10 @@ const GAMES = [
   { key: 'pingpong',  label: 'מנצח הריבית',         emoji: '🏓', desc: 'אל תתן לכדור ליפול',           color: '#E74C3C' },
   { key: 'memorytap', label: 'זיכרון פיננסי',        emoji: '🧠', desc: 'שנן וחזור על הרצף',            color: '#3498DB' },
   { key: 'colorboom', label: 'פוצץ הנכון',           emoji: '🎨', desc: 'פוצץ רק את הצבע הנדרש',       color: '#E67E22' },
+  { key: 'whackmole', label: 'הכה את החובות',        emoji: '🔨', desc: 'הכה מטבעות לפני שייעלמו',       color: '#D4AF37' },
+  { key: 'dodge',     label: 'חמוק מהחובות',         emoji: '💨', desc: 'חמוק מ-💸 שנופלים עליך',        color: '#C0392B' },
+  { key: 'bullseye',  label: 'מרכז העניינים',         emoji: '🎯', desc: 'ירה כשהנקודה במרכז',            color: '#9B59B6' },
+  { key: 'sort',      label: 'מיין את הכסף',          emoji: '🗂️', desc: 'הכנסה או הוצאה — מהר!',        color: '#2ECC71' },
 ];
 
 
@@ -308,6 +316,10 @@ export default function GamesScreen({ navigation }) {
         {activeGame === 'pingpong'  && <PingPongGame   onFinish={handleGameFinish} />}
         {activeGame === 'memorytap' && <MemoryTapGame  onFinish={handleGameFinish} />}
         {activeGame === 'colorboom' && <ColorBoomGame  onFinish={handleGameFinish} />}
+        {activeGame === 'whackmole' && <WhackMoleGame  onFinish={handleGameFinish} />}
+        {activeGame === 'dodge'     && <DodgeGame      onFinish={handleGameFinish} />}
+        {activeGame === 'bullseye'  && <BullseyeGame   onFinish={handleGameFinish} />}
+        {activeGame === 'sort'      && <SortGame        onFinish={handleGameFinish} />}
       </Animated.View>
     );
   }
