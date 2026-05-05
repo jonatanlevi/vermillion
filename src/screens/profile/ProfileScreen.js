@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, Modal, FlatList, Alert,
+  ActivityIndicator, Modal, FlatList, Alert, Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -9,19 +9,19 @@ import { getFinancialData, getOnboardingState } from '../../services/storage';
 import { useAuth } from '../../context/AuthContext';
 import { computeSkills, DAY_PLAN } from '../../services/onboardingAI';
 import { supabase } from '../../services/supabase';
-import VermillionAvatar from '../../components/VermillionAvatar';
+import VermillionAvatar, { buildAvatarUrl } from '../../components/VermillionAvatar';
 
 const TIER_LABELS = ['עיוור', 'ייצוב', 'שרידות', 'בנייה', 'אופטימיזציה'];
 const TIER_COLORS = ['#444', '#E74C3C', '#E67E22', '#3498DB', '#D4AF37'];
 
 const LEADERBOARD = [
-  { rank: 1, name: 'רועי ב.',  score: 4820, badge: '🥇' },
-  { rank: 2, name: 'שירה מ.',  score: 4100, badge: '🥈' },
+  { rank: 1, name: 'רועי ב.',  score: 4820, badge: '🥇', seed: 'roei_b_vermillion' },
+  { rank: 2, name: 'שירה מ.',  score: 4100, badge: '🥈', seed: 'shira_m_vermillion' },
   { rank: 3, name: 'אתה',       score: 2340, badge: '🥉', isUser: true },
-  { rank: 4, name: 'דנה כ.',   score: 1980, badge: '' },
-  { rank: 5, name: 'יוסי ל.',  score: 1750, badge: '' },
-  { rank: 6, name: 'מיכל ר.',  score: 1420, badge: '' },
-  { rank: 7, name: 'אבי ש.',   score: 1100, badge: '' },
+  { rank: 4, name: 'דנה כ.',   score: 1980, badge: '',   seed: 'dana_k_vermillion' },
+  { rank: 5, name: 'יוסי ל.',  score: 1750, badge: '',   seed: 'yosi_l_vermillion' },
+  { rank: 6, name: 'מיכל ר.',  score: 1420, badge: '',   seed: 'michal_r_vermillion' },
+  { rank: 7, name: 'אבי ש.',   score: 1100, badge: '',   seed: 'avi_s_vermillion' },
 ];
 
 const SKILL_LABELS = {
@@ -59,7 +59,7 @@ function SkillBar({ skill, value, color }) {
   );
 }
 
-function LeaderboardModal({ visible, onClose }) {
+function LeaderboardModal({ visible, onClose, userId }) {
   return (
     <Modal visible={visible} animationType="slide" transparent>
       <View style={styles.modalOverlay}>
@@ -78,15 +78,18 @@ function LeaderboardModal({ visible, onClose }) {
           <FlatList
             data={LEADERBOARD}
             keyExtractor={item => String(item.rank)}
-            renderItem={({ item }) => (
-              <View style={[styles.lbRow, item.isUser && styles.lbRowUser]}>
-                <Text style={styles.lbRank}>{item.badge || `#${item.rank}`}</Text>
-                <Text style={[styles.lbName, item.isUser && { color: '#C0392B', fontWeight: '800' }]}>
-                  {item.name}
-                </Text>
-                <Text style={styles.lbScore}>{item.score.toLocaleString()} נק'</Text>
-              </View>
-            )}
+            renderItem={({ item }) => {
+              const avatarUri = buildAvatarUrl(item.isUser ? userId : item.seed);
+              return (
+                <View style={[styles.lbRow, item.isUser && styles.lbRowUser]}>
+                  <Image source={{ uri: avatarUri }} style={styles.lbAvatar} />
+                  <Text style={[styles.lbName, item.isUser && { color: '#C0392B', fontWeight: '800' }]}>
+                    {item.name}
+                  </Text>
+                  <Text style={styles.lbScore}>{item.score.toLocaleString()} נק'</Text>
+                </View>
+              );
+            }}
           />
         </View>
       </View>
@@ -103,13 +106,14 @@ export default function ProfileScreen({ navigation }) {
   const [loading, setLoading]       = useState(true);
   const [showLB, setShowLB]         = useState(false);
   const [purchasing, setPurchasing] = useState(null);
+  const firstLoadRef = useRef(true);
 
   useFocusEffect(
     useCallback(() => { loadData(); }, [])
   );
 
   async function loadData() {
-    setLoading(true);
+    if (firstLoadRef.current) setLoading(true);
     const [fin, ob] = await Promise.all([getFinancialData(), getOnboardingState()]);
     setFinancial(fin);
     setOnboarding(ob);
@@ -120,6 +124,7 @@ export default function ProfileScreen({ navigation }) {
       setSkills(computeSkills(fin, surplus, totalDebt, savingsRate));
     }
     setLoading(false);
+    firstLoadRef.current = false;
   }
 
   async function handlePurchase(item) {
@@ -362,7 +367,7 @@ export default function ProfileScreen({ navigation }) {
         <Text style={styles.logoutText}>יציאה מהחשבון</Text>
       </TouchableOpacity>
 
-      <LeaderboardModal visible={showLB} onClose={() => setShowLB(false)} />
+      <LeaderboardModal visible={showLB} onClose={() => setShowLB(false)} userId={user?.id} />
     </ScrollView>
   );
 }
@@ -467,9 +472,9 @@ const styles = StyleSheet.create({
   prizeLabel:     { color: '#7A6A20', fontSize: 12, marginBottom: 4 },
   prizeAmt:       { color: '#D4AF37', fontSize: 32, fontWeight: '900' },
   prizeNote:      { color: '#7A6A20', fontSize: 11, marginTop: 4 },
-  lbRow:          { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#1A1A1A' },
+  lbRow:          { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#1A1A1A', gap: 10 },
   lbRowUser:      { backgroundColor: '#1A0808', borderRadius: 10, paddingHorizontal: 8 },
-  lbRank:         { color: '#D4AF37', fontSize: 18, width: 40, textAlign: 'center' },
+  lbAvatar:       { width: 32, height: 32, borderRadius: 16, backgroundColor: '#1A1A1A' },
   lbName:         { flex: 1, color: '#DDD', fontSize: 14, textAlign: 'right' },
-  lbScore:        { color: '#888', fontSize: 13, marginLeft: 12 },
+  lbScore:        { color: '#888', fontSize: 13 },
 });

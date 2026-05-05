@@ -25,6 +25,7 @@ import SortGame      from '../../components/SortGame';
 import { saveCommitmentTime, getCommitmentTime, saveGameStamp, getGameLog, getLeaderboard } from '../../services/storage';
 import { getOnboardingState } from '../../services/storage';
 import { useAuth } from '../../context/AuthContext';
+import { supabase } from '../../services/supabase';
 
 const GAMES = [
   { key: 'runner',    label: 'ריצת VerMillion',   emoji: '🏃', desc: 'קפוץ מעל חובות וריביות',       color: '#C0392B' },
@@ -203,7 +204,7 @@ function DailyStampCard({ commitTime, todayStamped, activeDay }) {
 // ─── Main screen ───────────────────────────────────────────────
 export default function GamesScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const { user } = useAuth();
+  const { user, profile, reloadProfile } = useAuth();
   const [activeGame, setActiveGame]         = useState(null);
   const [sessionScore, setSessionScore]     = useState(0);
   const [showCommitBtn, setShowCommitBtn]   = useState(false);
@@ -263,6 +264,18 @@ export default function GamesScreen({ navigation }) {
   async function handleGameFinish(score) {
     setSessionScore(score);
     setActiveGame(null);
+
+    if (user?.id && !user.id.startsWith('local_') && profile) {
+      const earned = Math.max(5, Math.min(50, Math.ceil(score / 3)));
+      try {
+        await supabase
+          .from('profiles')
+          .update({ v_coins: (profile.v_coins ?? 0) + earned })
+          .eq('id', user.id);
+        await reloadProfile();
+      } catch (_) {}
+    }
+
     if (!hasCommitment) {
       setShowCommitBtn(true);
       return;
@@ -371,6 +384,9 @@ export default function GamesScreen({ navigation }) {
       const mm = String(pickedMinute).padStart(2,'0');
       return (
         <View style={[styles.commitScreen, { paddingTop: insets.top + 20 }]}>
+          <TouchableOpacity onPress={() => setShowTimePicker(false)} style={tp.backBtn}>
+            <Text style={tp.backText}>← חזור</Text>
+          </TouchableOpacity>
           <Text style={tp.title}>מתי VerMillion ממתין לך?</Text>
           <Text style={tp.sub}>בחר את שעת המחויבות היומית שלך</Text>
           <View style={tp.row}>
@@ -653,6 +669,8 @@ const gb = StyleSheet.create({
 
 // ─── Time Picker styles ─────────────────────────────────────────
 const tp = StyleSheet.create({
+  backBtn:    { alignSelf: 'flex-start', padding: 12, marginBottom: 8 },
+  backText:   { color: '#C0392B', fontSize: 15, fontWeight: '700' },
   title:      { color: '#FFF', fontSize: 24, fontWeight: '900', marginBottom: 8, textAlign: 'center' },
   sub:        { color: '#555', fontSize: 14, textAlign: 'center', marginBottom: 40 },
   row:        { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 48 },

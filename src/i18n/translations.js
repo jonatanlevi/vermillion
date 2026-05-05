@@ -2,7 +2,7 @@ export const translations = {
   he: {
     // ─── Club / App ───
     clubName: 'שקל למיליון',
-    appName: 'VERMILLION',
+    appName: 'VerMillion',
     currency: 'שקל',
     currencySymbol: '₪',
 
@@ -38,7 +38,7 @@ export const translations = {
     stat3Value: '99.1%', stat3Label: 'דיוק מקסימלי',
 
     // ─── CompleteProfile ───
-    cpBack: '← חזרה',
+    cpBack: 'חזרה →',
     cpStepLabel: 'שלב 1 מתוך 3 — פרטים אישיים',
     cpTitle: 'ספר לנו\nעליך',
     cpSubtitle: 'לצורך אימות זהות. מוצפן ומאובטח.',
@@ -56,56 +56,40 @@ export const translations = {
     cpPhoneError: 'הכנס מספר טלפון תקין',
     cpCountryTitle: 'בחר מדינה',
     cpPrivacy: 'המידע שלך מוצפן מקצה לקצה. ת.ז משמש לאימות חד-פעמי בלבד ולא נמסר לאף גורם.',
-    cpSubmit: 'המשך — בנה את ה-VerMillion שלך →',
+    cpSubmit: 'המשך — בנה את ה-VerMillion שלך ←',
     cpSaving: 'שומר...',
-
-    // ─── Old Profile fields (kept for backward compat) ───
-    stepLabel: 'שלב 2 מתוך 3 — פרטים אישיים',
-    profileTitle: 'ספר לנו\nעליך',
-    profileSub: 'המידע משמש לאימות זהות ולשמירה על הוגנות המשחק',
-    fieldFirstName: 'שם פרטי',
-    fieldLastName: 'שם משפחה',
-    fieldId: 'מספר תעודת זהות',
-    fieldPhone: 'מספר טלפון',
-    privacyNote: 'הפרטים שלך מוצפנים ומאובטחים. מספר ת.ז משמש לאימות חד פעמי בלבד.',
-    submitProfile: 'המשך לאימות טלפון ←',
-    creating: 'יוצר חשבון...',
-    errFirstName: 'שם פרטי חובה',
-    errLastName: 'שם משפחה חובה',
-    errId: 'ת.ז חייבת להיות 9 ספרות',
-    errPhone: 'מספר טלפון לא תקין',
 
     // ─── Avatar Appearance ───
     avatarStepBadge: 'מראה האווטר',
     avatarHintEmpty: 'ענה על השאלות כדי לבנות את הדמות שלך',
-    avatarBack: '←',
+    avatarBack: '→',
     avatarQuestions: [
       {
         key: 'body',
         question: 'מה הגוף של ה-VerMillion שלך?',
         options: [
-          { value: 'slim',     emoji: '🧍', label: 'רזה ומהיר'    },
-          { value: 'athletic', emoji: '💪', label: 'חטוב וחזק'    },
-          { value: 'heavy',    emoji: '🗿', label: 'כבד ויציב'    },
+          { value: 'slim', emoji: '🧍', label: 'רזה ומהיר' },
+          { value: 'athletic', emoji: '💪', label: 'חטוב וחזק' },
+          { value: 'heavy', emoji: '🗿', label: 'כבד ויציב' },
         ],
       },
       {
         key: 'style',
         question: 'מה הסגנון שלו?',
         options: [
-          { value: 'warrior', emoji: '⚔️', label: 'לוחם'         },
-          { value: 'sage',    emoji: '🧠', label: 'חכם ומסתורי'  },
-          { value: 'royal',   emoji: '👑', label: 'מלוכותי'      },
-          { value: 'street',  emoji: '🔥', label: 'רחוב ועוצמתי' },
+          { value: 'warrior', emoji: '⚔️', label: 'לוחם' },
+          { value: 'sage', emoji: '🧠', label: 'חכם ומסתורי' },
+          { value: 'royal', emoji: '👑', label: 'מלוכותי' },
+          { value: 'street', emoji: '🔥', label: 'רחוב ועוצמתי' },
         ],
       },
       {
         key: 'colors',
         question: 'הצבעים שלו?',
         options: [
-          { value: 'dark',     emoji: '🖤', label: 'כהה ומסתורי'  },
-          { value: 'gold',     emoji: '✨', label: 'זהוב ומלכותי' },
-          { value: 'fire',     emoji: '🔴', label: 'אש ואדום'     },
+          { value: 'dark', emoji: '🖤', label: 'כהה ומסתורי' },
+          { value: 'gold', emoji: '✨', label: 'זהוב ומלכותי' },
+          { value: 'fire', emoji: '🔴', label: 'אש ואדום' },
           { value: 'colorful', emoji: '🌈', label: 'צבעוני ובולט' },
         ],
       },
@@ -113,10 +97,10 @@ export const translations = {
         key: 'energy',
         question: 'האנרגיה שלו?',
         options: [
-          { value: 'calm',     emoji: '🧘', label: 'רגוע ומרוכז'  },
-          { value: 'intense',  emoji: '⚡', label: 'עצים ומהיר'   },
-          { value: 'wise',     emoji: '🌙', label: 'חכם ועמוק'    },
-          { value: 'playful',  emoji: '😈', label: 'שובב ועצמאי'  },
+          { value: 'calm', emoji: '🧘', label: 'רגוע ומרוכז' },
+          { value: 'intense', emoji: '⚡', label: 'עצים ומהיר' },
+          { value: 'wise', emoji: '🌙', label: 'חכם ועמוק' },
+          { value: 'playful', emoji: '😈', label: 'שובב ועצמאי' },
         ],
       },
     ],
@@ -128,40 +112,40 @@ export const translations = {
         key: 'advice_style',
         question: 'איך אתה אוהב לקבל עצות?',
         options: [
-          { value: 'direct', emoji: '🎯', label: 'ישיר וקצר',      desc: 'תגיד לי מה לעשות, בלי סיבוכים' },
-          { value: 'gentle', emoji: '🤝', label: 'עדין ומסביר',     desc: 'הסבר לי למה, סבלנות' },
-          { value: 'tough',  emoji: '⚡', label: 'לחץ עלי',         desc: 'אל תרחם, תדחוף אותי קדימה' },
+          { value: 'direct', emoji: '🎯', label: 'ישיר וקצר', desc: 'תגיד לי מה לעשות, בלי סיבוכים' },
+          { value: 'gentle', emoji: '🤝', label: 'עדין ומסביר', desc: 'הסבר לי למה, סבלנות' },
+          { value: 'tough', emoji: '⚡', label: 'לחץ עלי', desc: 'אל תרחם, תדחוף אותי קדימה' },
         ],
       },
       {
         key: 'personality',
         question: 'מה הסגנון של היועץ שלך?',
         options: [
-          { value: 'serious',  emoji: '🧠', label: 'רציני ועסקי',  desc: 'נתונים, מספרים, עובדות' },
-          { value: 'friendly', emoji: '😊', label: 'חבר טוב',       desc: 'חם, תומך, מעודד' },
-          { value: 'mentor',   emoji: '🏆', label: 'מנטור קשוח',   desc: 'גבוה הסטנדרטים, לא מתפשר' },
+          { value: 'serious', emoji: '🧠', label: 'רציני ועסקי', desc: 'נתונים, מספרים, עובדות' },
+          { value: 'friendly', emoji: '😊', label: 'חבר טוב', desc: 'חם, תומך, מעודד' },
+          { value: 'mentor', emoji: '🏆', label: 'מנטור קשוח', desc: 'גבוה הסטנדרטים, לא מתפשר' },
         ],
       },
       {
         key: 'goal_focus',
         question: 'מה הכי חשוב לך?',
         options: [
-          { value: 'money',   emoji: '💰', label: 'להרוויח יותר כסף', desc: 'השקעות, הכנסה, עושר' },
-          { value: 'freedom', emoji: '🕊️', label: 'חופש כלכלי',       desc: 'לצאת מחובות, להיות עצמאי' },
-          { value: 'growth',  emoji: '📈', label: 'לצמוח כאדם',       desc: 'הרגלים, משמעת, השקפה' },
+          { value: 'money', emoji: '💰', label: 'להרוויח יותר כסף', desc: 'השקעות, הכנסה, עושר' },
+          { value: 'freedom', emoji: '🕊️', label: 'חופש כלכלי', desc: 'לצאת מחובות, להיות עצמאי' },
+          { value: 'growth', emoji: '📈', label: 'לצמוח כאדם', desc: 'הרגלים, משמעת, השקפה' },
         ],
       },
     ],
 
-    // ─── Avatar Intro (Day 1 questions) ───
+    // ─── Avatar Intro ───
     introStepBadge: 'היכרות ראשונה',
     introProgressLabel: (n, total) => `שאלה ${n} מתוך ${total}`,
     introNextBtn: 'הבא ←',
     introRevealBtn: 'בואו נראה את ה-VerMillion שלך ▶',
     introQuestions: [
-      { key: 'occupation', question: 'מה אתה עושה לפרנסה?',        placeholder: 'מהנדס, עצמאי, סטודנט...' },
-      { key: 'status',     question: 'מה המצב המשפחתי שלך?',       placeholder: 'רווק / נשוי / זוגי...'    },
-      { key: 'city',       question: 'באיזו עיר / מדינה אתה גר?',  placeholder: 'תל אביב, ניו יורק...'     },
+      { key: 'occupation', question: 'מה אתה עושה לפרנסה?', placeholder: 'מהנדס, עצמאי, סטודנט...' },
+      { key: 'status', question: 'מה המצב המשפחתי שלך?', placeholder: 'רווק / נשוי / זוגי...' },
+      { key: 'city', question: 'באיזו עיר / מדינה אתה גר?', placeholder: 'תל אביב, ניו יורק...' },
     ],
 
     // ─── Daily Questions ───
@@ -182,7 +166,7 @@ export const translations = {
     dqUploading: 'מעלה...',
     dqShareLater: 'אשתף בהמשך',
     dqNoQuestions: 'אין שאלות להיום',
-    dqToChallenge: 'עבור לאתגר →',
+    dqToChallenge: 'עבור לאתגר ←',
     dqDoneTitle: 'תודה!',
     dqDoneSub: 'VerMillion עיבד את התשובות שלך.',
     dqDoneCompLabel: 'הפרופיל שלך הושלם על',
@@ -202,7 +186,7 @@ export const translations = {
     accuracyLabel: 'דיוק',
     prizePoolTitle: 'קרן הפרסים',
     seeFullRank: 'ראה דירוג מלא ←',
-    askAI: 'שאל אותי כל שאלה על המשחק →',
+    askAI: 'שאל אותי כל שאלה על המשחק ←',
 
     // ─── Leaderboard ───
     leaderboardTitle: 'דירוג',
@@ -236,7 +220,7 @@ export const translations = {
     accuracyScore: 'ציון דיוק',
     diffMs: (n) => `הפרש: ${n.toLocaleString()} מילישניות`,
     tryAgain: 'נסה שוב',
-    back: '← חזור',
+    back: '→ חזור',
 
     // ─── Games Screen ───
     gamesTitle: 'אתגר החודש',
@@ -264,7 +248,7 @@ export const translations = {
     stampTitle: 'הזמן האישי שלך',
     stampSub: 'לחץ כדי לחתום — נמדד כמה היית מדויק',
     stampBtn: '⏱ חתום עכשיו',
-    stampContinue: 'המשך לשאלות VerMillion →',
+    stampContinue: 'המשך לשאלות VerMillion ←',
     stampAcc1: (s) => `${s} שניות — מדהים! 🎯`,
     stampAcc2: (s) => `${s} שניות — טוב מאוד 💪`,
     stampAcc3: (m) => `${m} דקות — תשפר מחר`,
@@ -290,8 +274,8 @@ export const translations = {
     profileSkillsTitle: 'כישורי VerMillion',
     profileQCount: (done, total) => `${done}/${total} שאלות`,
     profileEmptySkills: 'הכישורים יחושבו לאחר שתענה על שאלות היכרות',
-    profileBuildBtn: (n) => `בנה כישורים → (${n} שאלות נותרו)`,
-    profileChatBtn: 'שוחח עם VerMillion →',
+    profileBuildBtn: (n) => `בנה כישורים ← (${n} שאלות נותרו)`,
+    profileChatBtn: 'שוחח עם VerMillion ←',
     profileFinTitle: 'סיכום פיננסי',
     profileFinIncome: 'הכנסה נטו', profileFinFixed: 'הוצאות קבועות',
     profileFinVar: 'הוצאות משתנות', profileFinDebt: 'חוב כולל', profileFinSavings: 'חיסכון נזיל',
@@ -299,14 +283,15 @@ export const translations = {
     profileAchievements: 'הישגים',
     profileTierLabels: ['עיוור', 'ייצוב', 'שרידות', 'בנייה', 'אופטימיזציה'],
     profileSkillLabels: {
-      saving:    { label: 'חיסכון',    icon: '💰', desc: 'יחס חיסכון מהכנסה' },
-      debtMgmt:  { label: 'ניהול חוב', icon: '📉', desc: 'יחס חוב להכנסה' },
-      planning:  { label: 'תכנון',     icon: '🎯', desc: 'מטרות פיננסיות' },
-      mindset:   { label: 'מנטליות',   icon: '🧠', desc: 'רמת לחץ פיננסי' },
-      investment:{ label: 'השקעות',    icon: '📈', desc: 'נכסים ותיק השקעות' },
+      saving: { label: 'חיסכון', icon: '💰', desc: 'יחס חיסכון מהכנסה' },
+      debtMgmt: { label: 'ניהול חוב', icon: '📉', desc: 'יחס חוב להכנסה' },
+      planning: { label: 'תכנון', icon: '🎯', desc: 'מטרות פיננסיות' },
+      mindset: { label: 'מנטליות', icon: '🧠', desc: 'רמת לחץ פיננסי' },
+      investment: { label: 'השקעות', icon: '📈', desc: 'נכסים ותיק השקעות' },
     },
-    lbTitle: '🏆 לוח זוכים — אפריל',
-    lbPrizeLabel: 'פרס חודשי', lbPrizeNote: '27 ימים נותרו',
+    lbTitle: (month) => `🏆 לוח זוכים — ${month || 'אפריל'}`,
+    lbPrizeLabel: 'פרס חודשי', 
+    lbPrizeNote: (days) => `${days} ימים נותרו`,
     profileDevReset: 'איפוס נתונים (dev)',
 
     // ─── Coaching Screen ───
@@ -352,11 +337,10 @@ export const translations = {
     settingsLogoutAlert: { title: 'יציאה מהחשבון', msg: 'האם אתה בטוח?', cancel: 'ביטול', confirm: 'יציאה' },
   },
 
-  // ─────────────────────────────────────────────
   en: {
     // ─── Club / App ───
     clubName: 'Dollar to a Million',
-    appName: 'VERMILLION',
+    appName: 'VerMillion',
     currency: 'Dollar',
     currencySymbol: '$',
 
@@ -413,22 +397,6 @@ export const translations = {
     cpSubmit: 'Continue — Build Your VerMillion →',
     cpSaving: 'Saving...',
 
-    // ─── Old Profile fields ───
-    stepLabel: 'Step 2 of 3 — Personal details',
-    profileTitle: 'Tell us\nabout you',
-    profileSub: 'Your info is used for identity verification and fair play',
-    fieldFirstName: 'First name',
-    fieldLastName: 'Last name',
-    fieldId: 'ID number',
-    fieldPhone: 'Phone number',
-    privacyNote: 'Your details are encrypted. ID is used for one-time verification only.',
-    submitProfile: 'Continue to phone verification →',
-    creating: 'Creating account...',
-    errFirstName: 'First name is required',
-    errLastName: 'Last name is required',
-    errId: 'ID must be 9 digits',
-    errPhone: 'Invalid phone number',
-
     // ─── Avatar Appearance ───
     avatarStepBadge: 'Avatar Appearance',
     avatarHintEmpty: 'Answer the questions to build your character',
@@ -438,38 +406,38 @@ export const translations = {
         key: 'body',
         question: 'What body type is your VerMillion?',
         options: [
-          { value: 'slim',     emoji: '🧍', label: 'Slim & Fast'      },
+          { value: 'slim', emoji: '🧍', label: 'Slim & Fast' },
           { value: 'athletic', emoji: '💪', label: 'Athletic & Strong' },
-          { value: 'heavy',    emoji: '🗿', label: 'Heavy & Steady'    },
+          { value: 'heavy', emoji: '🗿', label: 'Heavy & Steady' },
         ],
       },
       {
         key: 'style',
         question: 'What is their style?',
         options: [
-          { value: 'warrior', emoji: '⚔️', label: 'Warrior'         },
-          { value: 'sage',    emoji: '🧠', label: 'Wise & Mysterious' },
-          { value: 'royal',   emoji: '👑', label: 'Royal'            },
-          { value: 'street',  emoji: '🔥', label: 'Street & Power'   },
+          { value: 'warrior', emoji: '⚔️', label: 'Warrior' },
+          { value: 'sage', emoji: '🧠', label: 'Wise & Mysterious' },
+          { value: 'royal', emoji: '👑', label: 'Royal' },
+          { value: 'street', emoji: '🔥', label: 'Street & Power' },
         ],
       },
       {
         key: 'colors',
         question: 'Their color palette?',
         options: [
-          { value: 'dark',     emoji: '🖤', label: 'Dark & Mysterious' },
-          { value: 'gold',     emoji: '✨', label: 'Gold & Royal'      },
-          { value: 'fire',     emoji: '🔴', label: 'Fire & Red'        },
-          { value: 'colorful', emoji: '🌈', label: 'Vibrant & Bold'    },
+          { value: 'dark', emoji: '🖤', label: 'Dark & Mysterious' },
+          { value: 'gold', emoji: '✨', label: 'Gold & Royal' },
+          { value: 'fire', emoji: '🔴', label: 'Fire & Red' },
+          { value: 'colorful', emoji: '🌈', label: 'Vibrant & Bold' },
         ],
       },
       {
         key: 'energy',
         question: 'Their energy?',
         options: [
-          { value: 'calm',    emoji: '🧘', label: 'Calm & Focused'  },
-          { value: 'intense', emoji: '⚡', label: 'Intense & Fast'   },
-          { value: 'wise',    emoji: '🌙', label: 'Wise & Deep'      },
+          { value: 'calm', emoji: '🧘', label: 'Calm & Focused' },
+          { value: 'intense', emoji: '⚡', label: 'Intense & Fast' },
+          { value: 'wise', emoji: '🌙', label: 'Wise & Deep' },
           { value: 'playful', emoji: '😈', label: 'Playful & Fierce' },
         ],
       },
@@ -482,40 +450,40 @@ export const translations = {
         key: 'advice_style',
         question: 'How do you like to receive advice?',
         options: [
-          { value: 'direct', emoji: '🎯', label: 'Direct & Brief',    desc: 'Tell me what to do, no fluff' },
+          { value: 'direct', emoji: '🎯', label: 'Direct & Brief', desc: 'Tell me what to do, no fluff' },
           { value: 'gentle', emoji: '🤝', label: 'Gentle & Explained', desc: 'Explain why, be patient' },
-          { value: 'tough',  emoji: '⚡', label: 'Push me hard',       desc: 'No mercy, push me forward' },
+          { value: 'tough', emoji: '⚡', label: 'Push me hard', desc: 'No mercy, push me forward' },
         ],
       },
       {
         key: 'personality',
         question: 'What style of advisor?',
         options: [
-          { value: 'serious',  emoji: '🧠', label: 'Serious & Business', desc: 'Data, numbers, facts' },
-          { value: 'friendly', emoji: '😊', label: 'Good Friend',         desc: 'Warm, supportive, encouraging' },
-          { value: 'mentor',   emoji: '🏆', label: 'Tough Mentor',        desc: 'High standards, no compromise' },
+          { value: 'serious', emoji: '🧠', label: 'Serious & Business', desc: 'Data, numbers, facts' },
+          { value: 'friendly', emoji: '😊', label: 'Good Friend', desc: 'Warm, supportive, encouraging' },
+          { value: 'mentor', emoji: '🏆', label: 'Tough Mentor', desc: 'High standards, no compromise' },
         ],
       },
       {
         key: 'goal_focus',
         question: 'What matters most to you?',
         options: [
-          { value: 'money',   emoji: '💰', label: 'Earn more money',    desc: 'Investments, income, wealth' },
-          { value: 'freedom', emoji: '🕊️', label: 'Financial freedom',  desc: 'Get out of debt, be independent' },
-          { value: 'growth',  emoji: '📈', label: 'Grow as a person',   desc: 'Habits, discipline, mindset' },
+          { value: 'money', emoji: '💰', label: 'Earn more money', desc: 'Investments, income, wealth' },
+          { value: 'freedom', emoji: '🕊️', label: 'Financial freedom', desc: 'Get out of debt, be independent' },
+          { value: 'growth', emoji: '📈', label: 'Grow as a person', desc: 'Habits, discipline, mindset' },
         ],
       },
     ],
 
-    // ─── Avatar Intro (Day 1 questions) ───
+    // ─── Avatar Intro ───
     introStepBadge: 'First Introduction',
     introProgressLabel: (n, total) => `Question ${n} of ${total}`,
     introNextBtn: 'Next →',
     introRevealBtn: "Let's see your VerMillion ▶",
     introQuestions: [
-      { key: 'occupation', question: 'What do you do for a living?',       placeholder: 'Engineer, freelancer, student...' },
-      { key: 'status',     question: 'What is your relationship status?',   placeholder: 'Single / Married / In a relationship...' },
-      { key: 'city',       question: 'Which city / country do you live in?', placeholder: 'New York, London...' },
+      { key: 'occupation', question: 'What do you do for a living?', placeholder: 'Engineer, freelancer, student...' },
+      { key: 'status', question: 'What is your relationship status?', placeholder: 'Single / Married / In a relationship...' },
+      { key: 'city', question: 'Which city / country do you live in?', placeholder: 'New York, London...' },
     ],
 
     // ─── Daily Questions ───
@@ -653,14 +621,15 @@ export const translations = {
     profileAchievements: 'Achievements',
     profileTierLabels: ['Blind', 'Stabilize', 'Survive', 'Build', 'Optimize'],
     profileSkillLabels: {
-      saving:    { label: 'Saving',       icon: '💰', desc: 'Savings-to-income ratio' },
-      debtMgmt:  { label: 'Debt Mgmt',   icon: '📉', desc: 'Debt-to-income ratio' },
-      planning:  { label: 'Planning',    icon: '🎯', desc: 'Financial goals' },
-      mindset:   { label: 'Mindset',     icon: '🧠', desc: 'Financial stress level' },
-      investment:{ label: 'Investments', icon: '📈', desc: 'Assets & portfolio' },
+      saving: { label: 'Saving', icon: '💰', desc: 'Savings-to-income ratio' },
+      debtMgmt: { label: 'Debt Mgmt', icon: '📉', desc: 'Debt-to-income ratio' },
+      planning: { label: 'Planning', icon: '🎯', desc: 'Financial goals' },
+      mindset: { label: 'Mindset', icon: '🧠', desc: 'Financial stress level' },
+      investment: { label: 'Investments', icon: '📈', desc: 'Assets & portfolio' },
     },
-    lbTitle: '🏆 Leaderboard — April',
-    lbPrizeLabel: 'Monthly prize', lbPrizeNote: '27 days left',
+    lbTitle: (month) => `🏆 Leaderboard — ${month || 'April'}`,
+    lbPrizeLabel: 'Monthly prize', 
+    lbPrizeNote: (days) => `${days} days left`,
     profileDevReset: 'Reset data (dev)',
 
     // ─── Coaching Screen ───
@@ -706,11 +675,10 @@ export const translations = {
     settingsLogoutAlert: { title: 'Sign out', msg: 'Are you sure?', cancel: 'Cancel', confirm: 'Sign out' },
   },
 
-  // ─────────────────────────────────────────────
   ru: {
     // ─── Club / App ───
     clubName: 'Рубль к миллиону',
-    appName: 'VERMILLION',
+    appName: 'VerMillion',
     currency: 'Рубль',
     currencySymbol: '₽',
 
@@ -767,22 +735,6 @@ export const translations = {
     cpSubmit: 'Далее — Создай своего VerMillion →',
     cpSaving: 'Сохранение...',
 
-    // ─── Old Profile fields ───
-    stepLabel: 'Шаг 2 из 3 — Личные данные',
-    profileTitle: 'Расскажите\nо себе',
-    profileSub: 'Данные используются для верификации и честной игры',
-    fieldFirstName: 'Имя',
-    fieldLastName: 'Фамилия',
-    fieldId: 'Номер паспорта',
-    fieldPhone: 'Номер телефона',
-    privacyNote: 'Ваши данные зашифрованы. Паспорт используется только для одноразовой верификации.',
-    submitProfile: 'Продолжить →',
-    creating: 'Создание аккаунта...',
-    errFirstName: 'Имя обязательно',
-    errLastName: 'Фамилия обязательна',
-    errId: 'Паспорт должен содержать 9 цифр',
-    errPhone: 'Неверный номер телефона',
-
     // ─── Avatar Appearance ───
     avatarStepBadge: 'Внешность аватара',
     avatarHintEmpty: 'Отвечай на вопросы, чтобы создать своего персонажа',
@@ -792,39 +744,39 @@ export const translations = {
         key: 'body',
         question: 'Какое телосложение у твоего VerMillion?',
         options: [
-          { value: 'slim',     emoji: '🧍', label: 'Стройный и быстрый'  },
+          { value: 'slim', emoji: '🧍', label: 'Стройный и быстрый' },
           { value: 'athletic', emoji: '💪', label: 'Атлетичный и сильный' },
-          { value: 'heavy',    emoji: '🗿', label: 'Крупный и устойчивый' },
+          { value: 'heavy', emoji: '🗿', label: 'Крупный и устойчивый' },
         ],
       },
       {
         key: 'style',
         question: 'Каков его стиль?',
         options: [
-          { value: 'warrior', emoji: '⚔️', label: 'Воин'              },
-          { value: 'sage',    emoji: '🧠', label: 'Мудрый и таинственный' },
-          { value: 'royal',   emoji: '👑', label: 'Королевский'       },
-          { value: 'street',  emoji: '🔥', label: 'Улица и сила'      },
+          { value: 'warrior', emoji: '⚔️', label: 'Воин' },
+          { value: 'sage', emoji: '🧠', label: 'Мудрый и таинственный' },
+          { value: 'royal', emoji: '👑', label: 'Королевский' },
+          { value: 'street', emoji: '🔥', label: 'Улица и сила' },
         ],
       },
       {
         key: 'colors',
         question: 'Его цветовая палитра?',
         options: [
-          { value: 'dark',     emoji: '🖤', label: 'Тёмный и таинственный' },
-          { value: 'gold',     emoji: '✨', label: 'Золотой и королевский'  },
-          { value: 'fire',     emoji: '🔴', label: 'Огонь и красный'        },
-          { value: 'colorful', emoji: '🌈', label: 'Яркий и заметный'       },
+          { value: 'dark', emoji: '🖤', label: 'Тёмный и таинственный' },
+          { value: 'gold', emoji: '✨', label: 'Золотой и королевский' },
+          { value: 'fire', emoji: '🔴', label: 'Огонь и красный' },
+          { value: 'colorful', emoji: '🌈', label: 'Яркий и заметный' },
         ],
       },
       {
         key: 'energy',
         question: 'Его энергия?',
         options: [
-          { value: 'calm',    emoji: '🧘', label: 'Спокойный и сосредоточенный' },
-          { value: 'intense', emoji: '⚡', label: 'Интенсивный и быстрый'       },
-          { value: 'wise',    emoji: '🌙', label: 'Мудрый и глубокий'           },
-          { value: 'playful', emoji: '😈', label: 'Игривый и независимый'       },
+          { value: 'calm', emoji: '🧘', label: 'Спокойный и сосредоточенный' },
+          { value: 'intense', emoji: '⚡', label: 'Интенсивный и быстрый' },
+          { value: 'wise', emoji: '🌙', label: 'Мудрый и глубокий' },
+          { value: 'playful', emoji: '😈', label: 'Игривый и независимый' },
         ],
       },
     ],
@@ -836,40 +788,40 @@ export const translations = {
         key: 'advice_style',
         question: 'Как ты любишь получать советы?',
         options: [
-          { value: 'direct', emoji: '🎯', label: 'Прямо и коротко',    desc: 'Скажи что делать, без лишнего' },
+          { value: 'direct', emoji: '🎯', label: 'Прямо и коротко', desc: 'Скажи что делать, без лишнего' },
           { value: 'gentle', emoji: '🤝', label: 'Мягко и с объяснением', desc: 'Объясни почему, с терпением' },
-          { value: 'tough',  emoji: '⚡', label: 'Давит на меня',       desc: 'Без пощады, толкай вперёд' },
+          { value: 'tough', emoji: '⚡', label: 'Давит на меня', desc: 'Без пощады, толкай вперёд' },
         ],
       },
       {
         key: 'personality',
         question: 'Какой стиль советника?',
         options: [
-          { value: 'serious',  emoji: '🧠', label: 'Серьёзный и деловой', desc: 'Данные, цифры, факты' },
-          { value: 'friendly', emoji: '😊', label: 'Хороший друг',         desc: 'Тёплый, поддерживающий' },
-          { value: 'mentor',   emoji: '🏆', label: 'Строгий наставник',    desc: 'Высокие стандарты, без компромиссов' },
+          { value: 'serious', emoji: '🧠', label: 'Серьёзный и деловой', desc: 'Данные, цифры, факты' },
+          { value: 'friendly', emoji: '😊', label: 'Хороший друг', desc: 'Тёплый, поддерживающий' },
+          { value: 'mentor', emoji: '🏆', label: 'Строгий наставник', desc: 'Высокие стандарты, без компромиссов' },
         ],
       },
       {
         key: 'goal_focus',
         question: 'Что для тебя важнее всего?',
         options: [
-          { value: 'money',   emoji: '💰', label: 'Зарабатывать больше',     desc: 'Инвестиции, доход, богатство' },
-          { value: 'freedom', emoji: '🕊️', label: 'Финансовая свобода',     desc: 'Выйти из долгов, быть независимым' },
-          { value: 'growth',  emoji: '📈', label: 'Расти как личность',      desc: 'Привычки, дисциплина, мышление' },
+          { value: 'money', emoji: '💰', label: 'Зарабатывать больше', desc: 'Инвестиции, доход, богатство' },
+          { value: 'freedom', emoji: '🕊️', label: 'Финансовая свобода', desc: 'Выйти из долгов, быть независимым' },
+          { value: 'growth', emoji: '📈', label: 'Расти как личность', desc: 'Привычки, дисциплина, мышление' },
         ],
       },
     ],
 
-    // ─── Avatar Intro (Day 1 questions) ───
+    // ─── Avatar Intro ───
     introStepBadge: 'Первое знакомство',
     introProgressLabel: (n, total) => `Вопрос ${n} из ${total}`,
     introNextBtn: 'Далее →',
     introRevealBtn: 'Посмотрим твоего VerMillion ▶',
     introQuestions: [
-      { key: 'occupation', question: 'Чем ты зарабатываешь на жизнь?',   placeholder: 'Инженер, фрилансер, студент...' },
-      { key: 'status',     question: 'Каков твой семейный статус?',       placeholder: 'Одинок / Женат / В отношениях...' },
-      { key: 'city',       question: 'В каком городе / стране ты живёшь?', placeholder: 'Москва, Нью-Йорк...' },
+      { key: 'occupation', question: 'Чем ты зарабатываешь на жизнь?', placeholder: 'Инженер, фрилансер, студент...' },
+      { key: 'status', question: 'Каков твой семейный статус?', placeholder: 'Одинок / Женат / В отношениях...' },
+      { key: 'city', question: 'В каком городе / стране ты живёшь?', placeholder: 'Москва, Нью-Йорк...' },
     ],
 
     // ─── Daily Questions ───
@@ -965,7 +917,7 @@ export const translations = {
     glassLockLabel: 'Зафиксируй своё время',
     glassLockSub: 'Нажми чтобы установить, когда VerMillion ждёт тебя завтра',
     commitModalTitle: 'Время установлено',
-    commitModalDesc: (h, m) => `Каждый день в ${h}:${m}\nVerMillion ждёт тебя с 3 новыми вопросами.`,
+    commitModalDesc: (h, m) => `Каждый день в ${h}:${m}\nVerMillion жדёт тебя с 3 новыми вопросами.`,
     commitModalNote: 'Это привычка — не расписание.',
     commitModalBtn: 'Отлично, я готов',
     stampDayLabel: (n) => `День ${n} / 7`,
@@ -1007,14 +959,15 @@ export const translations = {
     profileAchievements: 'Достижения',
     profileTierLabels: ['Слепой', 'Стабилизация', 'Выживание', 'Строительство', 'Оптимизация'],
     profileSkillLabels: {
-      saving:    { label: 'Сбережения',   icon: '💰', desc: 'Доля сбережений от дохода' },
-      debtMgmt:  { label: 'Долги',        icon: '📉', desc: 'Соотношение долга к доходу' },
-      planning:  { label: 'Планирование', icon: '🎯', desc: 'Финансовые цели' },
-      mindset:   { label: 'Мышление',     icon: '🧠', desc: 'Уровень финансового стресса' },
-      investment:{ label: 'Инвестиции',   icon: '📈', desc: 'Активы и портфель' },
+      saving: { label: 'Сбережения', icon: '💰', desc: 'Доля сбережений от дохода' },
+      debtMgmt: { label: 'Долги', icon: '📉', desc: 'Соотношение долга к доходу' },
+      planning: { label: 'Планирование', icon: '🎯', desc: 'Финансовые цели' },
+      mindset: { label: 'Mindset', icon: '🧠', desc: 'Уровень финансового стресса' },
+      investment: { label: 'Инвестиции', icon: '📈', desc: 'Активы и портфель' },
     },
-    lbTitle: '🏆 Рейтинг — Апрель',
-    lbPrizeLabel: 'Приз месяца', lbPrizeNote: '27 дней осталось',
+    lbTitle: (month) => `🏆 Рейтинг — ${month || 'Апрель'}`,
+    lbPrizeLabel: 'Приз месяца', 
+    lbPrizeNote: (days) => `${days} дней осталось`,
     profileDevReset: 'Сбросить данные (dev)',
 
     // ─── Coaching Screen ───
@@ -1043,7 +996,7 @@ export const translations = {
 
     // ─── Settings Screen ───
     settingsTitle: 'Настройки',
-    settingsSectionAccount: 'Аккаунт', settingsSectionAI: 'AI',
+    settingsSectionAccount: 'Аккауנט', settingsSectionAI: 'AI',
     settingsSectionProfiling: 'Профиль', settingsSectionAbout: 'О приложении',
     settingsRowName: 'Имя', settingsRowSub: 'Подписка', settingsRowCancelSub: 'Отменить подписку',
     settingsValPremium: 'Премиум ✓', settingsValFree: 'Бесплатно', settingsValCancel: 'Отменить',
@@ -1062,7 +1015,7 @@ export const translations = {
 };
 
 export const LANGUAGES = [
-  { code: 'he', flag: '🇮🇱', name: 'עברית',  rtl: true  },
+  { code: 'he', flag: '🇮🇱', name: 'עברית', rtl: true },
   { code: 'en', flag: '🇺🇸', name: 'English', rtl: false },
   { code: 'ru', flag: '🇷🇺', name: 'Русский', rtl: false },
 ];
