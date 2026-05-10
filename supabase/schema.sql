@@ -196,3 +196,22 @@ create policy "read all stamps" on public.daily_stamps for select using (true);
 -- INSERT/UPDATE: blocked for direct clients — only the 'stamp' Edge Function (service role) may write
 -- DELETE: own rows only (admin cleanup / testing)
 create policy "delete own stamps" on public.daily_stamps for delete using (auth.uid() = user_id);
+
+-- ─── Profile delete (needed for clearAllData) ─────────────────
+drop policy if exists "delete own profile" on public.profiles;
+create policy "delete own profile" on public.profiles for delete using (auth.uid() = id);
+
+-- ─── Delete user account (called via supabase.rpc('delete_user')) ─
+create or replace function public.delete_user()
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  delete from auth.users where id = auth.uid();
+end;
+$$;
+
+revoke all on function public.delete_user() from public;
+grant execute on function public.delete_user() to authenticated;

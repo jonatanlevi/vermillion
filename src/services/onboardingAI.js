@@ -204,4 +204,37 @@ export function computeSkills(financial, surplus, totalDebt, savingsRate) {
   return { saving, debtMgmt, planning, mindset, investment };
 }
 
+export function generateCoachingOpener(profile = {}) {
+  const income     = profile.netIncome || 0;
+  const totalDebt  = profile.totalDebt  ?? ((profile.creditDebt || 0) + (profile.loans || 0) + (profile.overdraft || 0));
+  const surplus    = profile.surplus    ?? (income - (profile.housingCost || 0) - (profile.fixedExpenses || 0) - (profile.variableExpenses || 0));
+  const savingsRate = profile.savingsRate ?? (income > 0 ? Math.round((surplus / income) * 100) : 0);
+  const fmt = n => n > 0 ? `₪${Number(n).toLocaleString('he-IL')}` : '0';
+
+  if (totalDebt > income * 6 || surplus < 0) {
+    return {
+      opener: surplus < 0
+        ? `ראיתי שיש גירעון חודשי של ${fmt(Math.abs(surplus))}${totalDebt > 0 ? ` וחובות של ${fmt(totalDebt)}` : ''}.\n\nלפני שנדבר על מטרות עתיד — בואו נייצב את הבסיס. זה השלב הכי חשוב עכשיו.`
+        : `ראיתי שיש חובות של ${fmt(totalDebt)} מול הכנסה של ${fmt(income)}.\n\nהיחס הזה לוחץ. הצעד הראשון הוא תכנית פירעון חכמה — בואו נבנה אותה.`,
+      topics: ['מה לעשות עכשיו', 'איך לצמצם הוצאות', 'סדר עדיפויות לחובות', 'מאיפה מתחילים?'],
+    };
+  }
+  if (savingsRate < 5) {
+    return {
+      opener: `הכנסה ${fmt(income)}, עודף ${fmt(Math.max(0, surplus))} בחודש — ${savingsRate < 1 ? 'כמעט ולא נשאר כלום' : `${savingsRate}% חיסכון`}.\n\nהמטרה הראשונה שלנו: לבנות כרית ביטחון. מנסים ביחד?`,
+      topics: ['בנה קרן חירום', 'מאיפה לחסוך כסף', 'הגדל הכנסה', 'מה המטרה הראשונה שלי?'],
+    };
+  }
+  if (savingsRate < 20) {
+    return {
+      opener: `אתה חוסך ${savingsRate}% מההכנסה — הממוצע בישראל פחות מ-5%, אז אתה כבר טוב.\n\nהשלב הבא: להגיע ל-20% ולגרום לכסף לעבוד בשבילך.`,
+      topics: ['הגדל חיסכון', 'איפה כדאי לחסוך?', 'מתי נכון להשקיע?', 'תכנון 5 שנים'],
+    };
+  }
+  return {
+    opener: `אתה חוסך ${savingsRate}% — אתה בין ה-10% הטובים בישראל. עכשיו השאלה היא איך לגרום לכסף לעבוד קשה יותר.`,
+    topics: ['אופטימיזציה', 'נכסים מניבים', 'תכנון פרישה', 'השקעות'],
+  };
+}
+
 export { DAY_PLAN, QUESTIONS };

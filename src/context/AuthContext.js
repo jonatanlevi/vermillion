@@ -58,9 +58,23 @@ export function AuthProvider({ children }) {
 
   async function deleteAccount() {
     try {
-      // delete_user must run BEFORE clearAllData — clearAllData calls signOut which kills the session
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
+
+      // Reset registration flags FIRST — while RLS is still valid (before delete_user may kill the session).
+      if (userId) {
+        try {
+          await supabase.from('profiles').update({
+            profile_intake_complete: false,
+            onboarding_complete: false,
+          }).eq('id', userId);
+        } catch (_) {}
+      }
+
+      // delete_user must run BEFORE clearAllData — clearAllData ends with signOut which kills the session
       try { await supabase.rpc('delete_user'); } catch (_) {}
-      await clearAllData();
+      // Pass userId so clearAllData can clean up even if delete_user killed the session
+      await clearAllData(userId);
     } finally {
       setUser(null);
       setProfile(null);

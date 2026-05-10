@@ -280,7 +280,7 @@ export async function markDayComplete(day) {
 
 export async function isOnboardingComplete() {
   const state = await getOnboardingState();
-  return (state.daysCompleted || []).length >= 7;
+  return (state.daysCompleted || []).length >= 7 || state.profileGenerated === true;
 }
 
 // ─── Chat history ────────────────────────────────────────────
@@ -329,13 +329,15 @@ export async function getDailyLog() {
 
 // ─── Game log ─────────────────────────────────────────────────
 export async function saveGameStamp(day) {
-  const userId   = await uid();
-  const monthKey = new Date().toISOString().slice(0, 7);
+  const userId    = await uid();
+  const monthKey  = new Date().toISOString().slice(0, 7);
+  const stampedAt = new Date().toISOString();
+
+  const existing = await getGameLog();
+  existing[day] = { msDiff: 0, score: 1, stampedAt };
+  await localSet(L.GAME, existing);
 
   if (isLocalUserId(userId)) {
-    const existing = await getGameLog();
-    existing[day] = { msDiff: 0, score: 1, stampedAt: new Date().toISOString() };
-    await localSet(L.GAME, existing);
     return { score: 1, ms_diff: 0 };
   }
 
@@ -346,8 +348,7 @@ export async function saveGameStamp(day) {
     });
     if (error) throw error;
 
-    const existing = await getGameLog();
-    existing[day] = { msDiff: data.ms_diff, score: data.score, stampedAt: new Date().toISOString() };
+    existing[day] = { msDiff: data.ms_diff, score: data.score, stampedAt };
     await localSet(L.GAME, existing);
 
     return { score: data.score, ms_diff: data.ms_diff };
@@ -386,33 +387,62 @@ export async function getLeaderboard(monthKey) {
 }
 
 export async function getGameLog() {
-  const userId = await uid();
-  if (isLocalUserId(userId)) {
-    return (await localGet(L.GAME, {})) || {};
-  }
-  const { data } = await supabase
-    .from('game_log').select('entries').eq('user_id', userId).maybeSingle();
-  return data?.entries || {};
+  return (await localGet(L.GAME, {})) || {};
+}
+
+// ─── Avatar style (localStorage backup — web only) ────────────
+const AVATAR_STYLE_KEY = '@vermillion/avatar_style';
+
+export function saveLocalAvatarStyle(userId, avatarStyle) {
+  if (!userId || typeof localStorage === 'undefined') return;
+  try {
+    localStorage.setItem(`${AVATAR_STYLE_KEY}/${userId}`, JSON.stringify(avatarStyle));
+  } catch {}
+}
+
+export function getLocalAvatarStyle(userId) {
+  if (!userId || typeof localStorage === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(`${AVATAR_STYLE_KEY}/${userId}`);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
 }
 
 // ─── Clear all (re-register) ──────────────────────────────────
-export async function clearAllData() {
+export async function clearAllData(knownUserId) {
   const { data: { session } } = await supabase.auth.getSession();
-  const remoteId = session?.user?.id;
+  const remoteId = knownUserId || session?.user?.id;
 
   await localRemoveAll();
 
-  // Clear user-specific registration flags so re-registration routes correctly
-  if (remoteId && Platform.OS === 'web' && typeof localStorage !== 'undefined') {
+  // Clear ALL user-specific registration flags — iterate keys so we don't depend on remoteId
+  // (delete_user() may kill the session before we get here, making remoteId null)
+  if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
     try {
-      localStorage.removeItem(`@vermillion/intake_complete/${remoteId}`);
-      localStorage.removeItem(`@vermillion/onboarding_complete/${remoteId}`);
+      const keysToRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && (
+          k.startsWith('@vermillion/intake_complete/') ||
+          k.startsWith('@vermillion/onboarding_complete/') ||
+          k.startsWith(`${AVATAR_STYLE_KEY}/`)
+        )) keysToRemove.push(k);
+      }
+      keysToRemove.forEach(k => localStorage.removeItem(k));
     } catch {}
   }
 
   await clearDeviceLocalIdentity();
 
   if (remoteId && !isLocalUserId(remoteId)) {
+    // Reset registration flags FIRST — so if the row deletion fails, re-login still routes to CompleteProfile
+    try {
+      await supabase.from('profiles').update({
+        profile_intake_complete: false,
+        onboarding_complete: false,
+      }).eq('id', remoteId);
+    } catch (_) {}
+
     try {
       await Promise.all([
         supabase.from('financial_data').delete().eq('user_id', remoteId),

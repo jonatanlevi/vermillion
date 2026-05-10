@@ -11,9 +11,9 @@ const EQUIP_OVERRIDES = {
   gold_hoodie: { clothes: 'hoodie', clothesColor: 'f5c518' },
 };
 
-export function buildAvatarUrl(userId, equipment = []) {
-  const seed = (userId || 'default').slice(-16);
-  const params = { seed, backgroundColor: '111111', radius: '50' };
+export function buildAvatarUrl(userId, equipment = [], seed = null, overrides = {}) {
+  const base = seed || (userId || 'default').slice(-16);
+  const params = { seed: base, backgroundColor: '111111', radius: '50', ...overrides };
   equipment.forEach(id => Object.assign(params, EQUIP_OVERRIDES[id] || {}));
   const qs = Object.entries(params)
     .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
@@ -23,14 +23,16 @@ export function buildAvatarUrl(userId, equipment = []) {
 
 export default function VermillionAvatar({
   userId,
-  equipment = [],
-  size      = 96,
-  showGlow  = true,
+  seed        = null,
+  equipment   = [],
+  overrides   = {},
+  size        = 96,
+  showGlow    = true,
   accentColor = '#C0392B',
 }) {
   const [loaded, setLoaded] = useState(false);
   const glow = useRef(new Animated.Value(0)).current;
-  const uri  = buildAvatarUrl(userId, equipment);
+  const uri  = buildAvatarUrl(userId, equipment, seed, overrides);
 
   useEffect(() => {
     if (!showGlow) return;

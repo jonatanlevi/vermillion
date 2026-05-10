@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, Easing } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Easing } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import VermillionAvatar from '../../components/VermillionAvatar';
 import { saveProfile, saveLocalAvatarStyle } from '../../services/storage';
@@ -11,15 +11,11 @@ const STAT_MAPS = {
   goal_focus:   { money: '💰 עושר', freedom: '🕊️ חופש', growth: '📈 צמיחה' },
 };
 
-// Maps onboarding answers → DiceBear avataaars params
-// Only uses params that are proven to work (same set as EQUIP_OVERRIDES in VermillionAvatar.js)
 const ANSWER_OVERRIDES = {
-  // appearance.style → accessory / facial hair / hat
   warrior: { facialHair: 'beardMedium' },
   sage:    { accessories: 'prescription01' },
   royal:   { accessories: 'sunglasses' },
   street:  { top: 'hat' },
-  // goal_focus → clothes color (hoodie proven to work)
   money:   { clothes: 'hoodie', clothesColor: 'f5c518' },
   freedom: { clothes: 'hoodie', clothesColor: '2c3e50' },
   growth:  { clothes: 'hoodie', clothesColor: '1a5276' },
@@ -27,9 +23,9 @@ const ANSWER_OVERRIDES = {
 
 function computeAvatarOverrides(appearance, tone) {
   const o = {};
-  if (appearance?.style)    Object.assign(o, ANSWER_OVERRIDES[appearance.style]    || {});
-  if (tone?.goal_focus)     Object.assign(o, ANSWER_OVERRIDES[tone.goal_focus]     || {});
-  if (tone?.personality)    Object.assign(o, ANSWER_OVERRIDES[tone.personality]    || {});
+  if (appearance?.style)  Object.assign(o, ANSWER_OVERRIDES[appearance.style]  || {});
+  if (tone?.goal_focus)   Object.assign(o, ANSWER_OVERRIDES[tone.goal_focus]   || {});
+  if (tone?.personality)  Object.assign(o, ANSWER_OVERRIDES[tone.personality]  || {});
   return o;
 }
 

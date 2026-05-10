@@ -8,11 +8,11 @@ export function isRegistrationComplete(profile) {
   if (!profile) return false;
   const intakeDone =
     profile.profile_intake_complete === true ||
-    readLocalIntakeCompletion(profile.id) === true;
+    (profile.profile_intake_complete == null && readLocalIntakeCompletion(profile.id) === true);
   if (!intakeDone) return false;
   const onboardingDone =
     profile.onboarding_complete === true ||
-    readLocalOnboardingComplete(profile.id) === true;
+    (profile.onboarding_complete == null && readLocalOnboardingComplete(profile.id) === true);
   return onboardingDone;
 }
 
@@ -23,7 +23,7 @@ export function getAuthLandingRoute(profile) {
   if (isRegistrationComplete(profile)) return 'MainTabs';
   const intakeDone =
     profile?.profile_intake_complete === true ||
-    readLocalIntakeCompletion(profile?.id) === true;
+    (profile?.profile_intake_complete == null && readLocalIntakeCompletion(profile?.id) === true);
   if (intakeDone) return 'AvatarAppearance';
   return 'CompleteProfile';
 }

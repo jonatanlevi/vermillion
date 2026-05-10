@@ -10,6 +10,7 @@ import { useAuth } from '../../context/AuthContext';
 import { computeSkills, DAY_PLAN } from '../../services/onboardingAI';
 import { supabase } from '../../services/supabase';
 import VermillionAvatar, { buildAvatarUrl } from '../../components/VermillionAvatar';
+import Avatar3D from '../../components/Avatar3D';
 
 const TIER_LABELS = ['עיוור', 'ייצוב', 'שרידות', 'בנייה', 'אופטימיזציה'];
 const TIER_COLORS = ['#444', '#E74C3C', '#E67E22', '#3498DB', '#D4AF37'];
@@ -183,6 +184,15 @@ export default function ProfileScreen({ navigation }) {
   const vCoins     = profile?.v_coins ?? 0;
   const equipment  = profile?.equipment || [];
 
+  const avatarStyle = (() => {
+    try {
+      const raw = typeof profile?.avatar_style === 'string'
+        ? JSON.parse(profile.avatar_style)
+        : (profile?.avatar_style || {});
+      return raw;
+    } catch { return {}; }
+  })();
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -199,11 +209,14 @@ export default function ProfileScreen({ navigation }) {
     >
       {/* Header */}
       <View style={styles.header}>
-        <VermillionAvatar
+        <Avatar3D
+          avatarUrl={avatarStyle.rpmUrl || null}
           userId={user?.id}
+          seed={avatarStyle.seed}
           equipment={equipment}
-          size={56}
-          showGlow={true}
+          overrides={avatarStyle.overrides || {}}
+          size={80}
+          showGlow
           accentColor={tierColor}
         />
         <View style={{ flex: 1 }}>

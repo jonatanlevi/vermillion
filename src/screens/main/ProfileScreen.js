@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -9,12 +9,13 @@ import { THEMES, ARCHETYPES } from '../../components/CharacterFigure';
 import VermillionAvatar from '../../components/VermillionAvatar';
 import { DAY_META, calcCompletion, getBlindSpots } from '../../data/dailyQuestions';
 import { getUserTimeStatus, calcStreak } from '../../services/timeEngine';
-import { getOnboardingState } from '../../services/storage';
+import { getOnboardingState, getLocalAvatarStyle } from '../../services/storage';
+import { useFocusEffect } from '@react-navigation/native';
 
 export default function ProfileScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { t } = useLanguage();
-  const { profile, signOut } = useAuth();
+  const { profile, signOut, reloadProfile } = useAuth();
 
   const [onbState, setOnbState] = useState(null);
 
@@ -22,9 +23,18 @@ export default function ProfileScreen({ navigation }) {
     getOnboardingState().then(setOnbState);
   }, []);
 
+  useFocusEffect(useCallback(() => {
+    reloadProfile?.();
+  }, []));
+
   const avatarStyle = (() => {
-    try { return typeof profile?.avatar_style === 'string' ? JSON.parse(profile.avatar_style) : (profile?.avatar_style || {}); }
-    catch { return {}; }
+    try {
+      const fromProfile = typeof profile?.avatar_style === 'string'
+        ? JSON.parse(profile.avatar_style)
+        : profile?.avatar_style;
+      if (fromProfile?.seed) return fromProfile;
+      return getLocalAvatarStyle(profile?.id) || {};
+    } catch { return {}; }
   })();
 
   const vm         = avatarStyle;
@@ -49,7 +59,7 @@ export default function ProfileScreen({ navigation }) {
         <View style={s.heroInner}>
 
           {/* ── Profile avatar (the VerMillion character in a circle) ── */}
-          <VermillionAvatar appearance={vm?.appearance || {}} size={104} showGlow={true} />
+          <VermillionAvatar userId={profile?.id} seed={vm?.seed} equipment={vm?.equipment || []} overrides={vm?.overrides || {}} size={104} showGlow={true} />
 
           {/* User info */}
           <View style={s.userInfo}>

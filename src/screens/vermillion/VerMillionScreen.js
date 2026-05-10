@@ -8,9 +8,11 @@ import { useFocusEffect } from '@react-navigation/native';
 import { getOnboardingState, isOnboardingComplete, appendChatMessage, getChatHistory, getCommitmentTime, getMsUntilCommitment, getGameLog } from '../../services/storage';
 import {
   getTodayOnboardingPrompt, processOnboardingAnswer,
-  getDayProgress, completeDay, generateProfile,
+  getDayProgress, completeDay, generateProfile, generateCoachingOpener,
 } from '../../services/onboardingAI';
 import { askTeam } from '../../services/agents';
+import VermillionAvatar from '../../components/VermillionAvatar';
+import { useAuth } from '../../context/AuthContext';
 
 const nextId = () => `msg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
 const QUESTIONS_PER_DAY = 3;
@@ -32,7 +34,7 @@ function formatCountdown(ms) {
 }
 
 // ─── DNA Timer component ───────────────────────────────────────
-function DNATimer({ day, insets, onGoGames, onUnlock }) {
+function DNATimer({ day, insets, onGoGames, onUnlock, userId, avatarStyle }) {
   const [commitment, setCommitment] = useState(null);
   const [msLeft, setMsLeft] = useState(0);
 
@@ -88,9 +90,14 @@ function DNATimer({ day, insets, onGoGames, onUnlock }) {
 
       {/* Header */}
       <View style={dna.header}>
-        <View style={dna.avatarRing}>
-          <View style={dna.avatar}><Text style={dna.avatarText}>V</Text></View>
-        </View>
+        <VermillionAvatar
+          userId={userId}
+          seed={avatarStyle?.seed}
+          overrides={avatarStyle?.overrides || {}}
+          size={44}
+          showGlow={false}
+          accentColor="#C0392B"
+        />
         <View>
           <Text style={dna.title}>VerMillion</Text>
           <Text style={dna.sub}>יום {day}/7 הושלם ✅</Text>
@@ -163,6 +170,7 @@ function DNATimer({ day, insets, onGoGames, onUnlock }) {
 // ─── Main screen ───────────────────────────────────────────────
 export default function VerMillionScreen({ navigation }) {
   const insets = useSafeAreaInsets();
+  const { user, profile } = useAuth();
   const [messages, setMessages]       = useState([]);
   const [input, setInput]             = useState('');
   const [loading, setLoading]         = useState(false);
@@ -174,6 +182,7 @@ export default function VerMillionScreen({ navigation }) {
   const [avatarMood, setAvatarMood]   = useState('neutral');
   const [needsFirstGame, setNeedsFirstGame] = useState(false);
   const [showCrisisBar, setShowCrisisBar] = useState(false);
+  const [quickTopics, setQuickTopics] = useState([]);
   const pulseAnim  = useRef(new Animated.Value(1)).current;
   const flatListRef = useRef(null);
   const mountedRef  = useRef(true);
@@ -187,6 +196,7 @@ export default function VerMillionScreen({ navigation }) {
       setNeedsFirstGame(false);
       setPendingField(null);
       setQuestionsToday(0);
+      setQuickTopics([]);
       init();
       startPulse();
       return () => { mountedRef.current = false; };
@@ -214,10 +224,19 @@ export default function VerMillionScreen({ navigation }) {
         const history = await getChatHistory();
         if (history.length > 0) {
           setMessages(history.slice(-40));
+          const lastMsg = history[history.length - 1];
+          const ts = parseInt((lastMsg.id || '').split('_')[1] || '0', 10);
+          const hoursAgo = ts > 0 ? (Date.now() - ts) / 3600000 : 99;
+          if (hoursAgo > 3) {
+            const lastUser = [...history].reverse().find(m => m.role === 'user');
+            const preview = lastUser ? `"${lastUser.text.slice(0, 45)}..."` : '';
+            addMsg('assistant', `ברוך שובך 👋${preview ? `\nבפעם האחרונה: ${preview}` : ''}\n\nממשיכים? או רוצה לפתוח נושא חדש?`);
+          }
         } else {
-          addMsg('assistant', state.profileText
-            ? `${state.profileText}\n\nמה תרצה לעבוד עליו היום?`
-            : 'שלום! הפרופיל שלך מוכן. מה תרצה לשאול?');
+          const profile = state.profile || state;
+          const { opener, topics } = generateCoachingOpener(profile);
+          addMsg('assistant', opener);
+          if (mountedRef.current) setQuickTopics(topics);
         }
         return;
       }
@@ -345,6 +364,7 @@ export default function VerMillionScreen({ navigation }) {
   const send = async (text) => {
     if (!text.trim() || loading) return;
     setInput('');
+    setQuickTopics([]);
     setLoading(true);
     setAvatarMood('thinking');
     addMsg('user', text);
@@ -419,6 +439,8 @@ export default function VerMillionScreen({ navigation }) {
         insets={insets}
         onGoGames={() => navigation.navigate('Games')}
         onUnlock={() => navigation.navigate('Games')}
+        userId={user?.id}
+        avatarStyle={profile?.avatar_style}
       />
     );
   }
@@ -460,10 +482,15 @@ export default function VerMillionScreen({ navigation }) {
       keyboardVerticalOffset={90}
     >
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <Animated.View style={[styles.avatarRing, { borderColor: moodColors[avatarMood], transform: [{ scale: pulseAnim }] }]}>
-          <View style={[styles.avatar, { backgroundColor: moodColors[avatarMood] }]}>
-            <Text style={styles.avatarText}>V</Text>
-          </View>
+        <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+          <VermillionAvatar
+            userId={user?.id}
+            seed={profile?.avatar_style?.seed}
+            overrides={profile?.avatar_style?.overrides || {}}
+            size={48}
+            showGlow={true}
+            accentColor={moodColors[avatarMood]}
+          />
         </Animated.View>
 
         <View style={{ flex: 1 }}>
@@ -505,6 +532,21 @@ export default function VerMillionScreen({ navigation }) {
           <Text style={styles.crisisBarText}>🆘 פעמונים — סיוע מיידי: 1-800-355-350</Text>
           <Text style={styles.crisisBarSub}>לחץ לסגירה</Text>
         </TouchableOpacity>
+      )}
+
+      {quickTopics.length > 0 && (
+        <View style={styles.quickRepliesRow}>
+          {quickTopics.map(t => (
+            <TouchableOpacity
+              key={t}
+              style={styles.quickReplyBtn}
+              onPress={() => send(t)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.quickReplyText}>{t}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
       )}
 
       <View style={styles.inputRow}>
@@ -635,6 +677,18 @@ const styles = StyleSheet.create({
   bubbleText:{ fontSize: 15, lineHeight: 24, textAlign: 'right' },
   textBot:   { color: '#E0E0E0' },
   textUser:  { color: '#FFF', fontWeight: '500' },
+
+  quickRepliesRow: {
+    flexDirection: 'row', flexWrap: 'wrap', gap: 8,
+    paddingHorizontal: 14, paddingVertical: 10,
+    backgroundColor: '#0A0A0A',
+  },
+  quickReplyBtn: {
+    backgroundColor: '#1A0A0A', borderRadius: 20,
+    paddingHorizontal: 14, paddingVertical: 9,
+    borderWidth: 1, borderColor: '#C0392B44',
+  },
+  quickReplyText: { color: '#C0392B', fontSize: 13, fontWeight: '700' },
 
   inputRow: {
     flexDirection: 'row', alignItems: 'flex-end', gap: 10,
