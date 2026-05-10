@@ -11,7 +11,7 @@ import {
   getDayProgress, completeDay, generateProfile, generateCoachingOpener,
 } from '../../services/onboardingAI';
 import { askTeam } from '../../services/agents';
-import VermillionAvatar from '../../components/VermillionAvatar';
+import Avatar3D from '../../components/Avatar3D';
 import { useAuth } from '../../context/AuthContext';
 
 const nextId = () => `msg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
@@ -34,7 +34,7 @@ function formatCountdown(ms) {
 }
 
 // ─── DNA Timer component ───────────────────────────────────────
-function DNATimer({ day, insets, onGoGames, onUnlock, userId, avatarStyle }) {
+function DNATimer({ day, insets, onGoGames, onUnlock, userId, avatarStyle, equipment }) {
   const [commitment, setCommitment] = useState(null);
   const [msLeft, setMsLeft] = useState(0);
 
@@ -90,9 +90,10 @@ function DNATimer({ day, insets, onGoGames, onUnlock, userId, avatarStyle }) {
 
       {/* Header */}
       <View style={dna.header}>
-        <VermillionAvatar
+        <Avatar3D
           userId={userId}
           seed={avatarStyle?.seed}
+          equipment={equipment || []}
           overrides={avatarStyle?.overrides || {}}
           size={44}
           showGlow={false}
@@ -441,6 +442,7 @@ export default function VerMillionScreen({ navigation }) {
         onUnlock={() => navigation.navigate('Games')}
         userId={user?.id}
         avatarStyle={profile?.avatar_style}
+        equipment={profile?.avatar_style?.equipment || []}
       />
     );
   }
@@ -483,9 +485,10 @@ export default function VerMillionScreen({ navigation }) {
     >
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
-          <VermillionAvatar
+          <Avatar3D
             userId={user?.id}
             seed={profile?.avatar_style?.seed}
+            equipment={profile?.avatar_style?.equipment || []}
             overrides={profile?.avatar_style?.overrides || {}}
             size={48}
             showGlow={true}
