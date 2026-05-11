@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Easing } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Easing, Share } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Avatar3D from '../../components/Avatar3D';
 import { saveProfile, saveLocalAvatarStyle } from '../../services/storage';
@@ -113,6 +113,14 @@ export default function AvatarRevealScreen({ navigation, route }) {
     navigation.replace('ModelDownload');
   }
 
+  async function handleShare() {
+    try {
+      await Share.share({
+        message: `גיליתי שאני ${archetypeData.name} ${archetypeData.emoji} ב-VerMillion!\n${archetypeData.description}\n\nגלה את הארכיטיפ הפיננסי שלך: vermillion-ashen.vercel.app`,
+      });
+    } catch (_) {}
+  }
+
   const accentColor = archetypeData.color;
 
   return (
@@ -177,6 +185,9 @@ export default function AvatarRevealScreen({ navigation, route }) {
             >
               <Text style={s.btnText}>{saving ? 'שומר...' : 'בוא נתחיל ▶'}</Text>
             </TouchableOpacity>
+            <TouchableOpacity style={s.shareBtn} onPress={handleShare} activeOpacity={0.8}>
+              <Text style={s.shareBtnText}>📤 שתף את ה{archetypeData.hebrewName} שלך</Text>
+            </TouchableOpacity>
             <Text style={s.trialNote}>7 ימים ראשונים — חינם לחלוטין</Text>
           </Animated.View>
 
@@ -228,8 +239,10 @@ const s = StyleSheet.create({
   },
   descText: { color: '#CCCCCC', fontSize: 14, lineHeight: 22, textAlign: 'right' },
 
-  btnWrap: { width: '100%', alignItems: 'center', gap: 10, marginTop: 4 },
-  btn:     { width: '100%', height: 54, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  btnText: { color: '#FFF', fontSize: 16, fontWeight: '900', letterSpacing: 0.5 },
-  trialNote: { color: '#444', fontSize: 12 },
+  btnWrap:      { width: '100%', alignItems: 'center', gap: 10, marginTop: 4 },
+  btn:          { width: '100%', height: 54, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  btnText:      { color: '#FFF', fontSize: 16, fontWeight: '900', letterSpacing: 0.5 },
+  shareBtn:     { width: '100%', height: 46, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#333' },
+  shareBtnText: { color: '#888', fontSize: 14, fontWeight: '700' },
+  trialNote:    { color: '#444', fontSize: 12 },
 });

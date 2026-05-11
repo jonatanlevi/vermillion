@@ -208,10 +208,87 @@ function processAnswer(userMsg, lastTopic, c) {
   }
 }
 
+// ─── Tier-aware coaching tips (used when Ollama is offline) ───
+const COACHING_TIPS = {
+  1: [
+    'הצעד הראשון ביציאה מגירעון: תעצור. לא תוסיף חוב חדש ב-30 הימים הקרובים — זה הכלל מספר אחד. לפני כל קנייה מעל ₪200, שאל: "האם זה מוסיף חוב?"',
+    'גירעון = יותר יוצא מנכנס. פתח את הבנק עכשיו וסמן 3 הוצאות שאפשר לבטל תוך 48 שעות. לא בשבוע הבא — היום. כל ₪200 שחוסך = 12 ימים פחות בחוב.',
+    'קרן חירום של ₪3,000 קודמת לכל. אפילו לפני תשלום חוב מוקדם. למה? כי בלי רזרבה, כל הפתעה קטנה תחזיר אותך לנקודת ההתחלה.',
+    'שיטת Snowball: שלם מינימום על כל החובות, תן את כל היתרה לחוב הכי קטן. כשהוא נסגר — מומנטום. המח האנושי אוהב ניצחונות.',
+  ],
+  2: [
+    'חיסכון אוטומטי = חיסכון שקורה. הגדר העברה קבועה של ₪200-500 ביום המשכורת לחשבון נפרד. "מה שאינך רואה — לא מוציא."',
+    'שיטת 50/20/30: 50% צרכים, 20% חיסכון, 30% רצונות. גם 48/15/37 זה התקדמות. כיוון, לא שלמות.',
+    'כל ₪100 שחוסך היום = ₪1,200 בשנה = הרגל שמשנה מסלול. לא גודל ההפקדה חשוב בהתחלה — ההרגל חשוב.',
+    'פתח חשבון חיסכון נפרד שלא ניגשים אליו בקלות. ריבית 4.5%+ בפיקדון קצר — הבנק לא יציע לך את זה מיוזמתו.',
+  ],
+  3: [
+    'קרן חירום = 3-6 חודשי הוצאות. יש לך פחות? כל חודש הוסף עוד חודש אחד. יש לך? עכשיו אפשר להתחיל לחשוב על השקעות.',
+    'קרן השתלמות = ₪4,500 שנתי פטורים ממס רווחי הון + הפקדת מעסיק. אם לא ממצה — מפסיד מתנה מהמדינה כל חודש.',
+    'חוק 4%: יש לך 25 פעמים ההוצאות השנתיות? אפשר לפרוש. הוצאות ₪10,000/חודש = ₪3M יעד. כמה חסר לך? זה מה שמנחה את כל ההחלטות.',
+    'index fund + דמי ניהול נמוכים + הוראת קבע חודשית = 90% מהמנהלים הפעילים לא מנצחים אותך לטווח 10+ שנים. לא כי זה מגניב — כי זה מה שהנתונים מראים.',
+  ],
+  4: [
+    'כסף בעו"ש = הפסד ריאלי. אינפלציה 3% × ₪100,000 = ₪3,000 שנויים לאוויר. פיקדון short-term מעל 4.5% — לפחות לחלק מהנזילות.',
+    'קרן השתלמות כ-IRA: 6 שנים ↑ = משיכה ללא מס. אם יש לך קרן השתלמות פנויה — זה כלי מס הכי יעיל שיש בישראל לשכיר.',
+    'מינוף: ריבית הלוואה 5% מול תשואת מדד 8% היסטורית = מינוף חיובי — אבל רק אם הנכס מניב ויכולת לשרת את החוב בלי להיפגע.',
+    'מיסוי: רווחי הון 25%, פטור ב-קרן השתלמות, IRA = עוד כלי דחיית מס. אם תיק ההשקעות מעל ₪500K — כדאי לדבר עם יועץ מס על אופטימיזציה.',
+  ],
+};
+
+function getTierTip(tier, topic) {
+  const tierKey = Math.min(Math.max(tier, 1), 4);
+  const tips = COACHING_TIPS[tierKey];
+  const topicLower = (topic || '').toLowerCase();
+  // Try to find topic-relevant tip first
+  const relevant = tips.find(t =>
+    (topicLower.includes('חוב') && t.includes('חוב')) ||
+    (topicLower.includes('חיסכון') && t.includes('חיסכון')) ||
+    (topicLower.includes('קרן') && t.includes('קרן')) ||
+    (topicLower.includes('השקע') && t.includes('השקע')) ||
+    (topicLower.includes('תקציב') && t.includes('תקציב'))
+  );
+  return relevant || tips[Math.floor(Math.random() * tips.length)];
+}
+
 // ─── Main entry point ───
 export async function mockChatWithAI(userMessage, userData, onPartial) {
   const msg = userMessage.trim();
   const c   = conv.collected;
+
+  // Coaching tip mode — triggered by DailyCoachingScreen when Ollama is offline
+  if (msg.startsWith('בהתבסס על פרופיל המשתמש, תן טיפ פיננסי')) {
+    const topicMatch = msg.match(/רלוונטי ל"([^"]+)"/);
+    const tierMatch  = msg.match(/לשלב ([^\s.]+)/);
+    const topic      = topicMatch ? topicMatch[1] : '';
+    const tierLabel  = tierMatch  ? tierMatch[1]  : '';
+
+    // Derive tier number from label
+    const tierNum = { 'עיוור': 1, 'ייצוב': 1, 'שרידות': 2, 'בנייה': 3, 'אופטימיזציה': 4 }[tierLabel] || 2;
+
+    // Also try to get real tier from userData
+    let realTier = tierNum;
+    if (userData?.dailyAnswers) {
+      try {
+        const { computeFinancialMetrics, calcCompletion } = require('../data/dailyQuestions');
+        const { classifyTier } = require('./financialTier');
+        const metrics = computeFinancialMetrics(userData.dailyAnswers);
+        const completion = calcCompletion(userData.dailyAnswers);
+        const tierObj = classifyTier(metrics, completion);
+        realTier = Math.max(tierObj.tier, 1);
+      } catch (_) {}
+    }
+
+    const tip = getTierTip(realTier, topic);
+    const words = tip.split(' ');
+    let built = '';
+    for (let i = 0; i < words.length; i++) {
+      await _sleep(32 + Math.random() * 22);
+      built += (i === 0 ? '' : ' ') + words[i];
+      onPartial?.(built);
+    }
+    return tip;
+  }
 
   // Process answer to previous question
   if (conv.lastTopic) processAnswer(msg, conv.lastTopic, c);

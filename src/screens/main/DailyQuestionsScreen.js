@@ -17,6 +17,11 @@ function SkipDialog({ visible, blindSpot, onSkip, onStay, t }) {
           <Text style={d.icon}>⚠️</Text>
           <Text style={d.title}>{t.dqSkipTitle}</Text>
           <Text style={d.body}>{t.dqSkipBody(blindSpot)}</Text>
+          <View style={d.impactBox}>
+            <Text style={d.impactText}>
+              VerMillion ישתמש ב"<Text style={d.impactBold}>{blindSpot}</Text>" כדי לכוון את הייעוץ הפיננסי שלך — בלי הנתון הזה, ההמלצות יהיו פחות מדויקות.
+            </Text>
+          </View>
           <View style={d.row}>
             <TouchableOpacity style={d.btnSkip} onPress={onSkip}>
               <Text style={d.btnSkipText}>{t.dqSkipConfirm}</Text>
@@ -652,9 +657,9 @@ const ch = StyleSheet.create({
 
 const nm = StyleSheet.create({
   wrap:      { gap: 10 },
-  inputWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#111', borderRadius: 14, borderWidth: 1.5, borderColor: '#1E1E1E', paddingHorizontal: 20, height: 72 },
+  inputWrap: { flexDirection: 'row', direction: 'ltr', alignItems: 'center', backgroundColor: '#111', borderRadius: 14, borderWidth: 1.5, borderColor: '#1E1E1E', paddingHorizontal: 20, height: 72 },
   prefix:    { color: '#444', fontSize: 28, fontWeight: '700', marginRight: 8 },
-  input:     { flex: 1, color: '#FFF', fontSize: 28, fontWeight: '800', fontVariant: ['tabular-nums'] },
+  input:     { flex: 1, color: '#FFF', fontSize: 28, fontWeight: '800', fontVariant: ['tabular-nums'], textAlign: 'right', writingDirection: 'ltr' },
   suffix:    { color: '#555', fontSize: 16, marginLeft: 8 },
   hint:      { color: '#444', fontSize: 12, textAlign: 'right', paddingHorizontal: 4 },
 });
@@ -693,6 +698,9 @@ const d = StyleSheet.create({
   icon:        { fontSize: 36 },
   title:       { color: '#FFF', fontSize: 20, fontWeight: '900', textAlign: 'center' },
   body:        { color: '#888', fontSize: 15, lineHeight: 24, textAlign: 'center' },
+  impactBox:   { backgroundColor: '#0F0F0F', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#1A1A1A', width: '100%' },
+  impactText:  { color: '#666', fontSize: 13, lineHeight: 20, textAlign: 'right' },
+  impactBold:  { color: '#C0392B', fontWeight: '700' },
   row:         { flexDirection: 'row', gap: 12, marginTop: 4, width: '100%' },
   btnSkip:     { flex: 1, borderWidth: 1, borderColor: '#333', borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
   btnSkipText: { color: '#555', fontSize: 14 },

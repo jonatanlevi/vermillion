@@ -11,6 +11,15 @@ import { chatWithAI } from '../../services/aiService';
 import { COACHING_DAYS } from '../../data/coachingContent';
 import { getOnboardingState, saveOnboardingState, markDayComplete } from '../../services/storage';
 
+const MILESTONE_CARDS = {
+  7:  { title: '🎉 שבוע ראשון — מדהים!', text: 'הוכחת שאתה מסוגל. 23 ימים נוספים ופרס ₪45,000 מחכה לך.', color: '#F39C12', bg: '#1A1400', border: '#F39C1244' },
+  14: { title: '🏅 שבועיים — כבוד!', text: 'משתמשים שמגיעים ליום 14 מסיימים 80% מהאתגר. אתה בדרך הנכונה.', color: '#2ECC71', bg: '#0A1A0A', border: '#2ECC7144' },
+  18: { title: '🏁 מחצית הדרך — יום 18/30', text: 'עברת את הנקודה הקשה ביותר. 12 יום קדימה ופרס ₪45,000 מחכה לך.', color: '#27AE60', bg: '#0A1A0A', border: '#27AE6044' },
+  21: { title: '🔥 21 יום — הרגל חדש!', text: 'לוקח 21 יום ליצור הרגל. VerMillion הפך לחלק מהשגרה שלך.', color: '#3498DB', bg: '#0A0E1A', border: '#3498DB44' },
+  25: { title: '⚡ 5 ימים לסיום!', text: 'אתה ב-10% העליונים שמגיעים לכאן. הסוף קרוב — תן את הכל.', color: '#E74C3C', bg: '#1A0A0A', border: '#E74C3C44' },
+  30: { title: '🏆 יום אחרון — מאמץ אחרון!', text: 'הגעת ליום האחרון. VerMillion גאה בך. תגמור חזק ובוא נחגוג.', color: '#D4AF37', bg: '#1A1200', border: '#D4AF3744' },
+};
+
 export default function DailyCoachingScreen({ navigation }) {
   const insets = useSafeAreaInsets();
 
@@ -72,15 +81,29 @@ export default function DailyCoachingScreen({ navigation }) {
       [dayKey]: { _coaching: answer.trim(), _answeredAt: new Date().toISOString() },
     });
     await markDayComplete(dayKey);
-    setDone(true);
+    if (dayKey === 30) {
+      navigation.replace('Day30Celebration');
+    } else {
+      setDone(true);
+    }
   }
 
   if (done) {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(9, 0, 0, 0);
+    const hoursLeft = Math.round((tomorrow - Date.now()) / 3_600_000);
     return (
       <View style={styles.doneContainer}>
         <Text style={styles.doneEmoji}>✅</Text>
         <Text style={styles.doneTitle}>יום {ts.currentDay} הושלם</Text>
-        <Text style={styles.doneSub}>מכפיל ×{ts.multiplier.toFixed(1)} · {ts.daysLeft} ימים לסיום</Text>
+        <Text style={styles.doneSub}>
+          מכפיל ×{ts.multiplier.toFixed(1)} · {ts.daysLeft} ימים נוספים
+        </Text>
+        <View style={styles.doneNextCard}>
+          <Text style={styles.doneNextLabel}>⏰ המשימה הבאה</Text>
+          <Text style={styles.doneNextTime}>בעוד ~{hoursLeft} שעות</Text>
+        </View>
         <TouchableOpacity style={styles.doneBtn} onPress={() => navigation.goBack()}>
           <Text style={styles.doneBtnText}>חזור לבית</Text>
         </TouchableOpacity>
@@ -105,13 +128,16 @@ export default function DailyCoachingScreen({ navigation }) {
           </View>
         </View>
 
-        {/* Day 18 milestone */}
-        {ts.currentDay === 18 && (
-          <View style={styles.milestoneCard}>
-            <Text style={styles.milestoneTitle}>🏁 מחצית הדרך — יום 18/30</Text>
-            <Text style={styles.milestoneText}>עברת את הנקודה הקשה ביותר. 12 יום קדימה ופרס ₪45,000 מחכה לך.</Text>
-          </View>
-        )}
+        {/* Milestone cards — days 7, 14, 18, 21, 25, 30 */}
+        {MILESTONE_CARDS[ts.currentDay] && (() => {
+          const m = MILESTONE_CARDS[ts.currentDay];
+          return (
+            <View style={[styles.milestoneCard, { backgroundColor: m.bg, borderColor: m.border }]}>
+              <Text style={[styles.milestoneTitle, { color: m.color }]}>{m.title}</Text>
+              <Text style={styles.milestoneText}>{m.text}</Text>
+            </View>
+          );
+        })()}
 
         {/* Topic */}
         <Text style={styles.topic}>{tierContent.topic}</Text>
@@ -228,10 +254,13 @@ const styles = StyleSheet.create({
   completeBtnDisabled: { backgroundColor: '#222' },
   completeBtnText: { color: '#FFF', fontSize: 16, fontWeight: '900' },
 
-  doneContainer: { flex: 1, backgroundColor: '#0A0A0A', alignItems: 'center', justifyContent: 'center', padding: 40 },
-  doneEmoji: { fontSize: 60, marginBottom: 20 },
-  doneTitle: { color: '#FFF', fontSize: 28, fontWeight: '900', marginBottom: 8 },
-  doneSub: { color: '#555', fontSize: 16, marginBottom: 40 },
-  doneBtn: { backgroundColor: '#C0392B', borderRadius: 14, paddingHorizontal: 40, paddingVertical: 16 },
+  doneContainer: { flex: 1, backgroundColor: '#0A0A0A', alignItems: 'center', justifyContent: 'center', padding: 40, gap: 16 },
+  doneEmoji: { fontSize: 60 },
+  doneTitle: { color: '#FFF', fontSize: 28, fontWeight: '900' },
+  doneSub: { color: '#555', fontSize: 16 },
+  doneNextCard: { backgroundColor: '#111', borderRadius: 14, paddingHorizontal: 28, paddingVertical: 16, borderWidth: 1, borderColor: '#1E1E1E', alignItems: 'center', gap: 4 },
+  doneNextLabel: { color: '#555', fontSize: 12, fontWeight: '700', letterSpacing: 1 },
+  doneNextTime: { color: '#C0392B', fontSize: 20, fontWeight: '900' },
+  doneBtn: { backgroundColor: '#C0392B', borderRadius: 14, paddingHorizontal: 40, paddingVertical: 16, marginTop: 8 },
   doneBtnText: { color: '#FFF', fontSize: 16, fontWeight: '800' },
 });

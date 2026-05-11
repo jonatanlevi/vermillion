@@ -45,15 +45,32 @@ export function getScoreMultiplier(deviationHours) {
   return 0.3;                            // Very late — still counted
 }
 
-// Consecutive days answered streak
-export function calcStreak(dailyAnswers, registrationDate) {
+// Consecutive days answered streak — allows up to graceDays missed days per month
+export function calcStreak(dailyAnswers, registrationDate, graceDays = 2) {
   const today = getCurrentDay(registrationDate);
   let streak = 0;
+  let graceUsed = 0;
   for (let d = today; d >= 1; d--) {
-    if (dailyAnswers?.[d]) streak++;
-    else break;
+    if (dailyAnswers?.[d]) {
+      streak++;
+    } else if (graceUsed < graceDays) {
+      graceUsed++;
+    } else {
+      break;
+    }
   }
   return streak;
+}
+
+// How many grace days have been used this month
+export function getGraceUsed(dailyAnswers, registrationDate, graceDays = 2) {
+  const today = getCurrentDay(registrationDate);
+  let graceUsed = 0;
+  for (let d = today; d >= 1; d--) {
+    if (dailyAnswers?.[d]) continue;
+    if (graceUsed < graceDays) { graceUsed++; } else break;
+  }
+  return graceUsed;
 }
 
 // Has the user answered today's question?

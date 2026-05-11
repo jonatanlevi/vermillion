@@ -22,11 +22,12 @@ import GamesScreen      from '../screens/games/GamesScreen';
 import VerMillionScreen from '../screens/vermillion/VerMillionScreen';
 import ProfileScreen    from '../screens/profile/ProfileScreen';
 
-import HomeScreen           from '../screens/main/HomeScreen';
-import DailyQuestionsScreen from '../screens/main/DailyQuestionsScreen';
-import DailyCoachingScreen  from '../screens/main/DailyCoachingScreen';
-import ProfileRevealScreen  from '../screens/main/ProfileRevealScreen';
-import SettingsScreen       from '../screens/main/SettingsScreen';
+import HomeScreen              from '../screens/main/HomeScreen';
+import DailyQuestionsScreen    from '../screens/main/DailyQuestionsScreen';
+import DailyCoachingScreen     from '../screens/main/DailyCoachingScreen';
+import ProfileRevealScreen     from '../screens/main/ProfileRevealScreen';
+import SettingsScreen          from '../screens/main/SettingsScreen';
+import Day30CelebrationScreen  from '../screens/main/Day30CelebrationScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab   = createBottomTabNavigator();
@@ -123,6 +124,7 @@ export default function AppNavigator() {
             <Stack.Screen name="DailyCoaching"     component={DailyCoachingScreen} />
             <Stack.Screen name="ProfileReveal"     component={ProfileRevealScreen} />
             <Stack.Screen name="Settings"          component={SettingsScreen} />
+            <Stack.Screen name="Day30Celebration"  component={Day30CelebrationScreen} />
           </>
         ) : (
           <>
