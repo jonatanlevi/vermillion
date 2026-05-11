@@ -6,7 +6,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import LanguagePicker from '../../components/LanguagePicker';
 import { THEMES, ARCHETYPES } from '../../components/CharacterFigure';
-import VermillionAvatar from '../../components/VermillionAvatar';
+import Avatar3D from '../../components/Avatar3D';
 import { DAY_META, calcCompletion, getBlindSpots } from '../../data/dailyQuestions';
 import { getUserTimeStatus, calcStreak } from '../../services/timeEngine';
 import { getOnboardingState, getLocalAvatarStyle } from '../../services/storage';
@@ -59,7 +59,7 @@ export default function ProfileScreen({ navigation }) {
         <View style={s.heroInner}>
 
           {/* ── Profile avatar (the VerMillion character in a circle) ── */}
-          <VermillionAvatar userId={profile?.id} seed={vm?.seed} equipment={vm?.equipment || []} overrides={vm?.overrides || {}} size={104} showGlow={true} />
+          <Avatar3D archetype={vm?.archetype || 'builder'} userId={profile?.id} seed={vm?.seed} equipment={vm?.equipment || []} overrides={vm?.overrides || {}} size={80} showGlow={true} accentColor="#C0392B" />
 
           {/* User info */}
           <View style={s.userInfo}>

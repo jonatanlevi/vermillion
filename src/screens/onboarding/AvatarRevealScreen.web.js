@@ -1,38 +1,17 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Easing } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import VermillionAvatar from '../../components/VermillionAvatar';
+import Avatar3D from '../../components/Avatar3D';
 import { saveProfile, saveLocalAvatarStyle } from '../../services/storage';
 import { useAuth } from '../../context/AuthContext';
+import { classifyArchetype, ARCHETYPES } from '../../utils/archetypeEngine';
 
-const STAT_MAPS = {
-  advice_style: { direct: 'ישיר', gentle: 'עדין', tough: 'קשוח' },
-  personality:  { serious: 'רציני', friendly: 'חם', mentor: 'מנטור' },
-  goal_focus:   { money: '💰 עושר', freedom: '🕊️ חופש', growth: '📈 צמיחה' },
-};
-
-const ANSWER_OVERRIDES = {
-  warrior: { facialHair: 'beardMedium' },
-  sage:    { accessories: 'prescription01' },
-  royal:   { accessories: 'sunglasses' },
-  street:  { top: 'hat' },
-  money:   { clothes: 'hoodie', clothesColor: 'f5c518' },
-  freedom: { clothes: 'hoodie', clothesColor: '2c3e50' },
-  growth:  { clothes: 'hoodie', clothesColor: '1a5276' },
-};
-
-function computeAvatarOverrides(appearance, tone) {
-  const o = {};
-  if (appearance?.style)  Object.assign(o, ANSWER_OVERRIDES[appearance.style]  || {});
-  if (tone?.goal_focus)   Object.assign(o, ANSWER_OVERRIDES[tone.goal_focus]   || {});
-  if (tone?.personality)  Object.assign(o, ANSWER_OVERRIDES[tone.personality]  || {});
-  return o;
-}
-
-function makeName(appearance, tone) {
-  const firsts = { warrior: 'KRAV', sage: 'EYAL', royal: 'ARIEL', street: 'TAL' };
-  const lasts  = { calm: 'THE SILENT', intense: 'THE STORM', wise: 'THE DEEP', playful: 'THE WILD' };
-  return `${firsts[appearance?.style] || 'NIR'} · ${lasts[appearance?.energy] || 'THE GUIDE'}`;
+function computeOverrides(appearance, tone) {
+  const overrides = {};
+  if (appearance?.style === 'warrior') overrides.facialHair = 'beardMedium';
+  if (appearance?.style === 'sage')    overrides.accessories = 'prescription01';
+  if (appearance?.style === 'royal')   overrides.accessories = 'sunglasses';
+  return overrides;
 }
 
 function Ring({ size, color, dur, cw }) {
@@ -52,49 +31,80 @@ function Ring({ size, color, dur, cw }) {
   );
 }
 
-const ACCENT = '#C0392B';
+function ScanLine({ color }) {
+  const y = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(y, { toValue: 1, duration: 1200, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+        Animated.timing(y, { toValue: 0, duration: 1200, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+      ])
+    ).start();
+  }, []);
+  const translateY = y.interpolate({ inputRange: [0, 1], outputRange: [-100, 100] });
+  return (
+    <Animated.View style={{
+      position: 'absolute', left: 0, right: 0, height: 2,
+      backgroundColor: color, opacity: 0.6,
+      transform: [{ translateY }],
+    }} />
+  );
+}
 
 export default function AvatarRevealScreen({ navigation, route }) {
   const { appearance = {}, tone = {}, day1 = {} } = route.params || {};
   const { user, reloadProfile } = useAuth();
-  const [seed, setSeed] = useState(() => Math.random().toString(36).slice(2, 14));
+  const [phase, setPhase]   = useState('analyzing'); // 'analyzing' | 'revealed'
   const [saving, setSaving] = useState(false);
-  const name = makeName(appearance, tone);
-  const personalityOverrides = computeAvatarOverrides(appearance, tone);
+  const [dotCount, setDotCount] = useState(1);
 
-  const screenOp  = useRef(new Animated.Value(0)).current;
-  const cardScale = useRef(new Animated.Value(0.5)).current;
-  const cardOp    = useRef(new Animated.Value(0)).current;
-  const nameOp    = useRef(new Animated.Value(0)).current;
-  const nameY     = useRef(new Animated.Value(24)).current;
-  const statsOp   = useRef(new Animated.Value(0)).current;
-  const btnOp     = useRef(new Animated.Value(0)).current;
+  const archetype  = classifyArchetype(appearance, tone, null);
+  const archetypeData = ARCHETYPES[archetype] || ARCHETYPES.builder;
+  const overrides  = computeOverrides(appearance, tone);
 
+  // Animated values
+  const screenOp   = useRef(new Animated.Value(0)).current;
+  const scanOp     = useRef(new Animated.Value(1)).current;
+  const revealOp   = useRef(new Animated.Value(0)).current;
+  const cardScale  = useRef(new Animated.Value(0.6)).current;
+  const nameOp     = useRef(new Animated.Value(0)).current;
+  const nameY      = useRef(new Animated.Value(20)).current;
+  const descOp     = useRef(new Animated.Value(0)).current;
+  const btnOp      = useRef(new Animated.Value(0)).current;
+
+  // Dots animation during analyzing
   useEffect(() => {
-    Animated.sequence([
-      Animated.timing(screenOp, { toValue: 1, duration: 500, useNativeDriver: true }),
-      Animated.parallel([
-        Animated.spring(cardScale, { toValue: 1, friction: 5, tension: 80, useNativeDriver: true }),
-        Animated.timing(cardOp,   { toValue: 1, duration: 400, useNativeDriver: true }),
-      ]),
-      Animated.parallel([
-        Animated.timing(nameOp, { toValue: 1, duration: 500, useNativeDriver: true }),
-        Animated.timing(nameY,  { toValue: 0, duration: 500, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-      ]),
-      Animated.timing(statsOp, { toValue: 1, duration: 400, useNativeDriver: true }),
-      Animated.timing(btnOp,   { toValue: 1, duration: 400, useNativeDriver: true }),
-    ]).start();
+    const iv = setInterval(() => setDotCount(d => (d % 3) + 1), 400);
+    return () => clearInterval(iv);
   }, []);
 
-  const stats = [
-    tone.advice_style && { label: 'סגנון',  val: STAT_MAPS.advice_style[tone.advice_style] },
-    tone.personality  && { label: 'אישיות', val: STAT_MAPS.personality[tone.personality]   },
-    tone.goal_focus   && { label: 'מטרה',   val: STAT_MAPS.goal_focus[tone.goal_focus]     },
-  ].filter(Boolean);
+  useEffect(() => {
+    Animated.timing(screenOp, { toValue: 1, duration: 600, useNativeDriver: true }).start();
+
+    // After 2.8s transition to reveal
+    const t = setTimeout(() => {
+      setPhase('revealed');
+      Animated.sequence([
+        Animated.timing(scanOp,  { toValue: 0, duration: 400, useNativeDriver: true }),
+        Animated.parallel([
+          Animated.timing(revealOp,  { toValue: 1, duration: 500, useNativeDriver: true }),
+          Animated.spring(cardScale, { toValue: 1, friction: 6, tension: 70, useNativeDriver: true }),
+        ]),
+        Animated.parallel([
+          Animated.timing(nameOp, { toValue: 1, duration: 500, useNativeDriver: true }),
+          Animated.timing(nameY,  { toValue: 0, duration: 500, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+        ]),
+        Animated.timing(descOp, { toValue: 1, duration: 400, useNativeDriver: true }),
+        Animated.timing(btnOp,  { toValue: 1, duration: 350, useNativeDriver: true }),
+      ]).start();
+    }, 2800);
+
+    return () => clearTimeout(t);
+  }, []);
 
   async function handleSave() {
     setSaving(true);
-    const avatarStyle = { seed, equipment: [], overrides: personalityOverrides };
+    const avatarStyle = { archetype, equipment: [], overrides };
     saveLocalAvatarStyle(user?.id, avatarStyle);
     try {
       await saveProfile({ avatar_style: avatarStyle });
@@ -103,56 +113,73 @@ export default function AvatarRevealScreen({ navigation, route }) {
     navigation.replace('ModelDownload');
   }
 
+  const accentColor = archetypeData.color;
+
   return (
     <Animated.View style={[s.root, { opacity: screenOp }]}>
-      <LinearGradient colors={['#0A0A0A', '#140808', '#0A0A0A']} style={s.container}>
+      <LinearGradient
+        colors={['#0A0A0A', '#0D0D0D', '#0A0A0A']}
+        style={s.container}
+      >
 
-        <Text style={s.topLabel}>האווטאר שלך</Text>
-
-        <Animated.View style={[s.cardWrap, { opacity: cardOp, transform: [{ scale: cardScale }] }]}>
-          <Ring size={280} color={ACCENT} dur={10000} cw={true} />
-          <Ring size={230} color={ACCENT} dur={6000}  cw={false} />
-          <VermillionAvatar
-            userId={user?.id}
-            seed={seed}
-            overrides={personalityOverrides}
-            size={160}
-            showGlow={true}
-            accentColor={ACCENT}
-          />
-        </Animated.View>
-
-        <Animated.Text style={[s.charName, { opacity: nameOp, transform: [{ translateY: nameY }] }]}>
-          {name}
-        </Animated.Text>
-
-        <Animated.View style={[s.statsRow, { opacity: statsOp }]}>
-          {stats.map((st, i) => (
-            <View key={i} style={s.chip}>
-              <Text style={s.chipVal}>{st.val}</Text>
-              <Text style={s.chipLabel}>{st.label}</Text>
+        {/* PHASE: ANALYZING */}
+        <Animated.View style={[s.analyzeWrap, { opacity: scanOp }]} pointerEvents={phase === 'analyzing' ? 'auto' : 'none'}>
+          <View style={s.scanBox}>
+            <Ring size={220} color={accentColor} dur={8000} cw={true} />
+            <Ring size={170} color={accentColor} dur={5000} cw={false} />
+            <ScanLine color={accentColor} />
+            <View style={[s.scanCenter, { borderColor: accentColor + '55' }]}>
+              <Text style={[s.scanEmoji]}>{archetypeData.emoji}</Text>
             </View>
-          ))}
+          </View>
+          <Text style={[s.analyzeLabel, { color: accentColor }]}>
+            מנתח את הפרופיל שלך{'.'.repeat(dotCount)}
+          </Text>
+          <Text style={s.analyzeSub}>מזהה ארכיטיפ פיננסי</Text>
         </Animated.View>
 
-        <Animated.View style={[s.btnWrap, { opacity: btnOp }]}>
-          <TouchableOpacity
-            style={s.shuffleBtn}
-            onPress={() => setSeed(Math.random().toString(36).slice(2, 14))}
-            activeOpacity={0.8}
-          >
-            <Text style={s.shuffleText}>🎲 ערבב אוואטר</Text>
-          </TouchableOpacity>
+        {/* PHASE: REVEALED */}
+        <Animated.View style={[s.revealWrap, { opacity: revealOp }]} pointerEvents={phase === 'revealed' ? 'auto' : 'none'}>
 
-          <TouchableOpacity
-            style={[s.btn, saving && { opacity: 0.7 }]}
-            onPress={handleSave}
-            disabled={saving}
-            activeOpacity={0.85}
-          >
-            <Text style={s.btnText}>{saving ? 'שומר...' : 'שמור והמשך ▶'}</Text>
-          </TouchableOpacity>
-          <Text style={s.trialNote}>7 ימים ראשונים — חינם לחלוטין</Text>
+          <Text style={[s.topLabel, { color: accentColor }]}>הVerMillion שלך</Text>
+
+          <View style={s.cardWrap}>
+            <Ring size={300} color={accentColor} dur={12000} cw={true} />
+            <Ring size={245} color={accentColor} dur={7500}  cw={false} />
+            <Animated.View style={{ transform: [{ scale: cardScale }] }}>
+              <Avatar3D
+                archetype={archetype}
+                userId={user?.id}
+                equipment={[]}
+                overrides={overrides}
+                size={148}
+                showGlow={true}
+                accentColor={accentColor}
+              />
+            </Animated.View>
+          </View>
+
+          <Animated.View style={{ alignItems: 'center', opacity: nameOp, transform: [{ translateY: nameY }] }}>
+            <Text style={[s.archetypeName, { color: accentColor }]}>{archetypeData.name}</Text>
+            <Text style={s.archetypeHebrew}>{archetypeData.hebrewName}</Text>
+          </Animated.View>
+
+          <Animated.View style={[s.descBox, { opacity: descOp, borderColor: accentColor + '33' }]}>
+            <Text style={s.descText}>{archetypeData.description}</Text>
+          </Animated.View>
+
+          <Animated.View style={[s.btnWrap, { opacity: btnOp }]}>
+            <TouchableOpacity
+              style={[s.btn, { backgroundColor: accentColor }, saving && { opacity: 0.7 }]}
+              onPress={handleSave}
+              disabled={saving}
+              activeOpacity={0.85}
+            >
+              <Text style={s.btnText}>{saving ? 'שומר...' : 'בוא נתחיל ▶'}</Text>
+            </TouchableOpacity>
+            <Text style={s.trialNote}>7 ימים ראשונים — חינם לחלוטין</Text>
+          </Animated.View>
+
         </Animated.View>
 
       </LinearGradient>
@@ -162,31 +189,47 @@ export default function AvatarRevealScreen({ navigation, route }) {
 
 const s = StyleSheet.create({
   root:      { flex: 1 },
-  container: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 18, paddingHorizontal: 24 },
-  topLabel:  { fontSize: 11, fontWeight: '800', letterSpacing: 3, textAlign: 'center', color: ACCENT },
+  container: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
 
-  cardWrap:  { alignItems: 'center', justifyContent: 'center', width: 300, height: 300 },
-
-  charName:  { color: '#FFF', fontSize: 19, fontWeight: '900', letterSpacing: 2, textAlign: 'center' },
-
-  statsRow:  { flexDirection: 'row', gap: 8, flexWrap: 'wrap', justifyContent: 'center' },
-  chip: {
-    borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 7,
-    alignItems: 'center', minWidth: 64,
-    backgroundColor: 'rgba(255,255,255,0.03)', borderColor: ACCENT + '44',
+  // Analyzing phase
+  analyzeWrap: {
+    position: 'absolute', alignItems: 'center', gap: 20,
   },
-  chipVal:   { fontSize: 12, fontWeight: '800', marginBottom: 2, color: ACCENT },
-  chipLabel: { color: '#444', fontSize: 10 },
-
-  btnWrap:    { width: '100%', alignItems: 'center', gap: 10 },
-  shuffleBtn: {
-    width: '100%', height: 50, borderRadius: 14,
+  scanBox: {
+    width: 240, height: 240, alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+  },
+  scanCenter: {
+    width: 90, height: 90, borderRadius: 45, borderWidth: 2,
     alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1.5, borderColor: ACCENT + '88',
-    backgroundColor: 'rgba(192,57,43,0.08)',
+    backgroundColor: 'rgba(255,255,255,0.04)',
   },
-  shuffleText: { color: ACCENT, fontSize: 15, fontWeight: '700' },
-  btn:         { width: '100%', height: 54, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: ACCENT },
-  btnText:     { color: '#FFF', fontSize: 15, fontWeight: '900', letterSpacing: 0.5 },
-  trialNote:   { color: '#444', fontSize: 12 },
+  scanEmoji:    { fontSize: 40 },
+  analyzeLabel: { fontSize: 17, fontWeight: '800', letterSpacing: 1.5 },
+  analyzeSub:   { color: '#444', fontSize: 12, letterSpacing: 1 },
+
+  // Reveal phase
+  revealWrap: {
+    width: '100%', alignItems: 'center', gap: 16,
+  },
+  topLabel:  { fontSize: 11, fontWeight: '800', letterSpacing: 3, textAlign: 'center' },
+
+  cardWrap:  {
+    width: 320, height: 320, alignItems: 'center', justifyContent: 'center',
+  },
+
+  archetypeName:  { fontSize: 22, fontWeight: '900', letterSpacing: 3, textAlign: 'center' },
+  archetypeHebrew: { color: '#888', fontSize: 14, fontWeight: '600', letterSpacing: 1, marginTop: 2 },
+
+  descBox: {
+    borderWidth: 1, borderRadius: 16,
+    paddingHorizontal: 20, paddingVertical: 14,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    maxWidth: 360,
+  },
+  descText: { color: '#CCCCCC', fontSize: 14, lineHeight: 22, textAlign: 'right' },
+
+  btnWrap: { width: '100%', alignItems: 'center', gap: 10, marginTop: 4 },
+  btn:     { width: '100%', height: 54, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  btnText: { color: '#FFF', fontSize: 16, fontWeight: '900', letterSpacing: 0.5 },
+  trialNote: { color: '#444', fontSize: 12 },
 });

@@ -61,3 +61,34 @@ export function markLocalOnboardingComplete(userId) {
     localStorage.setItem(`@vermillion/onboarding_complete/${userId}`, '1');
   } catch {}
 }
+
+// ─── Avatar equipment system ───────────────────────────────────
+
+export const EQUIPMENT_MILESTONES = [
+  { id: 'aura',  vCoins: 100,   name: 'אורה',  emoji: '✨' },
+  { id: 'cape',  vCoins: 1000,  name: 'גלימה', emoji: '🦸' },
+  { id: 'halo',  vCoins: 5000,  name: 'הילה',  emoji: '😇' },
+  { id: 'crown', vCoins: 20000, name: 'כתר',   emoji: '👑' },
+];
+
+export function getUnlockedEquipment(vCoins) {
+  return EQUIPMENT_MILESTONES
+    .filter(m => (vCoins || 0) >= m.vCoins)
+    .map(m => m.id);
+}
+
+const STORE_OVERRIDES = {
+  glasses:    { accessories: 'prescription01' },
+  sunglasses: { accessories: 'sunglasses' },
+  beard:      { facialHair: 'beardMedium' },
+  hat:        { top: 'hat' },
+  gold_hoodie: { clothesColor: 'f5c518' },
+};
+
+export function getEffectiveOverrides(baseOverrides, purchasedItems) {
+  const merged = { ...(baseOverrides || {}) };
+  (purchasedItems || []).forEach(id => {
+    Object.assign(merged, STORE_OVERRIDES[id] || {});
+  });
+  return merged;
+}

@@ -13,6 +13,7 @@ import {
 import { askTeam } from '../../services/agents';
 import Avatar3D from '../../components/Avatar3D';
 import { useAuth } from '../../context/AuthContext';
+import { getUnlockedEquipment, getEffectiveOverrides } from '../../utils/registrationGate';
 
 const nextId = () => `msg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
 const QUESTIONS_PER_DAY = 3;
@@ -91,6 +92,7 @@ function DNATimer({ day, insets, onGoGames, onUnlock, userId, avatarStyle, equip
       {/* Header */}
       <View style={dna.header}>
         <Avatar3D
+          archetype={avatarStyle?.archetype || 'builder'}
           userId={userId}
           seed={avatarStyle?.seed}
           equipment={equipment || []}
@@ -267,6 +269,17 @@ export default function VerMillionScreen({ navigation }) {
         if (!mountedRef.current) return;
         setQuestionsToday(progress.done);
 
+        // אם כבר חתם stamp היום — הצג DNA timer בכל מקרה
+        const todayLog = await getGameLog();
+        const calDay   = new Date().getDate();
+        const todayEntry = todayLog[calDay];
+        const stampedToday = !!todayEntry &&
+          new Date(todayEntry.stampedAt).toDateString() === new Date().toDateString();
+        if (stampedToday) {
+          setDayDone(true);
+          return;
+        }
+
         if (progress.complete) {
           // שאלות היום הושלמו → DNA timer עד commitment הבא
           setDayDone(true);
@@ -279,9 +292,7 @@ export default function VerMillionScreen({ navigation }) {
             setDayDone(true); // עוד לא הגיע הזמן → DNA timer
           } else {
             // הזמן הגיע — בדוק אם המשתמש כבר שיחק ביום הזה
-            const gameLog = await getGameLog();
-            const calendarDay = new Date().getDate();
-            if (gameLog[calendarDay]) {
+            if (todayLog[calDay]) {
               await askNextOnboardingQuestion(day, progress.done);
             } else {
               // לא שיחק עדיין — שלח למשחקים
@@ -442,7 +453,7 @@ export default function VerMillionScreen({ navigation }) {
         onUnlock={() => navigation.navigate('Games')}
         userId={user?.id}
         avatarStyle={profile?.avatar_style}
-        equipment={profile?.avatar_style?.equipment || []}
+        equipment={getUnlockedEquipment(profile?.v_coins)}
       />
     );
   }
@@ -483,37 +494,34 @@ export default function VerMillionScreen({ navigation }) {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={90}
     >
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+      {/* ── CHARACTER STAGE ── */}
+      <View style={[styles.characterStage, { paddingTop: insets.top + 4 }]}>
+        <Animated.View style={[styles.characterWrap, { transform: [{ scale: pulseAnim }] }]}>
+          <View style={[styles.characterGlow, { shadowColor: moodColors[avatarMood] }]} />
           <Avatar3D
+            archetype={profile?.avatar_style?.archetype || 'builder'}
             userId={user?.id}
             seed={profile?.avatar_style?.seed}
-            equipment={profile?.avatar_style?.equipment || []}
-            overrides={profile?.avatar_style?.overrides || {}}
-            size={48}
+            equipment={getUnlockedEquipment(profile?.v_coins)}
+            overrides={getEffectiveOverrides(profile?.avatar_style?.overrides, profile?.equipment)}
+            size={180}
             showGlow={true}
             accentColor={moodColors[avatarMood]}
           />
         </Animated.View>
 
-        <View style={{ flex: 1 }}>
-          <Text style={styles.avatarName}>VerMillion</Text>
+        <View style={styles.characterInfo}>
+          <Text style={[styles.avatarName, { color: moodColors[avatarMood] }]}>VerMillion</Text>
           {phase === 'onboarding' ? (
-            <Text style={styles.avatarSub}>
-              יום {currentDay}/7 · שאלה {Math.min(questionsToday + 1, QUESTIONS_PER_DAY)}/{QUESTIONS_PER_DAY}
-            </Text>
+            <View style={styles.progressDots}>
+              {[0, 1, 2].map(i => (
+                <View key={i} style={[styles.dot, i < questionsToday && styles.dotDone]} />
+              ))}
+            </View>
           ) : (
-            <Text style={[styles.avatarSub, { color: '#4CAF50' }]}>● היועץ האישי שלך</Text>
+            <Text style={styles.avatarSub}>● היועץ האישי שלך</Text>
           )}
         </View>
-
-        {phase === 'onboarding' && (
-          <View style={styles.progressDots}>
-            {[0, 1, 2].map(i => (
-              <View key={i} style={[styles.dot, i < questionsToday && styles.dotDone]} />
-            ))}
-          </View>
-        )}
       </View>
 
       <FlatList
@@ -609,7 +617,7 @@ function Bubble({ message }) {
   const isUser = message.role === 'user';
   return (
     <View style={[styles.bubbleWrap, isUser ? styles.bubbleWrapUser : styles.bubbleWrapBot]}>
-      {!isUser && <View style={styles.miniAvatar}><Text style={styles.miniAvatarText}>V</Text></View>}
+      {!isUser && <View style={styles.miniAvatar} />}
       <View style={[styles.bubble, isUser ? styles.bubbleUser : styles.bubbleBot]}>
         <Text style={[styles.bubbleText, isUser ? styles.textUser : styles.textBot]}>
           {message.text}
@@ -653,16 +661,36 @@ const styles = StyleSheet.create({
   },
   firstGameBtnText: { color: '#FFF', fontSize: 17, fontWeight: '900' },
 
-  header: {
-    flexDirection: 'row', alignItems: 'center', gap: 14,
-    paddingHorizontal: 20, paddingBottom: 14,
-    borderBottomWidth: 1, borderBottomColor: '#1A1A1A',
+  characterStage: {
+    alignItems: 'center',
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1A1A1A',
+    backgroundColor: '#0A0A0A',
   },
-  avatarRing: { width: 56, height: 56, borderRadius: 28, borderWidth: 2.5, alignItems: 'center', justifyContent: 'center' },
-  avatar:     { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
-  avatarText: { color: '#FFF', fontSize: 22, fontWeight: '900' },
-  avatarName: { color: '#FFF', fontSize: 17, fontWeight: '800' },
-  avatarSub:  { color: '#666', fontSize: 12, marginTop: 2 },
+  characterWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  characterGlow: {
+    position: 'absolute',
+    width: 160,
+    height: 60,
+    bottom: 0,
+    borderRadius: 80,
+    backgroundColor: 'transparent',
+    shadowOpacity: 0.6,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 12,
+  },
+  characterInfo: {
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 4,
+  },
+  avatarName: { color: '#FFF', fontSize: 15, fontWeight: '800', letterSpacing: 1 },
+  avatarSub:  { color: '#4CAF50', fontSize: 12, marginTop: 2 },
 
   progressDots: { flexDirection: 'row', gap: 6 },
   dot:     { width: 10, height: 10, borderRadius: 5, backgroundColor: '#222', borderWidth: 1, borderColor: '#333' },
@@ -672,8 +700,7 @@ const styles = StyleSheet.create({
   bubbleWrap:     { flexDirection: 'row', marginBottom: 12, alignItems: 'flex-end' },
   bubbleWrapUser: { justifyContent: 'flex-end' },
   bubbleWrapBot:  { justifyContent: 'flex-start' },
-  miniAvatar:     { width: 30, height: 30, borderRadius: 15, backgroundColor: '#C0392B', alignItems: 'center', justifyContent: 'center', marginRight: 8 },
-  miniAvatarText: { color: '#FFF', fontSize: 13, fontWeight: '900' },
+  miniAvatar:     { width: 8, height: 8, borderRadius: 4, backgroundColor: '#C0392B', marginRight: 10, marginBottom: 6 },
   bubble:    { maxWidth: '80%', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 12 },
   bubbleBot: { backgroundColor: '#161616', borderBottomLeftRadius: 4, borderWidth: 1, borderColor: '#1E1414' },
   bubbleUser:{ backgroundColor: '#C0392B', borderBottomRightRadius: 4 },

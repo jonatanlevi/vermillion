@@ -40,7 +40,7 @@ function Divider() {
 
 export default function SettingsScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const { profile, signOut, deleteAccount } = useAuth();
+  const { profile, signOut, deleteAccount, resetOnboarding } = useAuth();
   const [aiOnline, setAiOnline] = useState(null);
 
   useEffect(() => {
@@ -58,7 +58,10 @@ export default function SettingsScreen({ navigation }) {
   };
 
   const handleResetQuestionnaire = () => {
-    if (Platform.OS === 'web') window.alert('איפוס השאלון יתאפשר בגרסה הבאה.');
+    const confirmed = Platform.OS === 'web'
+      ? window.confirm('איפוס הפרופיל — תועבר לתהליך ההרשמה מחדש. כל הנתונים ימחקו. האם אתה בטוח?')
+      : true;
+    if (confirmed) resetOnboarding();
   };
 
   const handleClearChat = () => {

@@ -56,6 +56,40 @@ export function AuthProvider({ children }) {
     if (Platform.OS === 'web') window.location.reload();
   }
 
+  async function resetOnboarding() {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
+      if (!userId) return;
+
+      await supabase.from('profiles').update({
+        profile_intake_complete: false,
+        onboarding_complete: false,
+        name: null,
+        first_name: null,
+        last_name: null,
+        phone: null,
+        date_of_birth: null,
+        id_number_last4: null,
+        avatar_style: {},
+      }).eq('id', userId);
+
+      if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
+        try {
+          for (let i = localStorage.length - 1; i >= 0; i--) {
+            const k = localStorage.key(i);
+            if (k && (
+              k.startsWith('@vermillion/intake_complete/') ||
+              k.startsWith('@vermillion/onboarding_complete/')
+            )) localStorage.removeItem(k);
+          }
+        } catch {}
+      }
+    } catch (_) {}
+
+    if (Platform.OS === 'web') window.location.reload();
+  }
+
   async function deleteAccount() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -90,6 +124,7 @@ export function AuthProvider({ children }) {
         loading,
         signOut,
         deleteAccount,
+        resetOnboarding,
         reloadProfile: () => user && loadProfile(user.id),
       }}
     >

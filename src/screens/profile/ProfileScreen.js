@@ -11,6 +11,7 @@ import { computeSkills, DAY_PLAN } from '../../services/onboardingAI';
 import { supabase } from '../../services/supabase';
 import VermillionAvatar, { buildAvatarUrl } from '../../components/VermillionAvatar';
 import Avatar3D from '../../components/Avatar3D';
+import { getUnlockedEquipment, getEffectiveOverrides, EQUIPMENT_MILESTONES } from '../../utils/registrationGate';
 
 const TIER_LABELS = ['עיוור', 'ייצוב', 'שרידות', 'בנייה', 'אופטימיזציה'];
 const TIER_COLORS = ['#444', '#E74C3C', '#E67E22', '#3498DB', '#D4AF37'];
@@ -210,11 +211,12 @@ export default function ProfileScreen({ navigation }) {
       {/* Header */}
       <View style={styles.header}>
         <Avatar3D
+          archetype={avatarStyle.archetype || 'builder'}
           avatarUrl={avatarStyle.rpmUrl || null}
           userId={user?.id}
           seed={avatarStyle.seed}
-          equipment={equipment}
-          overrides={avatarStyle.overrides || {}}
+          equipment={getUnlockedEquipment(vCoins)}
+          overrides={getEffectiveOverrides(avatarStyle.overrides, equipment)}
           size={80}
           showGlow
           accentColor={tierColor}
@@ -337,6 +339,23 @@ export default function ProfileScreen({ navigation }) {
         </View>
         <Text style={styles.storeHint}>שדרג את האווטאר שלך עם V-Coins</Text>
 
+        {/* Milestone equipment */}
+        <View style={styles.milestonesRow}>
+          {EQUIPMENT_MILESTONES.map(m => {
+            const unlocked = vCoins >= m.vCoins;
+            return (
+              <View key={m.id} style={[styles.milestone, unlocked && styles.milestoneUnlocked]}>
+                <Text style={styles.milestoneEmoji}>{m.emoji}</Text>
+                <Text style={[styles.milestoneName, unlocked && { color: '#D4AF37' }]}>{m.name}</Text>
+                {unlocked
+                  ? <Text style={styles.milestoneActive}>✅ פעיל</Text>
+                  : <Text style={styles.milestoneCoins}>💰 {m.vCoins.toLocaleString('he-IL')}</Text>
+                }
+              </View>
+            );
+          })}
+        </View>
+
         <View style={styles.storeList}>
           {STORE_ITEMS.map(item => {
             const owned   = equipment.includes(item.id);
@@ -447,7 +466,17 @@ const styles = StyleSheet.create({
   achieveLabel: { color: '#888', fontSize: 10, fontWeight: '600' },
 
   // Store
-  storeHint: { color: '#555', fontSize: 12, marginBottom: 12 },
+  storeHint: { color: '#555', fontSize: 12, marginBottom: 10 },
+  milestonesRow: { flexDirection: 'row', gap: 8, marginBottom: 14 },
+  milestone: {
+    flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 12,
+    backgroundColor: '#111', borderWidth: 1, borderColor: '#222',
+  },
+  milestoneUnlocked: { borderColor: '#D4AF3766', backgroundColor: '#1A140080' },
+  milestoneEmoji: { fontSize: 20, marginBottom: 3 },
+  milestoneName: { fontSize: 11, fontWeight: '700', color: '#555' },
+  milestoneActive: { fontSize: 9, color: '#4CAF50', marginTop: 2 },
+  milestoneCoins: { fontSize: 9, color: '#444', marginTop: 2 },
   coinsChip: { backgroundColor: '#1A1400', borderRadius: 10, borderWidth: 1, borderColor: '#D4AF3744', paddingHorizontal: 10, paddingVertical: 4 },
   coinsChipText: { color: '#D4AF37', fontSize: 13, fontWeight: '800' },
   storeList: { gap: 10 },

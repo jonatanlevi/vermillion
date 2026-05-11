@@ -26,6 +26,31 @@ import { saveCommitmentTime, getCommitmentTime, saveGameStamp, getGameLog, getLe
 import { getOnboardingState } from '../../services/storage';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../services/supabase';
+import Avatar3D from '../../components/Avatar3D';
+import { getUnlockedEquipment, getEffectiveOverrides } from '../../utils/registrationGate';
+
+const MONTH_HE = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+
+// Game assigned to each day of month — rotates through all 17 games
+const DAILY_GAME_SCHEDULE = [
+  'memorytap','reflex','sort','runner','colorboom',
+  'speedtap','breakout','obstacle','timing','stack',
+  'bubblepop','bullseye','catch','taprhythm','pingpong',
+  'dodge','whackmole','memorytap','reflex','sort',
+  'runner','colorboom','speedtap','breakout','obstacle',
+  'timing','stack','bubblepop','bullseye','catch','taprhythm',
+];
+
+function getDailyGame(dayOfMonth) {
+  return DAILY_GAME_SCHEDULE[(dayOfMonth - 1) % DAILY_GAME_SCHEDULE.length];
+}
+
+const CATEGORIES = [
+  { id: 'memory', label: 'זיכרון',  emoji: '🧠', color: '#3498DB', games: ['memorytap','colorboom'] },
+  { id: 'logic',  label: 'הגיון',   emoji: '💎', color: '#8E44AD', games: ['sort','stack','breakout'] },
+  { id: 'reflex', label: 'תגובה',   emoji: '⚡', color: '#F39C12', games: ['reflex','speedtap','timing','bullseye','taprhythm'] },
+  { id: 'focus',  label: 'ריכוז',   emoji: '🎴', color: '#C0392B', games: ['runner','obstacle','bubblepop','catch','pingpong','dodge','whackmole'] },
+];
 
 const GAMES = [
   { key: 'runner',    label: 'ריצת VerMillion',   emoji: '🏃', desc: 'קפוץ מעל חובות וריביות',       color: '#C0392B' },
@@ -222,7 +247,18 @@ export default function GamesScreen({ navigation }) {
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [pickedHour, setPickedHour]         = useState(8);
   const [pickedMinute, setPickedMinute]     = useState(0);
-  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const [gameLog, setGameLog]               = useState({});
+  const fadeAnim  = useRef(new Animated.Value(1)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1.06, duration: 1800, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1,    duration: 1800, useNativeDriver: true }),
+      ])
+    ).start();
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -233,6 +269,7 @@ export default function GamesScreen({ navigation }) {
       Promise.all([getCommitmentTime(), getOnboardingState(), getGameLog()]).then(([c, state, log]) => {
         const onbDay = Math.min((state?.daysCompleted || []).length + 1, 7);
         setActiveDay(onbDay);
+        setGameLog(log || {});
         if (c) {
           setHasCommitment(true);
           setCommitTime(c);
@@ -259,6 +296,11 @@ export default function GamesScreen({ navigation }) {
       setShowCommitBtn(false);
       Animated.timing(fadeAnim, { toValue: 1, duration: 250, useNativeDriver: true }).start();
     });
+  }
+
+  function playCategory(cat) {
+    const key = cat.games[Math.floor(Math.random() * cat.games.length)];
+    selectGame(key);
   }
 
   async function handleGameFinish(score) {
@@ -419,45 +461,167 @@ export default function GamesScreen({ navigation }) {
     );
   }
 
+  // ── Calendar helpers ──────────────────────────────────────────
+  const now         = new Date();
+  const monthName   = MONTH_HE[now.getMonth()];
+  const year        = now.getFullYear();
+  const today       = now.getDate();
+  const firstDow    = new Date(year, now.getMonth(), 1).getDay();
+  const daysInMonth = new Date(year, now.getMonth() + 1, 0).getDate();
+  const calCells    = [];
+  for (let i = 0; i < firstDow; i++) calCells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) calCells.push(d);
+  while (calCells.length % 7 !== 0) calCells.push(null);
+
+  const stampsThisMonth = Object.values(gameLog).filter(e => {
+    const d = new Date(e?.stampedAt || 0);
+    return d.getMonth() === now.getMonth() && d.getFullYear() === year;
+  }).length;
+
+  const avatarStyle = (() => {
+    try {
+      const raw = typeof profile?.avatar_style === 'string'
+        ? JSON.parse(profile.avatar_style) : (profile?.avatar_style || {});
+      return raw;
+    } catch { return {}; }
+  })();
+  const vCoins = profile?.v_coins ?? 0;
+
   return (
     <>
       <ScrollView
         style={styles.container}
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + 12 }]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>אתגר החודש</Text>
-          <View style={styles.daysLeftBadge}>
-            <Text style={styles.daysLeftText}>{daysLeft} ימים</Text>
+        {/* ── Header ── */}
+        <View style={lob.header}>
+          <View>
+            <Text style={lob.seasonLabel}>לוח עונות</Text>
+            <Text style={lob.monthTitle}>{monthName} {year}</Text>
+          </View>
+          <View style={lob.headerRight}>
+            <View style={lob.coinChip}>
+              <Text style={lob.coinText}>💰 {vCoins.toLocaleString('he-IL')}</Text>
+            </View>
+            {userRank && (
+              <View style={lob.rankChip}>
+                <Text style={lob.rankText}>#{userRank}</Text>
+              </View>
+            )}
           </View>
         </View>
 
-        {/* Score bar */}
-        <View style={styles.scoreCard}>
-          <View style={styles.scoreItem}>
-            <Text style={styles.scoreValue}>{userRank ? `#${userRank}` : '-'}</Text>
-            <Text style={styles.scoreLabel}>דירוג</Text>
-          </View>
-          <View style={styles.scoreDivider} />
-          <View style={styles.scoreItem}>
-            <Text style={styles.scoreValue}>{leaderScore.toLocaleString()}</Text>
-            <Text style={styles.scoreLabel}>ניקוד</Text>
-          </View>
-          <View style={styles.scoreDivider} />
-          <View style={styles.scoreItem}>
-            <Text style={styles.scoreValue}>×1.2</Text>
-            <Text style={styles.scoreLabel}>מכפיל</Text>
+        {/* ── 4 Category Cards — free play ── */}
+        <View style={lob.categoriesWrap}>
+          <Text style={lob.categoriesTitle}>שחק חופשי לפי קטגוריה</Text>
+          <View style={lob.categoriesRow}>
+            {CATEGORIES.map(cat => (
+              <TouchableOpacity
+                key={cat.id}
+                style={[lob.catCard, { borderColor: cat.color + '55' }]}
+                onPress={() => playCategory(cat)}
+                activeOpacity={0.8}
+              >
+                <Text style={lob.catEmoji}>{cat.emoji}</Text>
+                <Text style={[lob.catLabel, { color: cat.color }]}>{cat.label}</Text>
+              </TouchableOpacity>
+            ))}
           </View>
         </View>
 
-        {sessionScore > 0 && (
-          <View style={styles.sessionBanner}>
-            <Text style={styles.sessionText}>+{sessionScore} נקודות הסשן האחרון 🔥</Text>
+        {/* ── Calendar + Avatar Overlay ── */}
+        <View style={lob.calendarSection}>
+          {/* Day headers */}
+          <View style={lob.dayHeaders}>
+            {['א','ב','ג','ד','ה','ו','ש'].map(d => (
+              <Text key={d} style={lob.dayHeader}>{d}</Text>
+            ))}
           </View>
-        )}
 
+          {/* Grid */}
+          <View style={lob.calGrid}>
+            {calCells.map((day, i) => {
+              const stamped = day && !!gameLog[day] &&
+                new Date(gameLog[day]?.stampedAt).toDateString() === new Date(year, now.getMonth(), day).toDateString();
+              const isToday  = day === today;
+              const isPast   = day && day < today;
+              const isFuture = day && day > today;
+              const isActive = isToday || isPast;
+
+              return (
+                <TouchableOpacity
+                  key={i}
+                  style={[
+                    lob.dayCell,
+                    isToday  && lob.dayCellToday,
+                    stamped  && lob.dayCellStamped,
+                    isFuture && lob.dayCellLocked,
+                  ]}
+                  onPress={() => isActive && selectGame(getDailyGame(day))}
+                  activeOpacity={isActive ? 0.7 : 1}
+                  disabled={!isActive || !day}
+                >
+                  {day ? (
+                    <>
+                      <Text style={[lob.dayNum, isToday && lob.dayNumToday, stamped && lob.dayNumStamped, isFuture && lob.dayNumLocked]}>
+                        {day}
+                      </Text>
+                      {stamped  && <View style={lob.stampDot} />}
+                      {isToday  && !stamped && <View style={lob.todayDot} />}
+                    </>
+                  ) : null}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* Avatar overlay — centered, tappable → VerMillion */}
+          <View style={lob.avatarOverlay} pointerEvents="box-none">
+            <TouchableOpacity
+              onPress={() => navigation.navigate('VerMillion')}
+              activeOpacity={0.85}
+              style={lob.avatarTouch}
+            >
+              <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+                <Avatar3D
+                  archetype={avatarStyle.archetype || 'builder'}
+                  userId={user?.id}
+                  seed={avatarStyle.seed}
+                  equipment={getUnlockedEquipment(vCoins)}
+                  overrides={getEffectiveOverrides(avatarStyle.overrides, profile?.equipment)}
+                  size={160}
+                  showGlow={true}
+                  accentColor="#C0392B"
+                />
+              </Animated.View>
+              <View style={lob.avatarLabel}>
+                <Text style={lob.avatarLabelText}>VerMillion שלך</Text>
+                <Text style={lob.avatarLabelSub}>לחץ לשיחה</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* ── Stats Row ── */}
+        <View style={lob.statsRow}>
+          <View style={lob.statChip}>
+            <Text style={lob.statVal}>{stampsThisMonth}</Text>
+            <Text style={lob.statLabel}>השלמות החודש</Text>
+          </View>
+          <View style={lob.statDivider} />
+          <View style={lob.statChip}>
+            <Text style={lob.statVal}>{leaderScore.toLocaleString()}</Text>
+            <Text style={lob.statLabel}>ניקוד כולל</Text>
+          </View>
+          <View style={lob.statDivider} />
+          <View style={lob.statChip}>
+            <Text style={lob.statVal}>{daysLeft}</Text>
+            <Text style={lob.statLabel}>ימים לסיום</Text>
+          </View>
+        </View>
+
+        {/* ── Daily stamp status ── */}
         {hasCommitment && (
           <DailyStampCard
             commitTime={commitTime}
@@ -466,28 +630,13 @@ export default function GamesScreen({ navigation }) {
           />
         )}
 
-        <Text style={styles.sectionTitle}>בחר משחק</Text>
+        {sessionScore > 0 && (
+          <View style={styles.sessionBanner}>
+            <Text style={styles.sessionText}>+{sessionScore} נקודות הסשן האחרון 🔥</Text>
+          </View>
+        )}
 
-        {GAMES.map(game => (
-          <TouchableOpacity
-            key={game.key}
-            style={[styles.gameCard, { borderColor: game.color + '44' }]}
-            onPress={() => selectGame(game.key)}
-            activeOpacity={0.85}
-          >
-            <View style={[styles.gameEmoji, { backgroundColor: game.color + '22' }]}>
-              <Text style={styles.gameEmojiText}>{game.emoji}</Text>
-            </View>
-            <View style={styles.gameInfo}>
-              <Text style={styles.gameLabel}>{game.label}</Text>
-              <Text style={styles.gameDesc}>{game.desc}</Text>
-            </View>
-            <View style={[styles.playBtn, { backgroundColor: game.color }]}>
-              <Text style={styles.playBtnText}>▶</Text>
-            </View>
-          </TouchableOpacity>
-        ))}
-
+        {/* ── Prize card ── */}
         <View style={styles.prizeCard}>
           <Text style={styles.prizeTitle}>🏆 פרס חודשי</Text>
           <Text style={styles.prizeAmount}>₪45,000</Text>
@@ -504,9 +653,65 @@ export default function GamesScreen({ navigation }) {
   );
 }
 
+// ─── Lobby styles ──────────────────────────────────────────────
+const lob = StyleSheet.create({
+  header:      { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 14 },
+  seasonLabel: { color: '#C0392B', fontSize: 10, fontWeight: '800', letterSpacing: 2 },
+  monthTitle:  { color: '#FFF', fontSize: 22, fontWeight: '900' },
+  headerRight: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  coinChip:    { backgroundColor: '#1A1400', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1, borderColor: '#D4AF3744' },
+  coinText:    { color: '#D4AF37', fontSize: 13, fontWeight: '800' },
+  rankChip:    { backgroundColor: '#1A0808', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1, borderColor: '#C0392B44' },
+  rankText:    { color: '#C0392B', fontSize: 13, fontWeight: '800' },
+
+  categoriesWrap: { marginBottom: 14 },
+  categoriesTitle: { color: '#333', fontSize: 10, fontWeight: '700', letterSpacing: 1, marginBottom: 8, textAlign: 'center' },
+  categoriesRow: { flexDirection: 'row', gap: 8 },
+  catCard: {
+    flex: 1, backgroundColor: '#0F0F0F', borderRadius: 14, borderWidth: 1,
+    paddingVertical: 10, alignItems: 'center', gap: 4,
+  },
+  catEmoji: { fontSize: 20 },
+  catLabel: { fontSize: 11, fontWeight: '800' },
+
+  calendarSection: { backgroundColor: '#0D0D0D', borderRadius: 18, borderWidth: 1, borderColor: '#1A1A1A', overflow: 'hidden', marginBottom: 14 },
+  dayHeaders: { flexDirection: 'row', paddingHorizontal: 6, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#1A1A1A' },
+  dayHeader:  { flex: 1, textAlign: 'center', color: '#C0392B', fontSize: 11, fontWeight: '800' },
+
+  calGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 6, paddingBottom: 170 },
+  dayCell: {
+    width: '14.28%', aspectRatio: 1, alignItems: 'center', justifyContent: 'center',
+    borderRadius: 8, marginVertical: 2,
+  },
+  dayCellToday:   { backgroundColor: '#1A0808', borderWidth: 1, borderColor: '#C0392B88' },
+  dayCellStamped: { backgroundColor: '#0A1A0A' },
+  dayCellLocked:  { opacity: 0.25 },
+  dayNum:         { color: '#666', fontSize: 13, fontWeight: '600' },
+  dayNumToday:    { color: '#C0392B', fontWeight: '900', fontSize: 14 },
+  dayNumStamped:  { color: '#27AE60', fontWeight: '800' },
+  dayNumLocked:   { color: '#222' },
+  stampDot:       { width: 4, height: 4, borderRadius: 2, backgroundColor: '#27AE60', marginTop: 1 },
+  todayDot:       { width: 4, height: 4, borderRadius: 2, backgroundColor: '#C0392B', marginTop: 1 },
+
+  avatarOverlay: {
+    position: 'absolute', left: 0, right: 0, bottom: 0,
+    alignItems: 'center', paddingBottom: 12,
+  },
+  avatarTouch: { alignItems: 'center' },
+  avatarLabel: { alignItems: 'center', marginTop: -8 },
+  avatarLabelText: { color: '#FFF', fontSize: 13, fontWeight: '800' },
+  avatarLabelSub:  { color: '#C0392B', fontSize: 10, fontWeight: '700', marginTop: 2 },
+
+  statsRow:    { flexDirection: 'row', backgroundColor: '#0F0F0F', borderRadius: 16, borderWidth: 1, borderColor: '#1A1A1A', padding: 14, marginBottom: 14, justifyContent: 'space-around', alignItems: 'center' },
+  statChip:    { alignItems: 'center' },
+  statVal:     { color: '#FFF', fontSize: 20, fontWeight: '900' },
+  statLabel:   { color: '#444', fontSize: 10, marginTop: 2 },
+  statDivider: { width: 1, height: 28, backgroundColor: '#1E1E1E' },
+});
+
 const styles = StyleSheet.create({
   container:  { flex: 1, backgroundColor: '#0A0A0A' },
-  content:    { paddingHorizontal: 20, paddingBottom: 40 },
+  content:    { paddingHorizontal: 16, paddingBottom: 40 },
   gameFullscreen: { flex: 1, backgroundColor: '#0A0A0A', paddingHorizontal: 16 },
 
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
