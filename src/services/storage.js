@@ -363,7 +363,7 @@ export async function getLeaderboard(monthKey) {
   try {
     const { data, error } = await supabase
       .from('daily_stamps')
-      .select('user_id, score, ms_diff, profiles(name)')
+      .select('user_id, score, ms_diff, profiles(name, avatar_style)')
       .eq('month_key', key);
     if (error || !data) return [];
 
@@ -371,7 +371,9 @@ export async function getLeaderboard(monthKey) {
     for (const row of data) {
       const uid = row.user_id;
       if (!grouped[uid]) {
-        grouped[uid] = { user_id: uid, name: row.profiles?.name || 'אנונימי', total_score: 0, total_ms_diff: 0, days: 0 };
+        const rawStyle = row.profiles?.avatar_style;
+        const avatarStyle = typeof rawStyle === 'string' ? (() => { try { return JSON.parse(rawStyle); } catch { return {}; } })() : (rawStyle || {});
+        grouped[uid] = { user_id: uid, name: row.profiles?.name || 'אנונימי', avatar_style: avatarStyle, total_score: 0, total_ms_diff: 0, days: 0 };
       }
       grouped[uid].total_score    += row.score;
       grouped[uid].total_ms_diff  += row.ms_diff;

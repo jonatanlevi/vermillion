@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { getLeaderboard } from '../../services/storage';
+import Avatar3D from '../../components/Avatar3D';
 
 const MEDALS = ['🥇','🥈','🥉'];
 const PRIZES = [{ rank:1, amount:25000 }, { rank:2, amount:15000 }, { rank:3, amount:5000 }];
@@ -40,9 +41,20 @@ export default function LeaderboardScreen() {
 
       {myRow && (
         <View style={styles.myRankCard}>
+          <View style={styles.myAvatarWrap}>
+            <Avatar3D
+              archetype={myRow.avatar_style?.archetype || 'builder'}
+              userId={myRow.user_id}
+              equipment={myRow.avatar_style?.equipment || []}
+              overrides={myRow.avatar_style?.overrides || {}}
+              size={44}
+              showGlow={false}
+              accentColor="#C0392B"
+            />
+          </View>
           <Text style={styles.myRankLabel}>{t.myRank}</Text>
           <Text style={styles.myRankValue}>#{myRow.rank}</Text>
-          <Text style={styles.myScore}>{myRow.total_score} נקודות · {myRow.days} ימים</Text>
+          <Text style={styles.myScore}>{myRow.total_score} נק' · {myRow.days}י'</Text>
         </View>
       )}
 
@@ -71,12 +83,24 @@ export default function LeaderboardScreen() {
 }
 
 function UserRow({ item, isMe, t }) {
+  const archetype = item.avatar_style?.archetype || 'builder';
   return (
     <View style={[styles.row, isMe && styles.rowMe]}>
       <View style={styles.rankBadge}>
         {item.rank <= 3
           ? <Text style={styles.medal}>{MEDALS[item.rank-1]}</Text>
           : <Text style={[styles.rankNum, isMe && styles.rankNumMe]}>#{item.rank}</Text>}
+      </View>
+      <View style={styles.avatarWrap}>
+        <Avatar3D
+          archetype={archetype}
+          userId={item.user_id}
+          equipment={item.avatar_style?.equipment || []}
+          overrides={item.avatar_style?.overrides || {}}
+          size={48}
+          showGlow={false}
+          accentColor={isMe ? '#C0392B' : undefined}
+        />
       </View>
       <View style={styles.userInfo}>
         <Text style={[styles.userName, isMe && styles.userNameMe]}>
@@ -99,20 +123,22 @@ const styles = StyleSheet.create({
   prizeItem:    { alignItems: 'center', gap: 4 },
   prizeMedal:   { fontSize: 28 },
   prizeAmount:  { fontSize: 14, fontWeight: '700', color: '#888' },
-  myRankCard:   { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1A0E0E', marginHorizontal: 20, borderRadius: 12, padding: 14, marginBottom: 16, borderWidth: 1, borderColor: '#C0392B', gap: 12 },
+  myRankCard:   { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1A0E0E', marginHorizontal: 20, borderRadius: 12, padding: 12, marginBottom: 16, borderWidth: 1, borderColor: '#C0392B', gap: 10 },
+  myAvatarWrap: { width: 44, height: 44, borderRadius: 22, overflow: 'hidden', backgroundColor: '#111' },
   myRankLabel:  { color: '#C0392B', fontSize: 12, flex: 1 },
   myRankValue:  { color: '#FFF', fontSize: 20, fontWeight: '900' },
-  myScore:      { color: '#888', fontSize: 13 },
+  myScore:      { color: '#888', fontSize: 12 },
   center:       { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingTop: 60 },
   empty:        { color: '#555', fontSize: 16, fontWeight: '700' },
   emptySub:     { color: '#333', fontSize: 13, textAlign: 'center', paddingHorizontal: 40 },
   list:         { paddingHorizontal: 20, paddingBottom: 100 },
-  row:          { flexDirection: 'row', alignItems: 'center', backgroundColor: '#111', borderRadius: 14, padding: 16, marginBottom: 8, gap: 12, borderWidth: 1, borderColor: '#1E1E1E' },
+  row:          { flexDirection: 'row', alignItems: 'center', backgroundColor: '#111', borderRadius: 14, padding: 12, marginBottom: 8, gap: 12, borderWidth: 1, borderColor: '#1E1E1E' },
   rowMe:        { backgroundColor: '#1A0E0E', borderColor: '#C0392B' },
-  rankBadge:    { width: 36, alignItems: 'center' },
+  rankBadge:    { width: 32, alignItems: 'center' },
   medal:        { fontSize: 22 },
   rankNum:      { color: '#555', fontSize: 16, fontWeight: '700' },
   rankNumMe:    { color: '#C0392B' },
+  avatarWrap:   { width: 48, height: 48, borderRadius: 24, overflow: 'hidden', backgroundColor: '#1A1A1A' },
   userInfo:     { flex: 1 },
   userName:     { color: '#FFF', fontSize: 15, fontWeight: '600' },
   userNameMe:   { color: '#C0392B' },

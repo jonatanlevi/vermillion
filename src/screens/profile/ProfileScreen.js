@@ -9,22 +9,14 @@ import { getFinancialData, getOnboardingState } from '../../services/storage';
 import { useAuth } from '../../context/AuthContext';
 import { computeSkills, DAY_PLAN } from '../../services/onboardingAI';
 import { supabase } from '../../services/supabase';
-import VermillionAvatar, { buildAvatarUrl } from '../../components/VermillionAvatar';
 import Avatar3D from '../../components/Avatar3D';
+import { getLeaderboard } from '../../services/storage';
 import { getUnlockedEquipment, getEffectiveOverrides, EQUIPMENT_MILESTONES } from '../../utils/registrationGate';
 
 const TIER_LABELS = ['עיוור', 'ייצוב', 'שרידות', 'בנייה', 'אופטימיזציה'];
 const TIER_COLORS = ['#444', '#E74C3C', '#E67E22', '#3498DB', '#D4AF37'];
 
-const LEADERBOARD = [
-  { rank: 1, name: 'רועי ב.',  score: 4820, badge: '🥇', seed: 'roei_b_vermillion' },
-  { rank: 2, name: 'שירה מ.',  score: 4100, badge: '🥈', seed: 'shira_m_vermillion' },
-  { rank: 3, name: 'אתה',       score: 2340, badge: '🥉', isUser: true },
-  { rank: 4, name: 'דנה כ.',   score: 1980, badge: '',   seed: 'dana_k_vermillion' },
-  { rank: 5, name: 'יוסי ל.',  score: 1750, badge: '',   seed: 'yosi_l_vermillion' },
-  { rank: 6, name: 'מיכל ר.',  score: 1420, badge: '',   seed: 'michal_r_vermillion' },
-  { rank: 7, name: 'אבי ש.',   score: 1100, badge: '',   seed: 'avi_s_vermillion' },
-];
+const MEDALS = ['🥇', '🥈', '🥉'];
 
 const SKILL_LABELS = {
   saving:    { label: 'חיסכון',    icon: '💰', desc: 'יחס חיסכון מהכנסה' },
@@ -62,12 +54,25 @@ function SkillBar({ skill, value, color }) {
 }
 
 function LeaderboardModal({ visible, onClose, userId }) {
+  const [rows, setRows]       = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!visible) return;
+    setLoading(true);
+    getLeaderboard().then(data => { setRows(data); setLoading(false); }).catch(() => setLoading(false));
+  }, [visible]);
+
+  const monthLabel = new Date().toLocaleDateString('he-IL', { month: 'long', year: 'numeric' });
+  const daysLeft   = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1) - new Date();
+  const daysNum    = Math.ceil(daysLeft / 86400000);
+
   return (
     <Modal visible={visible} animationType="slide" transparent>
       <View style={styles.modalOverlay}>
         <View style={styles.modalCard}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>🏆 לוח זוכים — אפריל</Text>
+            <Text style={styles.modalTitle}>🏆 לוח זוכים — {monthLabel}</Text>
             <TouchableOpacity onPress={onClose} style={styles.modalClose}>
               <Text style={styles.modalCloseText}>✕</Text>
             </TouchableOpacity>
@@ -75,24 +80,44 @@ function LeaderboardModal({ visible, onClose, userId }) {
           <View style={styles.prizeBox}>
             <Text style={styles.prizeLabel}>פרס חודשי</Text>
             <Text style={styles.prizeAmt}>₪45,000</Text>
-            <Text style={styles.prizeNote}>27 ימים נותרו</Text>
+            <Text style={styles.prizeNote}>{daysNum} ימים נותרו</Text>
           </View>
-          <FlatList
-            data={LEADERBOARD}
-            keyExtractor={item => String(item.rank)}
-            renderItem={({ item }) => {
-              const avatarUri = buildAvatarUrl(item.isUser ? userId : item.seed);
-              return (
-                <View style={[styles.lbRow, item.isUser && styles.lbRowUser]}>
-                  <Image source={{ uri: avatarUri }} style={styles.lbAvatar} />
-                  <Text style={[styles.lbName, item.isUser && { color: '#C0392B', fontWeight: '800' }]}>
-                    {item.name}
-                  </Text>
-                  <Text style={styles.lbScore}>{item.score.toLocaleString()} נק'</Text>
-                </View>
-              );
-            }}
-          />
+          {loading ? (
+            <ActivityIndicator color="#C0392B" style={{ marginTop: 32 }} />
+          ) : rows.length === 0 ? (
+            <Text style={styles.lbEmpty}>אין משתתפים עדיין החודש</Text>
+          ) : (
+            <FlatList
+              data={rows}
+              keyExtractor={item => item.user_id}
+              renderItem={({ item }) => {
+                const isMe    = item.user_id === userId;
+                const archetype = item.avatar_style?.archetype || 'builder';
+                return (
+                  <View style={[styles.lbRow, isMe && styles.lbRowUser]}>
+                    <Text style={styles.lbRank}>
+                      {item.rank <= 3 ? MEDALS[item.rank - 1] : `#${item.rank}`}
+                    </Text>
+                    <View style={styles.lbAvatarWrap}>
+                      <Avatar3D
+                        archetype={archetype}
+                        userId={item.user_id}
+                        equipment={item.avatar_style?.equipment || []}
+                        overrides={item.avatar_style?.overrides || {}}
+                        size={44}
+                        showGlow={false}
+                        accentColor={isMe ? '#C0392B' : undefined}
+                      />
+                    </View>
+                    <Text style={[styles.lbName, isMe && { color: '#C0392B', fontWeight: '800' }]}>
+                      {item.name}{isMe ? ' (אני)' : ''}
+                    </Text>
+                    <Text style={styles.lbScore}>{item.total_score.toLocaleString()} נק'</Text>
+                  </View>
+                );
+              }}
+            />
+          )}
         </View>
       </View>
     </Modal>
@@ -514,9 +539,11 @@ const styles = StyleSheet.create({
   prizeLabel:     { color: '#7A6A20', fontSize: 12, marginBottom: 4 },
   prizeAmt:       { color: '#D4AF37', fontSize: 32, fontWeight: '900' },
   prizeNote:      { color: '#7A6A20', fontSize: 11, marginTop: 4 },
-  lbRow:          { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#1A1A1A', gap: 10 },
+  lbRow:          { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#1A1A1A', gap: 10 },
   lbRowUser:      { backgroundColor: '#1A0808', borderRadius: 10, paddingHorizontal: 8 },
-  lbAvatar:       { width: 32, height: 32, borderRadius: 16, backgroundColor: '#1A1A1A' },
+  lbRank:         { width: 28, textAlign: 'center', color: '#666', fontSize: 14, fontWeight: '700' },
+  lbAvatarWrap:   { width: 44, height: 44, overflow: 'hidden', borderRadius: 22, backgroundColor: '#1A1A1A' },
   lbName:         { flex: 1, color: '#DDD', fontSize: 14, textAlign: 'right' },
   lbScore:        { color: '#888', fontSize: 13 },
+  lbEmpty:        { color: '#444', fontSize: 14, textAlign: 'center', paddingVertical: 32 },
 });
