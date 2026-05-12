@@ -3,12 +3,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase, getOrCreateUser, isLocalUserId, clearDeviceLocalIdentity } from './supabase';
 
 const L = {
-  FIN:    '@vermillion/local/financial',
-  ONB:    '@vermillion/local/onboarding',
-  CHAT:   '@vermillion/local/chat',
-  COMMIT: '@vermillion/local/commitment',
-  GAME:   '@vermillion/local/gamelog',
-  PROF:   '@vermillion/local/profile',
+  FIN:      '@vermillion/local/financial',
+  ONB:      '@vermillion/local/onboarding',
+  CHAT:     '@vermillion/local/chat',
+  COMMIT:   '@vermillion/local/commitment',
+  GAME:     '@vermillion/local/gamelog',
+  SESSIONS: '@vermillion/local/gamesessions',
+  PROF:     '@vermillion/local/profile',
 };
 
 async function localGet(key, fallback) {
@@ -390,6 +391,17 @@ export async function getLeaderboard(monthKey) {
 
 export async function getGameLog() {
   return (await localGet(L.GAME, {})) || {};
+}
+
+export async function saveGameSession(gameKey, category, score) {
+  const sessions = await getGameSessions();
+  sessions.push({ gameKey, category, score, playedAt: new Date().toISOString() });
+  if (sessions.length > 50) sessions.splice(0, sessions.length - 50);
+  await localSet(L.SESSIONS, sessions);
+}
+
+export async function getGameSessions() {
+  return (await localGet(L.SESSIONS, [])) || [];
 }
 
 // ─── Avatar style (localStorage backup — web only) ────────────

@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import { getOnboardingState, isOnboardingComplete, appendChatMessage, getChatHistory, getCommitmentTime, getMsUntilCommitment, getGameLog } from '../../services/storage';
+import { getOnboardingState, isOnboardingComplete, appendChatMessage, getChatHistory, getCommitmentTime, getMsUntilCommitment, getGameLog, getGameSessions } from '../../services/storage';
 import {
   getTodayOnboardingPrompt, processOnboardingAnswer,
   getDayProgress, completeDay, generateProfile, generateCoachingOpener,
@@ -401,7 +401,8 @@ export default function VerMillionScreen({ navigation }) {
         const AGENT_HE = { ANALYST: 'אנליסט', STRATEGIST: 'אסטרטג', PSYCHOLOGIST: 'פסיכולוג', COACH: 'מאמן', CRISIS: 'תמיכה' };
         const doneAgents = [];
 
-        const { response, isCrisis } = await askTeam(text, {}, (progress) => {
+        const [onbState, gameSessions] = await Promise.all([getOnboardingState(), getGameSessions()]);
+        const { response, isCrisis } = await askTeam(text, { dailyAnswers: onbState, gameSessions }, (progress) => {
           if (!mountedRef.current) return;
           let t = '';
           if (progress.stage === 'routing') {

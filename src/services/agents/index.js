@@ -28,7 +28,23 @@ function buildContext(userData) {
   const metricsText  = `הכנסה: ₪${metrics.totalIncome} | הוצאות: ₪${metrics.totalExpenses} | עודף: ₪${metrics.monthlySurplus} | חוב: ₪${metrics.totalDebt} | חיסכון נזיל: ₪${metrics.liquidSavings}`;
   const lifestyleText = `מצב: ${metrics.familyStatus || '?'} | תעסוקה: ${metrics.employmentType || '?'} | פחד: ${metrics.moneyFear || '?'} | מטרה: ${metrics.moneyGoal || '?'}`;
 
-  return { metrics, metricsText, lifestyleText, tier: tier.label, completion };
+  const sessions = userData?.gameSessions || [];
+  let gameText = '';
+  if (sessions.length > 0) {
+    const last7 = sessions.slice(-7);
+    const byGame = {};
+    last7.forEach(s => {
+      if (!byGame[s.gameKey]) byGame[s.gameKey] = { count: 0, totalScore: 0, category: s.category };
+      byGame[s.gameKey].count++;
+      byGame[s.gameKey].totalScore += s.score;
+    });
+    const parts = Object.entries(byGame).map(([key, d]) =>
+      `${key}×${d.count}(avg ${Math.round(d.totalScore / d.count)})`
+    );
+    gameText = `משחקים אחרונים: ${parts.join(', ')}`;
+  }
+
+  return { metrics, metricsText, lifestyleText, tier: tier.label, completion, gameText };
 }
 
 // ─── Post-synthesis validator ─────────────────────────────────────
@@ -64,11 +80,12 @@ async function synthesize(userMessage, agentResults, context) {
 - שמור על מבנה: אבחנה → תוכנית → צעד מחר.
 - טון: סמכותי, אמפתי, ישיר.`;
 
+  const gameContext = context.gameText ? `\n\nאימון קוגניטיבי: ${context.gameText}` : '';
   const { runAgent } = await import('./_runAgent');
   const synthesized = await runAgent({
     model: CONFIG.AI_MODEL,
     systemPrompt: SYNTH_PROMPT,
-    userMessage: `שאלת המשתמש:\n${userMessage}\n\nתובנות הצוות:\n${sections}`,
+    userMessage: `שאלת המשתמש:\n${userMessage}\n\nתובנות הצוות:\n${sections}${gameContext}`,
     temperature: 0.4,
     maxTokens: 300,
   });

@@ -22,7 +22,7 @@ import WhackMoleGame from '../../components/WhackMoleGame';
 import DodgeGame     from '../../components/DodgeGame';
 import BullseyeGame  from '../../components/BullseyeGame';
 import SortGame      from '../../components/SortGame';
-import { saveCommitmentTime, getCommitmentTime, saveGameStamp, getGameLog, getLeaderboard } from '../../services/storage';
+import { saveCommitmentTime, getCommitmentTime, saveGameStamp, getGameLog, getLeaderboard, saveGameSession } from '../../services/storage';
 import { getOnboardingState } from '../../services/storage';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../services/supabase';
@@ -304,8 +304,12 @@ export default function GamesScreen({ navigation }) {
   }
 
   async function handleGameFinish(score) {
+    const playedGame = activeGame;
     setSessionScore(score);
     setActiveGame(null);
+
+    const cat = CATEGORIES.find(c => c.games.includes(playedGame));
+    if (playedGame && cat) saveGameSession(playedGame, cat.id, score).catch(() => {});
 
     if (user?.id && !user.id.startsWith('local_') && profile) {
       const earned = Math.max(5, Math.min(50, Math.ceil(score / 3)));
