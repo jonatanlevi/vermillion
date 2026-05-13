@@ -146,6 +146,13 @@ export default function SettingsScreen({ navigation }) {
           <SettingRow label="גרסה" value="1.0.0" />
           <Divider />
           <SettingRow label="יוצר" value="VerMillion" />
+          <Divider />
+          <SettingRow
+            label="גלריית דמויות (כל הארכיטיפים)"
+            value="הצג"
+            valueStyle={s.accentValue}
+            onPress={() => navigation.navigate('AvatarGallery')}
+          />
         </View>
 
         <TouchableOpacity style={s.logoutBtn} onPress={handleLogout}>
@@ -242,6 +249,10 @@ const s = StyleSheet.create({
   },
   mutedValue: {
     color: '#555555',
+  },
+  accentValue: {
+    color: '#D4AF37',
+    fontWeight: '600',
   },
   logoutBtn: {
     marginTop: 32,

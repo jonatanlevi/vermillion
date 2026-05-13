@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableWithoutFeedback, Dimensions, Pressable } from 'react-native';
 
 const { width: SW } = Dimensions.get('window');
 const W = SW - 48;
@@ -128,16 +128,29 @@ export default function BubblePopGame({ onFinish }) {
       )}
 
       <View style={s.game}>
-        <View style={[StyleSheet.absoluteFill, { backgroundColor: '#080818' }]} />
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: '#080818', borderRadius: 18, overflow: 'hidden' }]} />
         {[...Array(16)].map((_, i) => (
           <View key={i} style={[s.star, { left: (i * 53 + 17) % (W - 4), top: (i * 37 + 11) % (H - 4) }]} />
         ))}
 
+        {/* Single tap handler — hit detection by coordinates */}
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={e => {
+            if (statusRef.current !== 'running') return;
+            const { locationX, locationY } = e.nativeEvent;
+            const hit = bubblesRef.current.find(b =>
+              !poppedIds.current.has(b.id) &&
+              Math.hypot(locationX - b.x, locationY - b.y) <= b.r + 8
+            );
+            if (hit) popBubble(hit.id);
+          }}
+        />
+        {/* Bubbles — visual only */}
         {snap.map(b => (
-          <TouchableOpacity
+          <View
             key={b.id}
-            activeOpacity={0.5}
-            onPress={() => popBubble(b.id)}
+            pointerEvents="none"
             style={[s.bubble, {
               left: b.x - b.r,
               top: b.y - b.r,
@@ -150,7 +163,7 @@ export default function BubblePopGame({ onFinish }) {
           >
             <View style={[StyleSheet.absoluteFill, { borderRadius: b.r, backgroundColor: b.color + '22' }]} />
             <Text style={[s.bubbleLabel, { fontSize: b.r > 32 ? 10 : 9 }]}>{b.label}</Text>
-          </TouchableOpacity>
+          </View>
         ))}
 
         {(status === 'idle' || status === 'dead') && (
@@ -194,7 +207,7 @@ const s = StyleSheet.create({
 
   game: {
     width: W, height: H,
-    borderRadius: 18, overflow: 'hidden',
+    borderRadius: 18, overflow: 'visible',
     borderWidth: 2, borderColor: '#1A1A3A',
     position: 'relative',
   },

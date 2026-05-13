@@ -1,6 +1,12 @@
 import React, { useEffect, useRef } from 'react';
 import { View } from 'react-native';
 
+/**
+ * דמויות Web: SVG פרוצדורלי בקוד. מראה של “סרט אנימציה” מגיע בדרך כלל מאסטים
+ * מצוירים (Figma/אילוסטרייטור → PNG/WebP/SVG או Lottie), לא מעוד שכבות path כאן.
+ * כשיהיו קבצים — אפשר להחליף את buildWarrior/buildSage/… ב־<image> או SVG מיובא.
+ */
+
 const SKIN_TONES = ['#FDBCB4', '#F1C27D', '#E8B89A', '#C68642', '#8D5524'];
 
 function djb2(str) {

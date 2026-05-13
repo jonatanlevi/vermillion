@@ -22,6 +22,20 @@ import WhackMoleGame from '../../components/WhackMoleGame';
 import DodgeGame     from '../../components/DodgeGame';
 import BullseyeGame  from '../../components/BullseyeGame';
 import SortGame      from '../../components/SortGame';
+import MathSprintGame  from '../../components/MathSprintGame';
+import CardFlipGame    from '../../components/CardFlipGame';
+import SafeCrackerGame from '../../components/SafeCrackerGame';
+import WordSnapGame    from '../../components/WordSnapGame';
+import TapOrderGame    from '../../components/TapOrderGame';
+import NumberLineGame  from '../../components/NumberLineGame';
+import StockTickerGame from '../../components/StockTickerGame';
+import PinCrackGame    from '../../components/PinCrackGame';
+import ScaleGame       from '../../components/ScaleGame';
+import ChainTapGame    from '../../components/ChainTapGame';
+import FlashCountGame  from '../../components/FlashCountGame';
+import SpeedMatchGame  from '../../components/SpeedMatchGame';
+import MathChainGame   from '../../components/MathChainGame';
+import DiceAddGame     from '../../components/DiceAddGame';
 import { saveCommitmentTime, getCommitmentTime, saveGameStamp, getGameLog, getLeaderboard, saveGameSession } from '../../services/storage';
 import { getOnboardingState } from '../../services/storage';
 import { useAuth } from '../../context/AuthContext';
@@ -31,14 +45,14 @@ import { getUnlockedEquipment, getEffectiveOverrides } from '../../utils/registr
 
 const MONTH_HE = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
 
-// Game assigned to each day of month — rotates through all 17 games
+// Game assigned to each day of month — 31 unique games
 const DAILY_GAME_SCHEDULE = [
   'memorytap','reflex','sort','runner','colorboom',
   'speedtap','breakout','obstacle','timing','stack',
   'bubblepop','bullseye','catch','taprhythm','pingpong',
-  'dodge','whackmole','memorytap','reflex','sort',
-  'runner','colorboom','speedtap','breakout','obstacle',
-  'timing','stack','bubblepop','bullseye','catch','taprhythm',
+  'dodge','whackmole','mathsprint','cardflip','safecracker',
+  'wordsnap','taporder','numberline','stockticker','pincrack',
+  'scale','chaintap','flashcount','speedmatch','mathchain','diceadd',
 ];
 
 function getDailyGame(dayOfMonth) {
@@ -46,10 +60,10 @@ function getDailyGame(dayOfMonth) {
 }
 
 const CATEGORIES = [
-  { id: 'memory', label: 'זיכרון',  emoji: '🧠', color: '#3498DB', games: ['memorytap','colorboom'] },
-  { id: 'logic',  label: 'הגיון',   emoji: '💎', color: '#8E44AD', games: ['sort','stack','breakout'] },
-  { id: 'reflex', label: 'תגובה',   emoji: '⚡', color: '#F39C12', games: ['reflex','speedtap','timing','bullseye','taprhythm'] },
-  { id: 'focus',  label: 'ריכוז',   emoji: '🎴', color: '#C0392B', games: ['runner','obstacle','bubblepop','catch','pingpong','dodge','whackmole'] },
+  { id: 'memory', label: 'זיכרון',  emoji: '🧠', color: '#3498DB', games: ['memorytap','colorboom','cardflip','pincrack','flashcount'] },
+  { id: 'logic',  label: 'הגיון',   emoji: '💎', color: '#8E44AD', games: ['sort','stack','breakout','mathsprint','taporder','stockticker','scale','mathchain','diceadd'] },
+  { id: 'reflex', label: 'תגובה',   emoji: '⚡', color: '#F39C12', games: ['reflex','speedtap','timing','bullseye','taprhythm','safecracker','numberline','chaintap'] },
+  { id: 'focus',  label: 'ריכוז',   emoji: '🎴', color: '#C0392B', games: ['runner','obstacle','bubblepop','catch','pingpong','dodge','whackmole','wordsnap','speedmatch'] },
 ];
 
 const GAMES = [
@@ -69,7 +83,21 @@ const GAMES = [
   { key: 'whackmole', label: 'הכה את החובות',        emoji: '🔨', desc: 'הכה מטבעות לפני שייעלמו',       color: '#D4AF37' },
   { key: 'dodge',     label: 'חמוק מהחובות',         emoji: '💨', desc: 'חמוק מ-💸 שנופלים עליך',        color: '#C0392B' },
   { key: 'bullseye',  label: 'מרכז העניינים',         emoji: '🎯', desc: 'ירה כשהנקודה במרכז',            color: '#9B59B6' },
-  { key: 'sort',      label: 'מיין את הכסף',          emoji: '🗂️', desc: 'הכנסה או הוצאה — מהר!',        color: '#2ECC71' },
+  { key: 'sort',        label: 'מיין את הכסף',         emoji: '🗂️', desc: 'הכנסה או הוצאה — מהר!',        color: '#2ECC71' },
+  { key: 'mathsprint',  label: 'חשבון מהיר',           emoji: '🧮', desc: 'חשב ₪ תוך 4 שניות',            color: '#8E44AD' },
+  { key: 'cardflip',    label: 'זיכרון זוגות',          emoji: '🃏', desc: 'מצא 6 זוגות פיננסיים',          color: '#3498DB' },
+  { key: 'safecracker', label: 'פצח את הכספת',         emoji: '🔐', desc: 'עצור בדיוק על המספר',           color: '#F39C12' },
+  { key: 'wordsnap',    label: 'חיובי / שלילי',        emoji: '📝', desc: 'מלה פיננסית — קבע מהר',         color: '#C0392B' },
+  { key: 'taporder',    label: 'סדר עולה',              emoji: '📊', desc: 'הקש סכומים מהנמוך לגבוה',       color: '#1ABC9C' },
+  { key: 'numberline',  label: 'קו מספרים',            emoji: '📏', desc: 'עצור את הסמן באזור הירוק',      color: '#E74C3C' },
+  { key: 'stockticker', label: 'מסחר מהיר',            emoji: '📈', desc: 'קנה ומכור — הרוויח כמה שתוכל', color: '#2ECC71' },
+  { key: 'pincrack',    label: 'פצח את הקוד',          emoji: '🔢', desc: 'שנן PIN מבזיק והכנס אותו',       color: '#3498DB' },
+  { key: 'scale',       label: 'מאזניים',               emoji: '⚖️', desc: 'הקש על הסכום הגדול יותר',       color: '#8E44AD' },
+  { key: 'chaintap',    label: 'שרשרת מספרים',         emoji: '🔗', desc: 'הקש עיגולים בסדר עולה',          color: '#F39C12' },
+  { key: 'flashcount',  label: 'ספור מהיר',             emoji: '💰', desc: 'כמה מטבעות הבזיקו?',             color: '#D4AF37' },
+  { key: 'speedmatch',  label: 'התאמה מהירה',           emoji: '🔀', desc: 'אותה קטגוריה? כן / לא',          color: '#C0392B' },
+  { key: 'mathchain',   label: 'שרשרת חשבון',           emoji: '➕', desc: 'עקוב אחרי סכום רץ',              color: '#E67E22' },
+  { key: 'diceadd',     label: 'קוביות מהיר',           emoji: '🎲', desc: 'חשב סכום קוביות תוך שניות',      color: '#1ABC9C' },
 ];
 
 
@@ -381,7 +409,21 @@ export default function GamesScreen({ navigation }) {
         {activeGame === 'whackmole' && <WhackMoleGame  onFinish={handleGameFinish} />}
         {activeGame === 'dodge'     && <DodgeGame      onFinish={handleGameFinish} />}
         {activeGame === 'bullseye'  && <BullseyeGame   onFinish={handleGameFinish} />}
-        {activeGame === 'sort'      && <SortGame        onFinish={handleGameFinish} />}
+        {activeGame === 'sort'        && <SortGame        onFinish={handleGameFinish} />}
+        {activeGame === 'mathsprint'  && <MathSprintGame  onFinish={handleGameFinish} />}
+        {activeGame === 'cardflip'    && <CardFlipGame    onFinish={handleGameFinish} />}
+        {activeGame === 'safecracker' && <SafeCrackerGame onFinish={handleGameFinish} />}
+        {activeGame === 'wordsnap'    && <WordSnapGame    onFinish={handleGameFinish} />}
+        {activeGame === 'taporder'    && <TapOrderGame    onFinish={handleGameFinish} />}
+        {activeGame === 'numberline'  && <NumberLineGame  onFinish={handleGameFinish} />}
+        {activeGame === 'stockticker' && <StockTickerGame onFinish={handleGameFinish} />}
+        {activeGame === 'pincrack'    && <PinCrackGame    onFinish={handleGameFinish} />}
+        {activeGame === 'scale'       && <ScaleGame       onFinish={handleGameFinish} />}
+        {activeGame === 'chaintap'    && <ChainTapGame    onFinish={handleGameFinish} />}
+        {activeGame === 'flashcount'  && <FlashCountGame  onFinish={handleGameFinish} />}
+        {activeGame === 'speedmatch'  && <SpeedMatchGame  onFinish={handleGameFinish} />}
+        {activeGame === 'mathchain'   && <MathChainGame   onFinish={handleGameFinish} />}
+        {activeGame === 'diceadd'     && <DiceAddGame     onFinish={handleGameFinish} />}
       </Animated.View>
     );
   }
@@ -534,16 +576,14 @@ export default function GamesScreen({ navigation }) {
           </View>
         </View>
 
-        {/* ── Calendar + Avatar Overlay ── */}
+        {/* ── Calendar ── */}
         <View style={lob.calendarSection}>
-          {/* Day headers */}
           <View style={lob.dayHeaders}>
             {['א','ב','ג','ד','ה','ו','ש'].map(d => (
               <Text key={d} style={lob.dayHeader}>{d}</Text>
             ))}
           </View>
 
-          {/* Grid */}
           <View style={lob.calGrid}>
             {calCells.map((day, i) => {
               const stamped = day && !!gameLog[day] &&
@@ -551,7 +591,7 @@ export default function GamesScreen({ navigation }) {
               const isToday  = day === today;
               const isPast   = day && day < today;
               const isFuture = day && day > today;
-              const isActive = isToday || isPast;
+              const isActive = !!day;
 
               return (
                 <TouchableOpacity
@@ -579,33 +619,31 @@ export default function GamesScreen({ navigation }) {
               );
             })}
           </View>
-
-          {/* Avatar overlay — centered, tappable → VerMillion */}
-          <View style={lob.avatarOverlay} pointerEvents="box-none">
-            <TouchableOpacity
-              onPress={() => navigation.navigate('VerMillion')}
-              activeOpacity={0.85}
-              style={lob.avatarTouch}
-            >
-              <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
-                <Avatar3D
-                  archetype={avatarStyle.archetype || 'builder'}
-                  userId={user?.id}
-                  seed={avatarStyle.seed}
-                  equipment={getUnlockedEquipment(vCoins)}
-                  overrides={getEffectiveOverrides(avatarStyle.overrides, profile?.equipment)}
-                  size={160}
-                  showGlow={true}
-                  accentColor="#C0392B"
-                />
-              </Animated.View>
-              <View style={lob.avatarLabel}>
-                <Text style={lob.avatarLabelText}>VerMillion שלך</Text>
-                <Text style={lob.avatarLabelSub}>לחץ לשיחה</Text>
-              </View>
-            </TouchableOpacity>
-          </View>
         </View>
+
+        {/* ── Avatar Row ── */}
+        <TouchableOpacity
+          onPress={() => navigation.navigate('VerMillion')}
+          activeOpacity={0.85}
+          style={lob.avatarRow}
+        >
+          <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+            <Avatar3D
+              archetype={avatarStyle.archetype || 'builder'}
+              userId={user?.id}
+              seed={avatarStyle.seed}
+              equipment={getUnlockedEquipment(vCoins)}
+              overrides={getEffectiveOverrides(avatarStyle.overrides, profile?.equipment)}
+              size={100}
+              showGlow={true}
+              accentColor="#C0392B"
+            />
+          </Animated.View>
+          <View style={lob.avatarLabel}>
+            <Text style={lob.avatarLabelText}>VerMillion שלך</Text>
+            <Text style={lob.avatarLabelSub}>לחץ לשיחה</Text>
+          </View>
+        </TouchableOpacity>
 
         {/* ── Stats Row ── */}
         <View style={lob.statsRow}>
@@ -682,7 +720,7 @@ const lob = StyleSheet.create({
   dayHeaders: { flexDirection: 'row', paddingHorizontal: 6, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#1A1A1A' },
   dayHeader:  { flex: 1, textAlign: 'center', color: '#C0392B', fontSize: 11, fontWeight: '800' },
 
-  calGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 6, paddingBottom: 170 },
+  calGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 6, paddingBottom: 8 },
   dayCell: {
     width: '14.28%', aspectRatio: 1, alignItems: 'center', justifyContent: 'center',
     borderRadius: 8, marginVertical: 2,
@@ -697,14 +735,14 @@ const lob = StyleSheet.create({
   stampDot:       { width: 4, height: 4, borderRadius: 2, backgroundColor: '#27AE60', marginTop: 1 },
   todayDot:       { width: 4, height: 4, borderRadius: 2, backgroundColor: '#C0392B', marginTop: 1 },
 
-  avatarOverlay: {
-    position: 'absolute', left: 0, right: 0, bottom: 0,
-    alignItems: 'center', paddingBottom: 12,
+  avatarRow: {
+    alignItems: 'center',
+    backgroundColor: '#0D0D0D', borderRadius: 18, borderWidth: 1, borderColor: '#1A1A1A',
+    paddingVertical: 12, marginBottom: 14,
   },
-  avatarTouch: { alignItems: 'center' },
-  avatarLabel: { alignItems: 'center', marginTop: -8 },
-  avatarLabelText: { color: '#FFF', fontSize: 13, fontWeight: '800' },
-  avatarLabelSub:  { color: '#C0392B', fontSize: 10, fontWeight: '700', marginTop: 2 },
+  avatarLabel: { alignItems: 'center', gap: 2 },
+  avatarLabelText: { color: '#FFF', fontSize: 15, fontWeight: '800' },
+  avatarLabelSub:  { color: '#C0392B', fontSize: 11, fontWeight: '700' },
 
   statsRow:    { flexDirection: 'row', backgroundColor: '#0F0F0F', borderRadius: 16, borderWidth: 1, borderColor: '#1A1A1A', padding: 14, marginBottom: 14, justifyContent: 'space-around', alignItems: 'center' },
   statChip:    { alignItems: 'center' },

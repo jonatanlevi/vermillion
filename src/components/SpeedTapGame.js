@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, Dimensions, Pressable } from 'react-native';
 
 const { width: SW } = Dimensions.get('window');
 const W = SW - 48;
@@ -137,19 +137,31 @@ export default function SpeedTapGame({ onFinish }) {
       )}
 
       <View style={s.game}>
-        <View style={[StyleSheet.absoluteFill, { backgroundColor: '#060A10' }]} />
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: '#060A10', borderRadius: 18, overflow: 'hidden' }]} />
 
         {/* Lane lines */}
         {[1, 2, 3].map(i => (
           <View key={i} style={[s.lane, { top: 20 + i * ((H - 40) / 4) }]} />
         ))}
 
-        {/* Targets */}
+        {/* Single tap handler over entire arena */}
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={e => {
+            if (statusRef.current !== 'running') return;
+            const { locationX, locationY } = e.nativeEvent;
+            const hit = targetsRef.current.find(t =>
+              !tappedIds.current.has(t.id) &&
+              Math.hypot(locationX - t.x, locationY - t.y) <= TARGET_R + 10
+            );
+            if (hit) tapTarget(hit.id, hit.good);
+          }}
+        />
+        {/* Targets — visual only */}
         {snap.map(t => (
-          <TouchableOpacity
+          <View
             key={t.id}
-            onPress={() => tapTarget(t.id, t.good)}
-            activeOpacity={0.5}
+            pointerEvents="none"
             style={[s.target, {
               left: t.x - TARGET_R,
               top:  t.y - TARGET_R,
@@ -159,7 +171,7 @@ export default function SpeedTapGame({ onFinish }) {
             }]}
           >
             <Text style={[s.targetLabel, { color: t.color }]}>{t.label}</Text>
-          </TouchableOpacity>
+          </View>
         ))}
 
         {/* Legend */}
@@ -211,7 +223,7 @@ const s = StyleSheet.create({
 
   game: {
     width: W, height: H,
-    borderRadius: 18, overflow: 'hidden',
+    borderRadius: 18, overflow: 'visible',
     borderWidth: 2, borderColor: '#1A2A1A',
     position: 'relative',
   },

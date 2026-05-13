@@ -31,6 +31,8 @@ alter table public.profiles add column if not exists last_name text;
 alter table public.profiles add column if not exists phone text;
 alter table public.profiles add column if not exists date_of_birth date;
 alter table public.profiles add column if not exists id_number_last4 text;
+alter table public.profiles add column if not exists v_coins integer default 0;
+alter table public.profiles add column if not exists equipment jsonb default '[]';
 
 alter table public.profiles enable row level security;
 

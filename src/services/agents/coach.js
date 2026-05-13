@@ -16,10 +16,13 @@ export const Coach = {
   model: CONFIG.AI_MODEL,
   
   async run(userMessage, context) {
+    const enriched = context?.metricsText
+      ? `${userMessage}\n\nמצב: ${context.metricsText}\nשלב: ${context.tier || 'לא ידוע'}`
+      : userMessage;
     return runAgent({
       model: this.model,
       systemPrompt: SYSTEM_PROMPT,
-      userMessage,
+      userMessage: enriched,
       temperature: 0.3,
       maxTokens: 80,
     });

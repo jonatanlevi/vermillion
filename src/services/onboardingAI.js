@@ -3,27 +3,26 @@ import { saveFinancialData, getFinancialData, markDayComplete, saveOnboardingSta
 // 21 שאלות = 3 בדיוק לכל יום × 7 ימים
 // age, familyStatus, employmentType נאספים בהרשמה — לא נשאלים שוב
 const FIELDS = {
-  kids:                null,
-  netIncome:           null,
-  incomeStability:     null,
-  housingType:         null,
-  housingCost:         null,
-  fixedExpenses:       null,
-  variableExpenses:    null,
-  biggestExpense:      null,
-  creditDebt:          null,
-  loans:               null,
-  overdraft:           null,
-  savings:             null,
-  assets:              null,
-  moneyGoal:           null,
-  moneyFear:           null,
-  financialStress:     null,
-  moneyPersonality:    null,
-  biggestDream:        null,
-  spouseIncome:        null,
-  retirementSavings:   null,
-  financialGoalYears:  null,
+  kids:               null,
+  netIncome:          null,
+  incomeStability:    null,
+  housingType:        null,
+  housingCost:        null,
+  fixedExpenses:      null,
+  variableExpenses:   null,
+  biggestExpense:     null,
+  creditDebt:         null,
+  loans:              null,
+  overdraft:          null,
+  savings:            null,
+  assets:             null,
+  moneyGoal:          null,
+  moneyFear:          null,
+  endOfMonthFeeling:  null,
+  moneyPersonality:   null,
+  biggestDream:       null,
+  spouseIncome:       null,
+  retirementSavings:  null,
 };
 
 const DAY_PLAN = {
@@ -32,32 +31,31 @@ const DAY_PLAN = {
   3: ['variableExpenses', 'biggestExpense', 'creditDebt'],
   4: ['loans', 'overdraft', 'savings'],
   5: ['assets', 'moneyGoal', 'moneyFear'],
-  6: ['financialStress', 'moneyPersonality', 'biggestDream'],
-  7: ['spouseIncome', 'retirementSavings', 'financialGoalYears'],
+  6: ['endOfMonthFeeling', 'moneyPersonality', 'biggestDream'],
+  7: ['spouseIncome', 'retirementSavings'],
 };
 
 const QUESTIONS = {
-  kids:               'יש לך ילדים? כמה?',
-  netIncome:          'מה ההכנסה החודשית שלך נטו — כמה נכנס לחשבון אחרי מס?',
-  incomeStability:    'ההכנסה שלך קבועה כל חודש, או משתנה?',
-  housingType:        'איפה אתה גר — שכירות, משכנתא, אצל הורים?',
-  housingCost:        'כמה עולה לך הדיור בחודש?',
-  fixedExpenses:      'יש הוצאות קבועות נוספות — ביטוחים, מזונות, מנויים?',
-  variableExpenses:   'כמה יוצא לך בחודש על אוכל, דלק, בילויים?',
-  biggestExpense:     'מה ההוצאה הכי גדולה שלך שאפשר היה להפחית?',
-  creditDebt:         'יש חוב בכרטיס אשראי? כמה בערך?',
-  loans:              'יש הלוואות פעילות — בנק, חברים, גמ"ח?',
-  overdraft:          'יש מינוס בחשבון? כמה בממוצע?',
-  savings:            'כמה כסף נזיל יש לך בצד?',
-  assets:             'יש נכסים — דירה, קרן השתלמות, ביטוח מנהלים?',
-  moneyGoal:          'מה המטרה הכלכלית הכי חשובה לך כרגע?',
-  moneyFear:          'מה הדבר הכלכלי שהכי מפחיד אותך?',
-  financialStress:    'בסקלה 1-10, כמה הכסף לוחץ עליך כרגע?',
-  moneyPersonality:   'אתה יותר חוסך, מוציא, או לא מסתכל בכלל?',
-  biggestDream:       'אם הכסף לא היה בעיה — מה היית עושה?',
-  spouseIncome:       'יש הכנסה נוספת בבית — בן/בת זוג, עסק, שכירות?',
-  retirementSavings:  'יש חיסכון פנסיוני? כמה מופקד כל חודש?',
-  financialGoalYears: 'בכמה שנים אתה מתכנן להגיע למטרה הכלכלית שלך?',
+  kids:              'יש לך ילדים שתלויים בך כלכלית? כמה?',
+  netIncome:         'מה ההכנסה החודשית שלך נטו — כמה נכנס לחשבון אחרי מס?',
+  incomeStability:   'ההכנסה שלך קבועה כל חודש, או משתנה?',
+  housingType:       'איפה אתה גר — שכירות, משכנתא, אצל הורים?',
+  housingCost:       'כמה עולה לך הדיור בחודש?',
+  fixedExpenses:     'יש הוצאות קבועות נוספות — ביטוחים, מזונות, מנויים?',
+  variableExpenses:  'כמה יוצא לך בחודש על אוכל, דלק, בילויים?',
+  biggestExpense:    'מה ההוצאה הכי גדולה שלך? (אם לא יודע, אמור "לא בטוח")',
+  creditDebt:        'יש חוב בכרטיס אשראי? כמה בערך? (אם זה כרטיס שמתאפס בסוף חודש — אמור אפס)',
+  loans:             'יש הלוואות פעילות — בנק, חברים, גמ"ח?',
+  overdraft:         'יש מינוס בחשבון? כמה בממוצע?',
+  savings:           'כמה כסף נזיל יש לך בצד?',
+  assets:            'יש נכסים — דירה, קרן השתלמות, ביטוח מנהלים?',
+  moneyGoal:         'מה המטרה הכלכלית הכי חשובה לך כרגע?',
+  moneyFear:         'מה הדבר הכלכלי שמעסיק אותך הכי הרבה?',
+  endOfMonthFeeling: 'מה קורה לך כשמגיע סוף חודש — עצבני? שקט? לא בודק בכלל?',
+  moneyPersonality:  'אתה יותר חוסך, מוציא, או לא מסתכל בכלל?',
+  biggestDream:      'אם כסף לא היה בעיה — מה היית עושה?',
+  spouseIncome:      'יש הכנסה נוספת בבית — בן/בת זוג, עסק, שכירות?',
+  retirementSavings: 'יש חיסכון פנסיוני? כמה מופקד כל חודש?',
 };
 
 function extractNumber(text) {
@@ -116,13 +114,27 @@ function parseAnswer(field, text) {
 
 // ─── API ציבורי ──────────────────────────────────────────────
 
+const FAMILY_STATUS_LABELS = {
+  גרוש: 'גרוש/ה', נשוי: 'נשוי/אה', רווק: 'רווק/ה', שותף: 'בזוגיות', אלמן: 'אלמן/ה',
+};
+
+function personalizeQuestion(field, financial) {
+  if (field !== 'kids') return QUESTIONS[field];
+  const status = financial.familyStatus;
+  if (!status) return QUESTIONS.kids;
+  const label = FAMILY_STATUS_LABELS[status] || status;
+  if (/גרוש/.test(status)) return `אתה ${label} — יש לך ילדים שתלויים בך כלכלית? כמה?`;
+  if (/נשוי|שותף/.test(status)) return `אתה ${label} — יש לכם ילדים? כמה?`;
+  return `יש לך ילדים שתלויים בך כלכלית? כמה?`;
+}
+
 export async function getTodayOnboardingPrompt(day) {
   const financial = await getFinancialData();
   const todayFields = DAY_PLAN[day] || [];
   const missing = todayFields.filter(f => financial[f] === undefined || financial[f] === null);
   if (missing.length === 0) return null;
   const field = missing[0];
-  return { field, question: QUESTIONS[field], remaining: missing.length };
+  return { field, question: personalizeQuestion(field, financial), remaining: missing.length };
 }
 
 export async function processOnboardingAnswer(field, userText) {
@@ -163,7 +175,7 @@ export async function generateProfile() {
     `הכנסה חודשית ${fmt(financial.netIncome)}, הוצאות ${fmt((financial.housingCost || 0) + (financial.fixedExpenses || 0) + (financial.variableExpenses || 0))}. ` +
     `עודף: ${fmt(surplus)} (${savingsRate}%). חובות: ${fmt(totalDebt)}. ` +
     `המטרה שלך: ${financial.moneyGoal || '—'}. ` +
-    `${financial.financialGoalYears ? `אופק: ${financial.financialGoalYears} שנים.` : ''}`;
+    `תחושת סוף חודש: ${financial.endOfMonthFeeling || '—'}.`;
 
   const profile = { ...financial, surplus, totalDebt, savingsRate, skills, generatedAt: new Date().toISOString() };
 
@@ -190,11 +202,11 @@ export function computeSkills(financial, surplus, totalDebt, savingsRate) {
     financial.moneyGoal ? 50 : 20
   ));
 
-  const stress = financial.financialStress;
+  const feeling = (financial.endOfMonthFeeling || '').toLowerCase();
   const mindset = Math.min(100, Math.max(0,
-    stress !== null && stress !== undefined
-      ? Math.round((10 - Number(stress)) * 10)
-      : 50
+    /שקט|בסדר|טוב/.test(feeling) ? 80 :
+    /לא בודק|לא מסתכל/.test(feeling) ? 40 :
+    /עצבני|לחוץ|מפחד|מתח/.test(feeling) ? 20 : 50
   ));
 
   const investment = Math.min(100, Math.max(0,

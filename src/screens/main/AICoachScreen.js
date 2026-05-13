@@ -7,7 +7,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { chatWithAI, getAIStatus } from '../../services/aiService';
 import { askTeam } from '../../services/agents';
 import {
-  getOnboardingState, isOnboardingComplete,
+  getOnboardingState, getFinancialData, isOnboardingComplete,
+  getChatHistory, saveChatHistory, getGameSessions,
 } from '../../services/storage';
 import {
   getTodayOnboardingPrompt, processOnboardingAnswer,
@@ -48,15 +49,28 @@ export default function AICoachScreen({ navigation }) {
   async function init() {
     const complete = await isOnboardingComplete();
     const state = await getOnboardingState();
-    onboardingStateRef.current = state;
+    const financialData = await getFinancialData();
+    const gameSessions = await getGameSessions();
+    onboardingStateRef.current = { dailyAnswers: state, financialData, gameSessions };
     const day = getDayNumber(state.startDate);
     setCurrentDay(day);
 
     if (complete) {
       setPhase('coaching');
-      addMsg('assistant', state.profileText
-        ? `${state.profileText}\n\nמה תרצה לדון בו היום?`
-        : 'שלום שוב! הפרופיל שלך מוכן. מה תרצה לשאול?');
+      const history = await getChatHistory();
+      if (history.length > 0) {
+        setMessages(history.slice(-40));
+        const lastMsg = history[history.length - 1];
+        const ts = parseInt((lastMsg.id || '').split('_')[1] || '0', 10);
+        const hoursAgo = ts > 0 ? (Date.now() - ts) / 3600000 : 99;
+        if (hoursAgo > 3) {
+          addMsg('assistant', 'ברוך שובך 👋 ממשיכים?');
+        }
+      } else {
+        addMsg('assistant', state.profileText
+          ? `${state.profileText}\n\nמה תרצה לדון בו היום?`
+          : 'שלום שוב! הפרופיל שלך מוכן. מה תרצה לשאול?');
+      }
     } else {
       setPhase('onboarding');
       const progress = await getDayProgress(day);
@@ -145,14 +159,19 @@ export default function AICoachScreen({ navigation }) {
           const { response } = await askTeam(text, onboardingStateRef.current, (progress) => {
             if (!mountedRef.current) return;
             let stageText = '';
-            if (progress.stage === 'routing')      stageText = '🎭 מנתב לסוכנים...';
+            if (progress.stage === 'routing')      stageText = '🔍 מנתב לסוכנים...';
             if (progress.stage === 'thinking')     stageText = `🧠 ${progress.agents?.length || ''} סוכנים חושבים...`;
             if (progress.stage === 'agent_done')   stageText = `✓ ${progress.agent} סיים`;
             if (progress.stage === 'synthesizing') stageText = '✨ מאחד תובנות...';
             setMessages(prev => prev.map(m => m.id === partialId ? { ...m, text: stageText } : m));
           });
           if (mountedRef.current) {
-            setMessages(prev => prev.map(m => m.id === partialId ? { ...m, text: response || 'לא הגיעה תשובה — נסה שוב.' } : m));
+            const finalText = response || 'לא הגיעה תשובה — נסה שוב.';
+            setMessages(prev => {
+              const updated = prev.map(m => m.id === partialId ? { ...m, text: finalText } : m);
+              saveChatHistory(updated).catch(() => {});
+              return updated;
+            });
           }
         } else {
           await chatWithAI(text, onboardingStateRef.current, (partial) => {
@@ -263,8 +282,13 @@ function getAck(field, answer) {
     overdraft:        n === 0 ? 'ללא מינוס — מצוין.' : `₪${(n || 0).toLocaleString('he-IL')} מינוס — רשמתי.`,
     savings:          n !== null ? `₪${n.toLocaleString('he-IL')} בצד — מבין.` : 'רשמתי.',
     assets:           'רשמתי.',
-    moneyGoal:        'מטרה ברורה — רשמתי.',
-    moneyFear:        'הבנתי. זה בדיוק מה שנעבוד עליו יחד.',
+    moneyGoal:          'מטרה ברורה — רשמתי.',
+    moneyFear:          'הבנתי. זה בדיוק מה שנעבוד עליו יחד.',
+    endOfMonthFeeling:  'הבנתי את התחושה. ממשיכים.',
+    moneyPersonality:   `${answer} — מבין את הדפוס שלך.`,
+    biggestDream:       'חלום ברור — שמרתי.',
+    spouseIncome:       'רשמתי.',
+    retirementSavings:  n !== null ? `₪${n.toLocaleString('he-IL')} לפנסיה — רשמתי.` : 'רשמתי.',
   };
   return acks[field] || 'רשמתי.';
 }

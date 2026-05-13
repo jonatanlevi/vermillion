@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import { getOnboardingState, isOnboardingComplete, appendChatMessage, getChatHistory, getCommitmentTime, getMsUntilCommitment, getGameLog, getGameSessions } from '../../services/storage';
+import { getOnboardingState, getFinancialData, isOnboardingComplete, appendChatMessage, getChatHistory, getCommitmentTime, getMsUntilCommitment, getGameLog, getGameSessions } from '../../services/storage';
 import {
   getTodayOnboardingPrompt, processOnboardingAnswer,
   getDayProgress, completeDay, generateProfile, generateCoachingOpener,
@@ -14,6 +14,8 @@ import { askTeam } from '../../services/agents';
 import Avatar3D from '../../components/Avatar3D';
 import { useAuth } from '../../context/AuthContext';
 import { getUnlockedEquipment, getEffectiveOverrides } from '../../utils/registrationGate';
+
+const DEV_BYPASS_TIMER = true; // TODO: set false before production launch
 
 const nextId = () => `msg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
 const QUESTIONS_PER_DAY = 3;
@@ -35,7 +37,7 @@ function formatCountdown(ms) {
 }
 
 // ─── DNA Timer component ───────────────────────────────────────
-function DNATimer({ day, insets, onGoGames, onUnlock, userId, avatarStyle, equipment }) {
+function DNATimer({ day, insets, onGoGames, onUnlock, userId, avatarStyle, equipment, purchasedEquipment }) {
   const [commitment, setCommitment] = useState(null);
   const [msLeft, setMsLeft] = useState(0);
 
@@ -96,7 +98,7 @@ function DNATimer({ day, insets, onGoGames, onUnlock, userId, avatarStyle, equip
           userId={userId}
           seed={avatarStyle?.seed}
           equipment={equipment || []}
-          overrides={avatarStyle?.overrides || {}}
+          overrides={getEffectiveOverrides(avatarStyle?.overrides, purchasedEquipment)}
           size={44}
           showGlow={false}
           accentColor="#C0392B"
@@ -275,7 +277,7 @@ export default function VerMillionScreen({ navigation }) {
         const todayEntry = todayLog[calDay];
         const stampedToday = !!todayEntry &&
           new Date(todayEntry.stampedAt).toDateString() === new Date().toDateString();
-        if (stampedToday) {
+        if (!DEV_BYPASS_TIMER && stampedToday) {
           setDayDone(true);
           return;
         }
@@ -288,11 +290,11 @@ export default function VerMillionScreen({ navigation }) {
           const now  = new Date();
           const gate = new Date(now);
           gate.setHours(commitment.hour, commitment.minute, 0, 0);
-          if (now < gate) {
+          if (!DEV_BYPASS_TIMER && now < gate) {
             setDayDone(true); // עוד לא הגיע הזמן → DNA timer
           } else {
             // הזמן הגיע — בדוק אם המשתמש כבר שיחק ביום הזה
-            if (todayLog[calDay]) {
+            if (DEV_BYPASS_TIMER || todayLog[calDay]) {
               await askNextOnboardingQuestion(day, progress.done);
             } else {
               // לא שיחק עדיין — שלח למשחקים
@@ -401,8 +403,8 @@ export default function VerMillionScreen({ navigation }) {
         const AGENT_HE = { ANALYST: 'אנליסט', STRATEGIST: 'אסטרטג', PSYCHOLOGIST: 'פסיכולוג', COACH: 'מאמן', CRISIS: 'תמיכה' };
         const doneAgents = [];
 
-        const [onbState, gameSessions] = await Promise.all([getOnboardingState(), getGameSessions()]);
-        const { response, isCrisis } = await askTeam(text, { dailyAnswers: onbState, gameSessions }, (progress) => {
+        const [onbState, financialData, gameSessions] = await Promise.all([getOnboardingState(), getFinancialData(), getGameSessions()]);
+        const { response, isCrisis } = await askTeam(text, { dailyAnswers: onbState, financialData, gameSessions }, (progress) => {
           if (!mountedRef.current) return;
           let t = '';
           if (progress.stage === 'routing') {
@@ -455,6 +457,7 @@ export default function VerMillionScreen({ navigation }) {
         userId={user?.id}
         avatarStyle={profile?.avatar_style}
         equipment={getUnlockedEquipment(profile?.v_coins)}
+        purchasedEquipment={profile?.equipment || []}
       />
     );
   }
@@ -588,28 +591,41 @@ export default function VerMillionScreen({ navigation }) {
 
 function getAck(field, answer) {
   const n = typeof answer === 'number' ? answer : null;
+  const t = typeof answer === 'string' ? answer.toLowerCase() : '';
+
+  if (field === 'endOfMonthFeeling') {
+    if (/עצבני|לחוץ|מתח|מפחד|חרד/.test(t)) return 'לחץ בסוף חודש — זה נפוץ, נעבוד על זה ביחד.';
+    if (/שקט|בסדר|טוב|רגוע/.test(t)) return 'שקט — זה כוח. נבנה עליו.';
+    if (/לא בודק|לא מסתכל|מתעלם/.test(t)) return 'לא בודק — כנות! זה נקודת פתיחה טובה.';
+    return 'הבנתי — נשים על זה עין ביחד.';
+  }
+
+  if (field === 'moneyPersonality') {
+    if (/חוסך|שומר|שמרן/.test(t)) return 'חוסך — בסיס טוב לבניית עתיד.';
+    if (/מוציא|מבזבז|קונה/.test(t)) return 'נוטה להוציא — נבין מה מניע את זה.';
+    if (/לא מסתכל|לא בודק|מתעלם/.test(t)) return 'לא מסתכל — כנות! נתחיל לבנות תמונה ברורה.';
+    return 'הבנתי. נלמד ביחד מה קורה עם הכסף.';
+  }
+
   const map = {
-    kids:               answer === 0 ? 'ללא ילדים.' : `${answer} ילדים — רשמתי.`,
-    netIncome:          n ? `₪${n.toLocaleString('he-IL')} נטו — רשמתי.` : 'רשמתי.',
-    incomeStability:    `${answer} — מבין.`,
-    housingType:        `${answer} — רשמתי.`,
-    housingCost:        n ? `₪${n.toLocaleString('he-IL')} — רשמתי.` : 'רשמתי.',
-    fixedExpenses:      n === 0 ? 'ללא הוצאות קבועות נוספות.' : 'רשמתי.',
-    variableExpenses:   n ? `₪${n.toLocaleString('he-IL')} — מבין.` : 'רשמתי.',
-    biggestExpense:     'מעניין — רשמתי.',
-    creditDebt:         n === 0 ? 'ללא חוב כרטיס — טוב.' : `₪${(n||0).toLocaleString('he-IL')} — רשמתי.`,
-    loans:              n === 0 ? 'ללא הלוואות.' : 'רשמתי.',
-    overdraft:          n === 0 ? 'ללא מינוס — מצוין.' : `₪${(n||0).toLocaleString('he-IL')} מינוס.`,
-    savings:            n ? `₪${n.toLocaleString('he-IL')} בצד — מבין.` : 'רשמתי.',
-    assets:             'רשמתי.',
-    moneyGoal:          'מטרה ברורה — רשמתי.',
-    moneyFear:          'הבנתי. זה בדיוק מה שנעבוד עליו.',
-    financialStress:    n >= 7 ? 'גבוה — נטפל בזה.' : n <= 3 ? 'נמוך — נחמד.' : 'ממוצע — מבין.',
-    moneyPersonality:   `${answer} — מעניין.`,
-    biggestDream:       'חלום יפה. בואו נגרום לזה לקרות.',
-    spouseIncome:       n === 0 ? 'ללא הכנסה נוספת — רשמתי.' : 'רשמתי.',
-    retirementSavings:  n === 0 ? 'ללא פנסיה כרגע — חשוב לדעת.' : 'רשמתי.',
-    financialGoalYears: n ? `${n} שנים — יעד ברור.` : 'רשמתי.',
+    kids:              answer === 0 ? 'ללא ילדים.' : `${answer} ילדים — רשמתי.`,
+    netIncome:         n ? `₪${n.toLocaleString('he-IL')} נטו — רשמתי.` : 'רשמתי.',
+    incomeStability:   `${answer} — מבין.`,
+    housingType:       `${answer} — רשמתי.`,
+    housingCost:       n ? `₪${n.toLocaleString('he-IL')} — רשמתי.` : 'רשמתי.',
+    fixedExpenses:     n === 0 ? 'ללא הוצאות קבועות נוספות.' : 'רשמתי.',
+    variableExpenses:  n ? `₪${n.toLocaleString('he-IL')} — מבין.` : 'רשמתי.',
+    biggestExpense:    'מעניין — רשמתי.',
+    creditDebt:        n === 0 ? 'ללא חוב כרטיס — טוב.' : `₪${(n||0).toLocaleString('he-IL')} — רשמתי.`,
+    loans:             n === 0 ? 'ללא הלוואות.' : 'רשמתי.',
+    overdraft:         n === 0 ? 'ללא מינוס — מצוין.' : `₪${(n||0).toLocaleString('he-IL')} מינוס.`,
+    savings:           n ? `₪${n.toLocaleString('he-IL')} בצד — מבין.` : 'רשמתי.',
+    assets:            'רשמתי.',
+    moneyGoal:         'מטרה ברורה — רשמתי.',
+    moneyFear:         'הבנתי. זה בדיוק מה שנעבוד עליו.',
+    biggestDream:      /לא יודע|לא חושב|מורכב|קשה לענות|אין לי|אין/.test(t) ? 'בסדר — גם חוסר ודאות זה מידע. נמשיך.' : 'חלום יפה. בואו נגרום לזה לקרות.',
+    spouseIncome:      n === 0 ? 'ללא הכנסה נוספת — רשמתי.' : 'רשמתי.',
+    retirementSavings: n === 0 ? 'ללא פנסיה כרגע — חשוב לדעת.' : 'רשמתי.',
   };
   return map[field] || 'רשמתי.';
 }
