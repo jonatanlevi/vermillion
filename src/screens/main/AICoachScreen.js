@@ -156,6 +156,7 @@ export default function AICoachScreen({ navigation }) {
         setMessages(prev => [...prev, { id: partialId, role: 'assistant', text: '' }]);
 
         if (USE_AGENT_TEAM) {
+          const recentHistory = messages.filter(m => m.text && !m.text.startsWith('🔍') && !m.text.startsWith('🧠') && !m.text.startsWith('✓') && !m.text.startsWith('✨')).slice(-8);
           const { response } = await askTeam(text, onboardingStateRef.current, (progress) => {
             if (!mountedRef.current) return;
             let stageText = '';
@@ -164,7 +165,7 @@ export default function AICoachScreen({ navigation }) {
             if (progress.stage === 'agent_done')   stageText = `✓ ${progress.agent} סיים`;
             if (progress.stage === 'synthesizing') stageText = '✨ מאחד תובנות...';
             setMessages(prev => prev.map(m => m.id === partialId ? { ...m, text: stageText } : m));
-          });
+          }, recentHistory);
           if (mountedRef.current) {
             const finalText = response || 'לא הגיעה תשובה — נסה שוב.';
             setMessages(prev => {

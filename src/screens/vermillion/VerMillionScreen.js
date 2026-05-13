@@ -404,6 +404,7 @@ export default function VerMillionScreen({ navigation }) {
         const doneAgents = [];
 
         const [onbState, financialData, gameSessions] = await Promise.all([getOnboardingState(), getFinancialData(), getGameSessions()]);
+        const recentHistory = messages.filter(m => m.role !== undefined && m.text && !m.text.startsWith('🔍') && !m.text.startsWith('🧠') && !m.text.startsWith('✓') && !m.text.startsWith('✨')).slice(-8);
         const { response, isCrisis } = await askTeam(text, { dailyAnswers: onbState, financialData, gameSessions }, (progress) => {
           if (!mountedRef.current) return;
           let t = '';
@@ -419,7 +420,7 @@ export default function VerMillionScreen({ navigation }) {
             t = '✨ מאחד את התובנות...';
           }
           if (t) setMessages(prev => prev.map(m => m.id === partialId ? { ...m, text: t } : m));
-        });
+        }, recentHistory);
 
         const finalText = response || 'לא קיבלתי תשובה. נסה שוב.';
         if (mountedRef.current) {

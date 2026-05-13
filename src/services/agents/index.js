@@ -1,12 +1,12 @@
-import { Analyst }     from './analyst';
-import { Strategist }  from './strategist';
+import { Analyst }      from './analyst';
+import { Strategist }   from './strategist';
 import { Psychologist } from './psychologist';
-import { Coach }       from './coach';
-import { Crisis }      from './crisis';
-import { route }       from './orchestrator';
+import { Coach }        from './coach';
+import { Crisis }       from './crisis';
+import { route }        from './orchestrator';
 import { computeFinancialMetrics, calcCompletion } from '../../data/dailyQuestions';
 import { classifyTier } from '../financialTier';
-import { CONFIG } from '../../config';
+import { CONFIG }       from '../../config';
 
 const AGENTS = {
   ANALYST:      Analyst,
@@ -16,8 +16,8 @@ const AGENTS = {
   CRISIS:       Crisis,
 };
 
-const LOW_TIERS        = ['עיוור', 'ייצוב'];
-const INVEST_KEYWORDS  = ['מניות', 'קריפטו', 'בורסה', 'ETF', 'תיק השקעות', 'קרן נאמנות', 'אג"ח'];
+const LOW_TIERS       = ['עיוור', 'ייצוב'];
+const INVEST_KEYWORDS = ['מניות', 'קריפטו', 'בורסה', 'ETF', 'תיק השקעות', 'קרן נאמנות', 'אג"ח'];
 
 const CAMEL_TO_SNAKE = {
   netIncome:        'net_income',
@@ -33,11 +33,48 @@ const CAMEL_TO_SNAKE = {
   assets:           'investments',
 };
 
+// ─── Greeting detector ───────────────────────────────────────────
+const GREETING_RE = /^(שלום|היי|הי|hello|hi|yo|בוקר טוב|ערב טוב|לילה טוב|מה שלומך|מה קורה|מה נשמע|בוא נתחיל|בא נתחיל|ממשיכים|נמשיך|אפשר להתחיל|אנחנו ממשיכים)[\s!.?,]*$/i;
+
+function buildGreetingResponse(context) {
+  const { metrics, tier } = context;
+  const fmt = n => (typeof n === 'number' && n > 0) ? `₪${Math.round(n).toLocaleString('he-IL')}` : null;
+
+  if (!metrics || metrics.totalIncome === 0) {
+    return 'שלום! הפרופיל שלך מוכן. מה תרצה לשאול?';
+  }
+
+  const income      = metrics.totalIncome;
+  const expenses    = metrics.totalExpenses;
+  const surplus     = metrics.monthlySurplus;
+  const savingsRate = metrics.savingsRate || 0;
+  const totalDebt   = metrics.totalDebt || 0;
+  const goal        = metrics.moneyGoal || '';
+
+  if (surplus < 0) {
+    return `שלום 👋\n\nהמצב: הכנסה ${fmt(income)}, הוצאות ${fmt(expenses)} — גירעון של ${fmt(Math.abs(surplus))} בחודש.\n\nמאיפה רוצה להתחיל — לצמצם הוצאות, להגדיל הכנסה, או לסדר סדרי עדיפויות?`;
+  }
+
+  if (surplus === 0 || savingsRate < 2) {
+    return `שלום 👋\n\nמה שנכנס יוצא — ${fmt(income)} פנימה, ${fmt(expenses)} החוצה, כמעט לא נשאר.\n\nהצעד הראשון: למצוא לאן הכסף הולך. מה ההוצאה שהכי מפתיעה אותך?`;
+  }
+
+  if (totalDebt > income * 3) {
+    return `שלום 👋\n\nיש לך עודף של ${fmt(surplus)} בחודש, אבל גם חוב של ${fmt(totalDebt)}.\n\nנכון לדון בתכנית לסגור את החוב בצורה חכמה?`;
+  }
+
+  if (goal) {
+    return `שלום 👋\n\nאתה חוסך ${savingsRate}% — ${fmt(surplus)} בחודש. המטרה שלך: "${goal}".\n\nמה הצעד הבא שרוצה לקדם?`;
+  }
+
+  return `שלום 👋\n\nאתה חוסך ${savingsRate}% — ${fmt(surplus)} בחודש. זה טוב.\n\nמה תרצה לעבוד עליו היום?`;
+}
+
+// ─── Context builder ─────────────────────────────────────────────
 function buildContext(userData) {
   const dailyAnswers = userData?.dailyAnswers || {};
   const finData      = userData?.financialData || {};
 
-  // Map flat camelCase keys (onboardingAI path) → snake_case so computeFinancialMetrics can read them
   const snakeFin = {};
   for (const [camel, snake] of Object.entries(CAMEL_TO_SNAKE)) {
     if (finData[camel] != null) snakeFin[snake] = finData[camel];
@@ -51,7 +88,7 @@ function buildContext(userData) {
     (Object.values(finData).filter(v => v != null && v !== '').length >= 10 ? 80 : 0);
   const tier       = classifyTier(metrics, completion);
 
-  const metricsText  = `הכנסה: ₪${metrics.totalIncome} | הוצאות: ₪${metrics.totalExpenses} | עודף: ₪${metrics.monthlySurplus} | חוב: ₪${metrics.totalDebt} | חיסכון נזיל: ₪${metrics.liquidSavings}`;
+  const metricsText   = `הכנסה: ₪${metrics.totalIncome} | הוצאות: ₪${metrics.totalExpenses} | עודף: ₪${metrics.monthlySurplus} | חוב: ₪${metrics.totalDebt} | חיסכון נזיל: ₪${metrics.liquidSavings}`;
   const lifestyleText = `מצב: ${metrics.familyStatus || finData.familyStatus || '?'} | תעסוקה: ${metrics.employmentType || finData.employmentType || '?'} | פחד: ${metrics.moneyFear || finData.moneyFear || '?'} | מטרה: ${metrics.moneyGoal || finData.moneyGoal || '?'}`;
 
   const sessions = userData?.gameSessions || [];
@@ -73,14 +110,14 @@ function buildContext(userData) {
   return { metrics, metricsText, lifestyleText, tier: tier.label, completion, gameText };
 }
 
-// ─── Post-synthesis validator ─────────────────────────────────────
+// ─── Post-synthesis validator ────────────────────────────────────
 const ONBOARDING_HALLUCINATION = [
   'מה ההכנסה החודשית', 'מה ההכנסה שלך', 'כמה נכנס לחשבון',
   'צריך מספרים', 'בשביל לעזור לך באמת', 'לא מאמין בשיחות חולין',
+  'מה הכנסתך', 'בשביל לעזור', 'כמה אתה מרוויח',
 ];
 
 function validateResponse(response, context) {
-  // Block onboarding-question hallucinations when we already have financial data
   if (context.metrics?.totalIncome > 0) {
     const lower = response.toLowerCase();
     if (ONBOARDING_HALLUCINATION.some(p => lower.includes(p.toLowerCase()))) {
@@ -90,7 +127,6 @@ function validateResponse(response, context) {
   if (!LOW_TIERS.includes(context.tier)) return response;
   const hasInvestmentAdvice = INVEST_KEYWORDS.some(k => response.includes(k));
   if (!hasInvestmentAdvice) return response;
-  // Strip and redirect — don't let dangerous advice reach the user
   return response
     .split('\n')
     .filter(line => !INVEST_KEYWORDS.some(k => line.includes(k)))
@@ -99,7 +135,8 @@ function validateResponse(response, context) {
     + '\n\n⚠️ בשלב הנוכחי ("' + context.tier + '"), הצעד הנכון הוא סגירת חובות לפני כל השקעה.';
 }
 
-async function synthesize(userMessage, agentResults, context) {
+// ─── Synthesizer ─────────────────────────────────────────────────
+async function synthesize(userMessage, agentResults, context, chatHistory) {
   const sections = agentResults
     .filter(r => r.response?.trim())
     .map(r => `[${r.agent}]: ${r.response}`)
@@ -109,7 +146,7 @@ async function synthesize(userMessage, agentResults, context) {
   if (agentResults.length === 1) return agentResults[0].response;
 
   const SYNTH_PROMPT = `אתה THE VOICE של VerMillion — היועץ הפיננסי האישי.
-קיבלת תובנות מ-${agentResults.length} סוכנים מומחים. תפקידך: לאחד אותם לתשובה אחת חכמה ואלגנטית למשתמש.
+קיבלת תובנות מסוכנים מומחים. תפקידך: לאחד אותם לתשובה אחת חכמה ואלגנטית.
 
 חוקים:
 - ענה בעברית בלבד.
@@ -117,14 +154,21 @@ async function synthesize(userMessage, agentResults, context) {
 - אל תזכיר את הסוכנים — דבר בקול אחד.
 - שמור על מבנה: אבחנה → תוכנית → צעד מחר.
 - טון: סמכותי, אמפתי, ישיר.
-- הפרופיל הפיננסי כבר נאסף — אסור לשאול שאלות איסוף מידע כמו "מה ההכנסה שלך".`;
+- הפרופיל הפיננסי כבר נאסף — אסור לשאול שאלות איסוף מידע.
+- אתה בהמשך שיחה — אל תתחיל מחדש, אל תבקש נתונים שכבר יש.`;
+
+  const historyLines = (chatHistory || [])
+    .slice(-6)
+    .map(m => `${m.role === 'user' ? 'U' : 'A'}: ${m.text?.slice(0, 120)}`)
+    .join('\n');
+  const historyBlock = historyLines ? `\nהיסטוריית שיחה אחרונה:\n${historyLines}\n` : '';
 
   const gameContext = context.gameText ? `\n\nאימון קוגניטיבי: ${context.gameText}` : '';
   const { runAgent } = await import('./_runAgent');
   const synthesized = await runAgent({
     model: CONFIG.AI_MODEL,
     systemPrompt: SYNTH_PROMPT,
-    userMessage: `שאלת המשתמש:\n${userMessage}\n\nתובנות הצוות:\n${sections}${gameContext}`,
+    userMessage: `${historyBlock}\nשאלת המשתמש:\n${userMessage}\n\nתובנות הצוות:\n${sections}${gameContext}`,
     temperature: 0.4,
     maxTokens: 300,
   });
@@ -132,22 +176,27 @@ async function synthesize(userMessage, agentResults, context) {
   return synthesized || sections;
 }
 
-export async function askTeam(userMessage, userData, onProgress) {
+// ─── Public API ───────────────────────────────────────────────────
+export async function askTeam(userMessage, userData, onProgress, chatHistory) {
   const context = buildContext(userData);
 
-  // 1. Route — crisis detection happens here (pure JS, instant)
-  onProgress?.({ stage: 'routing', message: 'מנתב לסוכנים מומחים...' });
+  // Greeting shortcut — answer from profile data, skip Ollama entirely
+  if (GREETING_RE.test(userMessage.trim())) {
+    onProgress?.({ stage: 'synthesizing' });
+    return { response: buildGreetingResponse(context), agentsUsed: [], raw: [], context, isCrisis: false };
+  }
+
+  // Crisis detection (pure JS, instant)
+  onProgress?.({ stage: 'routing' });
   const agentNames = await route(userMessage);
 
-  // 2. Crisis shortcut — skip synthesis, return immediately with isCrisis flag
   if (agentNames[0] === 'CRISIS') {
-    onProgress?.({ stage: 'thinking', message: 'מפעיל תמיכת חירום...', agents: ['CRISIS'] });
+    onProgress?.({ stage: 'thinking', agents: ['CRISIS'] });
     const crisisResponse = await Crisis.run(userMessage, context);
     return { response: crisisResponse, agentsUsed: ['CRISIS'], raw: [], context, isCrisis: true };
   }
 
-  // 3. Run agents in parallel
-  onProgress?.({ stage: 'thinking', message: `${agentNames.length} סוכנים חושבים...`, agents: agentNames });
+  onProgress?.({ stage: 'thinking', agents: agentNames });
   const promises = agentNames.map(async (name) => {
     const agent = AGENTS[name];
     if (!agent) return null;
@@ -158,13 +207,10 @@ export async function askTeam(userMessage, userData, onProgress) {
 
   const results = (await Promise.all(promises)).filter(Boolean);
 
-  // 4. Synthesize
-  onProgress?.({ stage: 'synthesizing', message: 'מאחד את התובנות...' });
-  const synthesized = await synthesize(userMessage, results, context);
+  onProgress?.({ stage: 'synthesizing' });
+  const synthesized = await synthesize(userMessage, results, context, chatHistory);
 
-  // 5. Validate — block investment advice for low tiers
   const finalResponse = validateResponse(synthesized || offlineFallback(context), context);
-
   return { response: finalResponse, agentsUsed: agentNames, raw: results, context, isCrisis: false };
 }
 
@@ -173,12 +219,17 @@ function offlineFallback(context) {
   if (!metrics || metrics.totalIncome === 0) {
     return 'היועץ לא זמין כרגע. בדוק שה-Ollama tunnel פעיל ונסה שנית.';
   }
-  const surplus = metrics.monthlySurplus;
+  const surplus  = metrics.monthlySurplus;
+  const income   = metrics.totalIncome;
+  const fmt      = n => `₪${Math.round(Math.abs(n)).toLocaleString('he-IL')}`;
   if (surplus < 0) {
-    return `עפ"י הנתונים שלך יש גירעון חודשי של ₪${Math.abs(Math.round(surplus))}. הצעד הראשון: רשום את 3 ההוצאות הגדולות שלך ובדוק מה ניתן לקצץ.`;
+    return `יש גירעון חודשי של ${fmt(surplus)}. הצעד הראשון: רשום את 3 ההוצאות הגדולות שלך ובדוק מה ניתן לקצץ.`;
+  }
+  if (surplus === 0) {
+    return `כל מה שנכנס יוצא — ${fmt(income)} פנימה, ${fmt(metrics.totalExpenses)} החוצה. בואו נחפש לאן הכסף הולך.`;
   }
   if (tier === 'עיוור' || tier === 'ייצוב') {
-    return `שלב "${tier}" — המטרה שלך היא לייצב את הבסיס. התחל: פתח אקסל / נייר, רשום הכנסות מול הוצאות לחודש האחרון.`;
+    return `שלב "${tier}" — המטרה: לייצב את הבסיס. התחל: פתח אקסל / נייר, רשום הכנסות מול הוצאות לחודש האחרון.`;
   }
-  return `שלב "${tier}" — יש לך עודף חודשי של ₪${Math.round(surplus)}. שאל אותי על הצעד הבא — השקעה, חיסכון, או סגירת חוב.`;
+  return `יש לך עודף חודשי של ${fmt(surplus)}. שאל אותי על הצעד הבא — השקעה, חיסכון, או סגירת חוב.`;
 }
