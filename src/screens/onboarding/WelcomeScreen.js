@@ -19,12 +19,6 @@ export default function WelcomeScreen({ navigation }) {
     ]).start();
   }, []);
 
-  const STATS = [
-    { value: t.stat1Value, label: t.stat1Label },
-    { value: `${t.currencySymbol}750K`, label: t.stat2Label },
-    { value: t.stat3Value, label: t.stat3Label },
-  ];
-
   return (
     <View style={styles.container}>
       <View style={styles.bgAccent} />
@@ -50,15 +44,6 @@ export default function WelcomeScreen({ navigation }) {
           <Text style={styles.heroSub}>{t.heroSub}</Text>
         </View>
 
-        {/* Stats */}
-        <View style={styles.statsRow}>
-          {STATS.map((s, i) => (
-            <View key={i} style={[styles.statItem, i < STATS.length - 1 && styles.statBorder]}>
-              <Text style={styles.statValue}>{s.value}</Text>
-              <Text style={styles.statLabel}>{s.label}</Text>
-            </View>
-          ))}
-        </View>
 
         {/* Actions */}
         <View style={styles.actions}>
