@@ -1,34 +1,53 @@
-import { Analyst }      from './analyst';
-import { Strategist }   from './strategist';
-import { Psychologist } from './psychologist';
-import { Coach }        from './coach';
-import { Crisis }       from './crisis';
-import { route }        from './orchestrator';
 import { computeFinancialMetrics, calcCompletion } from '../../data/dailyQuestions';
 import { classifyTier } from '../financialTier';
-import { CONFIG }       from '../../config';
 
-// ─── Ollama health check ──────────────────────────────────────────
-async function isOllamaOnline() {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 2000);
+// ─── Groq cloud call (via Vercel serverless function) ────────────
+async function callGroq(userMessage, context, chatHistory) {
+  const { metricsText, lifestyleText, tier, gameText } = context;
+
+  const systemPrompt = `אתה VerMillion — יועץ פיננסי אישי לישראלים.
+
+פרופיל המשתמש:
+${metricsText}
+${lifestyleText}
+שלב פיננסי: ${tier}${gameText ? `\n${gameText}` : ''}
+
+חוקים:
+- ענה בעברית בלבד
+- מקסימום 5-6 שורות
+- טון: סמכותי, אמפתי, ישיר
+- הפרופיל כבר נאסף — אל תשאל שאלות איסוף מידע
+- אם שלב = "עיוור" או "ייצוב" — אל תמליץ על מניות/השקעות
+- אתה בהמשך שיחה — אל תתחיל מחדש
+- סיים עם שאלה קצרה אחת`;
+
+  const STAGE_RE_LOCAL = /^[🔍🧠✓✨⏳]/;
+  const filteredHistory = (chatHistory || [])
+    .filter(m => !STAGE_RE_LOCAL.test(m.text || '') && (m.text || '').length <= 300)
+    .slice(-8);
+
+  const messages = [
+    ...filteredHistory.map(m => ({
+      role: m.role === 'user' ? 'user' : 'assistant',
+      content: m.text || '',
+    })),
+    { role: 'user', content: userMessage },
+  ];
+
   try {
-    const r = await fetch(`${CONFIG.OLLAMA_BASE_URL}/api/tags`, { signal: controller.signal });
-    clearTimeout(timer);
-    return r.ok;
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const res = await fetch(`${origin}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages, systemPrompt }),
+    });
+    if (!res.ok) return '';
+    const data = await res.json();
+    return data.response || '';
   } catch {
-    clearTimeout(timer);
-    return false;
+    return '';
   }
 }
-
-const AGENTS = {
-  ANALYST:      Analyst,
-  STRATEGIST:   Strategist,
-  PSYCHOLOGIST: Psychologist,
-  COACH:        Coach,
-  CRISIS:       Crisis,
-};
 
 const LOW_TIERS       = ['עיוור', 'ייצוב'];
 const INVEST_KEYWORDS = ['מניות', 'קריפטו', 'בורסה', 'ETF', 'תיק השקעות', 'קרן נאמנות', 'אג"ח'];
@@ -149,48 +168,7 @@ function validateResponse(response, context) {
     + '\n\n⚠️ בשלב הנוכחי ("' + context.tier + '"), הצעד הנכון הוא סגירת חובות לפני כל השקעה.';
 }
 
-// ─── Synthesizer ─────────────────────────────────────────────────
-async function synthesize(userMessage, agentResults, context, chatHistory) {
-  const sections = agentResults
-    .filter(r => r.response?.trim())
-    .map(r => `[${r.agent}]: ${r.response}`)
-    .join('\n\n');
-
-  if (!sections) return '';
-  if (agentResults.length === 1) return agentResults[0].response;
-
-  const SYNTH_PROMPT = `אתה THE VOICE של VerMillion — היועץ הפיננסי האישי.
-קיבלת תובנות מסוכנים מומחים. תפקידך: לאחד אותם לתשובה אחת חכמה ואלגנטית.
-
-חוקים:
-- ענה בעברית בלבד.
-- מקסימום 6 שורות.
-- אל תזכיר את הסוכנים — דבר בקול אחד.
-- שמור על מבנה: אבחנה → תוכנית → צעד מחר.
-- טון: סמכותי, אמפתי, ישיר.
-- הפרופיל הפיננסי כבר נאסף — אסור לשאול שאלות איסוף מידע.
-- אתה בהמשך שיחה — אל תתחיל מחדש, אל תבקש נתונים שכבר יש.`;
-
-  const historyLines = (chatHistory || [])
-    .slice(-6)
-    .map(m => `${m.role === 'user' ? 'U' : 'A'}: ${m.text?.slice(0, 120)}`)
-    .join('\n');
-  const historyBlock = historyLines ? `\nהיסטוריית שיחה אחרונה:\n${historyLines}\n` : '';
-
-  const gameContext = context.gameText ? `\n\nאימון קוגניטיבי: ${context.gameText}` : '';
-  const { runAgent } = await import('./_runAgent');
-  const synthesized = await runAgent({
-    model: CONFIG.AI_MODEL,
-    systemPrompt: SYNTH_PROMPT,
-    userMessage: `${historyBlock}\nשאלת המשתמש:\n${userMessage}\n\nתובנות הצוות:\n${sections}${gameContext}`,
-    temperature: 0.4,
-    maxTokens: 300,
-  });
-
-  return synthesized || sections;
-}
-
-// ─── Local offline coach (no Ollama needed) ──────────────────────
+// ─── Local offline coach (Groq fallback) ─────────────────────────
 function buildOfflineResponse(userMessage, context, chatHistory) {
   const { metrics, tier } = context;
   const m = metrics;
@@ -282,56 +260,50 @@ function buildOfflineResponse(userMessage, context, chatHistory) {
   return `הכנסה: ${fmt(income)} | עודף: ${fmt(surplus)} | חיסכון: ${fmt(savings)}.\n\nהבסיס יציב. השאלה הבאה: לאן הכסף עובד — קרן מחקה, פנסיה, דירה?\n\nמה מעסיק אותך כלכלית?`;
 }
 
+const CRISIS_RE = /אין לי סיבה לחיות|לא רוצה לחיות|אין טעם|להתאבד|לסיים את החיים/;
+
 // ─── Public API ───────────────────────────────────────────────────
 export async function askTeam(userMessage, userData, onProgress, chatHistory) {
   const context = buildContext(userData);
 
-  // Greeting shortcut — answer from profile data, skip Ollama entirely
+  // Greeting shortcut — instant, no API call
   if (GREETING_RE.test(userMessage.trim())) {
     onProgress?.({ stage: 'synthesizing' });
     return { response: buildGreetingResponse(context), agentsUsed: [], raw: [], context, isCrisis: false };
   }
 
-  // Crisis detection (pure JS, instant)
-  onProgress?.({ stage: 'routing' });
-
-  // Fast Ollama check — if offline, skip 36s of timeouts, use local coach
-  const ollamaOnline = await isOllamaOnline();
-  if (!ollamaOnline) {
+  // Crisis detection
+  if (CRISIS_RE.test(userMessage)) {
     onProgress?.({ stage: 'synthesizing' });
     return {
-      response:    buildOfflineResponse(userMessage, context, chatHistory),
-      agentsUsed:  [],
-      raw:         [],
-      context,
-      isCrisis:    false,
+      response: 'אני שומע אותך. זה נשמע קשה מאוד.\n\nחייגו עכשיו ל-**עזר נפשי**: 1201 (בחינם, 24/7). הם שם בשבילך.',
+      agentsUsed: ['CRISIS'], raw: [], context, isCrisis: true,
     };
   }
 
-  const agentNames = await route(userMessage);
+  onProgress?.({ stage: 'synthesizing' });
 
-  if (agentNames[0] === 'CRISIS') {
-    onProgress?.({ stage: 'thinking', agents: ['CRISIS'] });
-    const crisisResponse = await Crisis.run(userMessage, context);
-    return { response: crisisResponse, agentsUsed: ['CRISIS'], raw: [], context, isCrisis: true };
+  // Groq AI call
+  const groqResponse = await callGroq(userMessage, context, chatHistory);
+
+  if (groqResponse) {
+    return {
+      response:   validateResponse(groqResponse, context),
+      agentsUsed: ['GROQ'],
+      raw:        [],
+      context,
+      isCrisis:   false,
+    };
   }
 
-  onProgress?.({ stage: 'thinking', agents: agentNames });
-  const promises = agentNames.map(async (name) => {
-    const agent = AGENTS[name];
-    if (!agent) return null;
-    const response = await agent.run(userMessage, context);
-    onProgress?.({ stage: 'agent_done', agent: name, response });
-    return { agent: name, response };
-  });
-
-  const results = (await Promise.all(promises)).filter(Boolean);
-
-  onProgress?.({ stage: 'synthesizing' });
-  const synthesized = await synthesize(userMessage, results, context, chatHistory);
-
-  const finalResponse = validateResponse(synthesized || offlineFallback(context), context);
-  return { response: finalResponse, agentsUsed: agentNames, raw: results, context, isCrisis: false };
+  // Fallback if Groq fails
+  return {
+    response:   buildOfflineResponse(userMessage, context, chatHistory),
+    agentsUsed: [],
+    raw:        [],
+    context,
+    isCrisis:   false,
+  };
 }
 
 function offlineFallback(context) {

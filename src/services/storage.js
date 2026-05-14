@@ -177,31 +177,37 @@ export async function getProfile() {
 }
 
 // ─── Financial data ─────────────────────────────────────────
+let _finCache = null;
+
 export async function saveFinancialData(patch) {
   const userId = await uid();
   const existing = await getFinancialData();
   const merged = { ...existing, ...patch };
-  if (isLocalUserId(userId)) {
-    await localSet(L.FIN, merged);
-    return;
-  }
+  _finCache = merged;
+  await localSet(L.FIN, merged);
+  if (isLocalUserId(userId)) return;
   const { error } = await dbUpsert('financial_data', userId, { data: merged });
   if (error) {
     console.warn('[storage] financial_data remote save failed — device cache', error?.message || error);
-    await localSet(L.FIN, merged);
   }
 }
 
 export async function getFinancialData() {
+  if (_finCache !== null) return _finCache;
   const userId = await uid();
   if (isLocalUserId(userId)) {
-    return (await localGet(L.FIN, {})) || {};
+    const local = (await localGet(L.FIN, {})) || {};
+    _finCache = local;
+    return local;
   }
   try {
     const { data, error } = await supabase
       .from('financial_data').select('data').eq('user_id', userId).maybeSingle();
     if (!error && data?.data !== undefined && data?.data !== null) {
-      return data.data;
+      const local = (await localGet(L.FIN, {})) || {};
+      const merged = { ...data.data, ...local };
+      _finCache = merged;
+      return merged;
     }
     if (error) {
       console.warn('[storage] financial_data remote read:', error?.message || error);
@@ -209,8 +215,9 @@ export async function getFinancialData() {
   } catch (e) {
     console.warn('[storage] financial_data read threw:', e?.message || e);
   }
-  const local = await localGet(L.FIN, {});
-  return local || {};
+  const local = (await localGet(L.FIN, {})) || {};
+  _finCache = local;
+  return local;
 }
 
 // ─── Onboarding state ────────────────────────────────────────

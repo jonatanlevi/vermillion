@@ -58,15 +58,97 @@ const QUESTIONS = {
   retirementSavings: 'יש חיסכון פנסיוני? כמה מופקד כל חודש?',
 };
 
+const HE_N = {
+  'אפס':0,
+  'אחד':1,'אחת':1,
+  'שניים':2,'שתיים':2,'שני':2,'שתי':2,
+  'שלושה':3,'שלוש':3,'שלשה':3,'שלש':3,'שלשת':3,'שלושת':3,
+  'ארבעה':4,'ארבע':4,'ארבעת':4,
+  'חמישה':5,'חמש':5,'חמשה':5,'חמשת':5,'חמישת':5,
+  'שישה':6,'שש':6,'ששה':6,'ששת':6,'שישת':6,
+  'שבעה':7,'שבע':7,'שבעת':7,
+  'שמונה':8,'שמונת':8,
+  'תשעה':9,'תשע':9,'תשעת':9,
+  'עשרה':10,'עשר':10,'עשרת':10,
+  'עשרים':20,'שלושים':30,'שלשים':30,'ארבעים':40,'חמישים':50,
+  'שישים':60,'שבעים':70,'שמונים':80,'תשעים':90,
+};
+const HE_PAT = Object.keys(HE_N).sort((a,b) => b.length-a.length).join('|');
+
+const MULTS = [
+  ['מיליון',  1000000, false],
+  ['אלפיים',  2000,    true],
+  ['אלפים',   1000,    false],
+  ['אלף',     1000,    false],
+  ['מאתיים',  200,     true],
+  ['מאות',    100,     false],
+  ['מאה',     100,     true],
+];
+
 function extractNumber(text) {
-  const t = text.replace(/,/g, '');
-  const heMap = { 'אלף': 1000, 'אלפים': 2000, 'מיליון': 1000000 };
-  for (const [word, mult] of Object.entries(heMap)) {
-    const m = t.match(new RegExp(`([\\d.]+)?\\s*${word}`));
-    if (m) return Math.round((parseFloat(m[1]) || 1) * mult);
+  const t = text.replace(/[,،]/g, '').trim();
+
+  let total = 0;
+  let found = false;
+  let work = t;
+
+  for (const [word, base, standalone] of MULTS) {
+    const re = new RegExp(`(${HE_PAT}|\\d+(?:\\.\\d+)?)?\\s*ו?\\s*${word}(?!\\S)`, 'u');
+    const m = work.match(re);
+    if (!m) continue;
+    const raw = m[1];
+    if (standalone && raw) {
+      const coeff = HE_N[raw] ?? parseFloat(raw);
+      total += Math.round((coeff || 1) * base);
+    } else if (standalone) {
+      total += base;
+    } else if (raw) {
+      const coeff = HE_N[raw] ?? parseFloat(raw);
+      total += Math.round((coeff || 1) * base);
+    } else {
+      total += base;
+    }
+    work = work.replace(m[0], ' ');
+    found = true;
   }
-  const direct = t.match(/\d[\d.]*/);
-  return direct ? parseFloat(direct[0]) : null;
+
+  // remaining standalone unit (e.g. "וחמש" after removing thousands)
+  const rem = work.match(new RegExp(`(?:ו\\s*)?(${HE_PAT})(?!\\S)`, 'u'));
+  if (rem && HE_N[rem[1]] !== undefined && HE_N[rem[1]] > 0) {
+    total += HE_N[rem[1]];
+    found = true;
+  }
+
+  if (found && total > 0) {
+    // accumulate "עוד <num>" additions
+    for (const m of work.matchAll(/(?:עוד|גם|ועוד)\s+(\d[\d.]*)/g)) {
+      total += parseFloat(m[1]);
+    }
+    return total;
+  }
+
+  // digit fallback — collect all numbers in text
+  const allNums = [...t.matchAll(/\d[\d.]*/g)].map(m => parseFloat(m[0]));
+  if (allNums.length === 0) return null;
+  if (allNums.length === 1) return allNums[0];
+
+  const maxN = Math.max(...allNums);
+  const minN = Math.min(...allNums);
+
+  // range pattern — "5000-6000" or "בין 5000 ל-6000" → take first number, not sum
+  const isRange = /\d[\d.]*\s*[-–]\s*\d[\d.]*/.test(t) || /(?:בין|עד)\s+\d/.test(t);
+  if (isRange) return allNums[0];
+
+  // list pattern — number adjacent to a Hebrew content word (category label)
+  // e.g. "3500 מזונות 1000 ביטוח" or "ביטוח 300 מנויים 200"
+  const labeledPairs = [...t.matchAll(/(?:\d[\d.]*\s+[א-ת]{2,}|[א-ת]{2,}\s+\d[\d.]*)/g)];
+  const hasConnector = /(?:עוד|גם|ועוד|פלוס|\+)/.test(t);
+  const isList = labeledPairs.length >= 2 || hasConnector;
+
+  if (isList && maxN / minN < 100) {
+    return allNums.reduce((a, b) => a + b, 0);
+  }
+  return allNums[0];
 }
 
 function parseAnswer(field, text) {
@@ -80,7 +162,7 @@ function parseAnswer(field, text) {
   }
   if (field === 'employmentType') {
     if (/שכיר|עובד|משכורת/.test(t)) return 'שכיר';
-    if (/עצמאי|עוסק|עסק/.test(t)) return 'עצמאי';
+    if (/עצמאי|עוסק|עסק|יזם|בונה|סטארטאפ|פרילנס/.test(t)) return 'עצמאי';
     if (/מובטל|לא עובד/.test(t)) return 'מובטל';
     if (/פנסי/.test(t)) return 'פנסיונר';
     return t;
@@ -169,9 +251,11 @@ export async function generateProfile() {
 
   const skills = computeSkills(financial, surplus, totalDebt, savingsRate);
 
+  const kidsNum = typeof financial.kids === 'number' ? financial.kids : (parseInt(financial.kids) || null);
+
   const profileText =
     `VerMillion מכיר אותך עכשיו: ` +
-    `${financial.familyStatus || ''}, ${financial.employmentType || ''}, בן/ת ${financial.age || '?'}, ${financial.kids ? `${financial.kids} ילדים` : 'ללא ילדים'}. ` +
+    `${financial.familyStatus || ''}, ${financial.employmentType || ''}, בן/ת ${financial.age || '?'}, ${kidsNum ? `${kidsNum} ילדים` : 'ללא ילדים'}. ` +
     `הכנסה חודשית ${fmt(financial.netIncome)}, הוצאות ${fmt((financial.housingCost || 0) + (financial.fixedExpenses || 0) + (financial.variableExpenses || 0))}. ` +
     `עודף: ${fmt(surplus)} (${savingsRate}%). חובות: ${fmt(totalDebt)}. ` +
     `המטרה שלך: ${financial.moneyGoal || '—'}. ` +

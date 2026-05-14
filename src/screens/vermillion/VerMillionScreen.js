@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useVoice } from '../../hooks/useVoice';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity,
   FlatList, KeyboardAvoidingView, Platform, ActivityIndicator, Animated,
@@ -15,7 +16,7 @@ import Avatar3D from '../../components/Avatar3D';
 import { useAuth } from '../../context/AuthContext';
 import { getUnlockedEquipment, getEffectiveOverrides } from '../../utils/registrationGate';
 
-const DEV_BYPASS_TIMER = true; // TODO: set false before production launch
+const DEV_BYPASS_TIMER = true; // TODO: set false before launch
 
 const nextId = () => `msg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
 const QUESTIONS_PER_DAY = 3;
@@ -191,6 +192,8 @@ export default function VerMillionScreen({ navigation }) {
   const pulseAnim  = useRef(new Animated.Value(1)).current;
   const flatListRef = useRef(null);
   const mountedRef  = useRef(true);
+  const lastVoiceRef = useRef(false);
+  const voice = useVoice();
 
   useFocusEffect(
     useCallback(() => {
@@ -321,6 +324,7 @@ export default function VerMillionScreen({ navigation }) {
     const msg = { id: nextId(), role, text };
     setMessages(prev => [...prev, msg]);
     setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+    if (role === 'assistant') voice.speak(text);
     return msg.id;
   }
 
@@ -369,19 +373,32 @@ export default function VerMillionScreen({ navigation }) {
 
     let text = question;
     if (day === 1 && doneCount === 0) {
-      text = `שלום! אני VerMillion — היועץ הפיננסי האישי שלך.\n\nבשבוע הקרוב נכיר אחד את השני — 3 שאלות ביום. בסוף השבוע יהיה לי אפיון מלא ונוכל להתחיל לעבוד ברצינות.\n\n${question}`;
+      const firstName = profile?.first_name || profile?.name?.split(' ')[0] || '';
+      const greeting = firstName ? `שלום ${firstName}!` : 'שלום!';
+      text = `${greeting} אני VerMillion — היועץ הפיננסי האישי שלך.\n\nבשבוע הקרוב נכיר אחד את השני — 3 שאלות ביום. בסוף השבוע יהיה לי אפיון מלא ונוכל להתחיל לעבוד ברצינות.\n\n${question}`;
     }
 
     addMsg('assistant', text);
   }
 
+  const sendVoice = () => {
+    if (voice.isListening) { voice.stopListening(); return; }
+    voice.stopSpeaking();
+    voice.startListening((transcript) => {
+      setInput(transcript);
+      lastVoiceRef.current = true;
+      setTimeout(() => send(transcript), 700);
+    });
+  };
+
   const send = async (text) => {
     if (!text.trim() || loading) return;
+    voice.stopSpeaking();
     setInput('');
     setQuickTopics([]);
     setLoading(true);
     setAvatarMood('thinking');
-    addMsg('user', text);
+    const userMsgId = addMsg('user', text);
 
     try {
       if (phase === 'onboarding' && pendingField) {
@@ -397,6 +414,7 @@ export default function VerMillionScreen({ navigation }) {
         await askNextOnboardingQuestion(currentDay, newCount);
 
       } else if (phase === 'coaching') {
+        appendChatMessage({ id: userMsgId, role: 'user', text }).catch(() => {});
         const partialId = nextId();
         setMessages(prev => [...prev, { id: partialId, role: 'assistant', text: '...' }]);
 
@@ -425,8 +443,9 @@ export default function VerMillionScreen({ navigation }) {
         const finalText = response || 'לא קיבלתי תשובה. נסה שוב.';
         if (mountedRef.current) {
           setMessages(prev => prev.map(m => m.id === partialId ? { ...m, text: finalText } : m));
-          await appendChatMessage({ id: partialId, role: 'assistant', text: finalText });
+          appendChatMessage({ id: partialId, role: 'assistant', text: finalText }).catch(() => {});
           if (isCrisis) setShowCrisisBar(true);
+          voice.speak(finalText);
         }
         setAvatarMood('neutral');
       }
@@ -565,6 +584,16 @@ export default function VerMillionScreen({ navigation }) {
         </View>
       )}
 
+      {voice.isSpeaking && (
+        <View style={styles.speakingBar}>
+          <Text style={styles.speakingIcon}>🔊</Text>
+          <Text style={styles.speakingText} numberOfLines={2}>{voice.speakingText}</Text>
+          <TouchableOpacity onPress={voice.stopSpeaking} style={styles.speakingStop}>
+            <Text style={styles.speakingStopText}>✕</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       <View style={styles.inputRow}>
         <TextInput
           style={styles.input}
@@ -575,9 +604,21 @@ export default function VerMillionScreen({ navigation }) {
           multiline
           textAlign="right"
         />
+        {voice.supported && (
+          <TouchableOpacity
+            style={[styles.micBtn, voice.isListening && styles.micBtnActive]}
+            onPress={sendVoice}
+            disabled={loading}
+          >
+            <Text style={styles.micBtnText}>{voice.isListening ? '⏹' : '🎤'}</Text>
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity style={styles.muteBtn} onPress={voice.toggleMute}>
+          <Text style={styles.muteBtnText}>{voice.muted ? '🔇' : '🔊'}</Text>
+        </TouchableOpacity>
         <TouchableOpacity
           style={[styles.sendBtn, { backgroundColor: moodColors[avatarMood] }, (!input.trim() || loading) && styles.sendBtnDisabled]}
-          onPress={() => send(input)}
+          onPress={() => { lastVoiceRef.current = false; send(input); }}
           disabled={!input.trim() || loading}
         >
           {loading
@@ -614,7 +655,7 @@ function getAck(field, answer) {
     incomeStability:   `${answer} — מבין.`,
     housingType:       `${answer} — רשמתי.`,
     housingCost:       n ? `₪${n.toLocaleString('he-IL')} — רשמתי.` : 'רשמתי.',
-    fixedExpenses:     n === 0 ? 'ללא הוצאות קבועות נוספות.' : 'רשמתי.',
+    fixedExpenses:     n === 0 ? 'ללא הוצאות קבועות נוספות.' : n ? `₪${n.toLocaleString('he-IL')} — רשמתי.` : 'רשמתי.',
     variableExpenses:  n ? `₪${n.toLocaleString('he-IL')} — מבין.` : 'רשמתי.',
     biggestExpense:    'מעניין — רשמתי.',
     creditDebt:        n === 0 ? 'ללא חוב כרטיס — טוב.' : `₪${(n||0).toLocaleString('he-IL')} — רשמתי.`,
@@ -631,14 +672,37 @@ function getAck(field, answer) {
   return map[field] || 'רשמתי.';
 }
 
+const STAGE_RE = /^[🔍🧠✓✨⏳]/;
+
 function Bubble({ message }) {
   const isUser = message.role === 'user';
+  const isStage = !isUser && STAGE_RE.test(message.text || '');
+  const [displayed, setDisplayed] = useState(message.text || '');
+  const timerRef = useRef(null);
+
+  useEffect(() => {
+    const text = message.text || '';
+    if (isUser || isStage || !text) {
+      setDisplayed(text);
+      return;
+    }
+    clearInterval(timerRef.current);
+    let i = 0;
+    setDisplayed('');
+    timerRef.current = setInterval(() => {
+      i++;
+      setDisplayed(text.slice(0, i));
+      if (i >= text.length) clearInterval(timerRef.current);
+    }, 22);
+    return () => clearInterval(timerRef.current);
+  }, [message.text]);
+
   return (
     <View style={[styles.bubbleWrap, isUser ? styles.bubbleWrapUser : styles.bubbleWrapBot]}>
       {!isUser && <View style={styles.miniAvatar} />}
       <View style={[styles.bubble, isUser ? styles.bubbleUser : styles.bubbleBot]}>
         <Text style={[styles.bubbleText, isUser ? styles.textUser : styles.textBot]}>
-          {message.text}
+          {displayed}
         </Text>
       </View>
     </View>
@@ -752,6 +816,27 @@ const styles = StyleSheet.create({
   sendBtn:        { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center' },
   sendBtnDisabled:{ backgroundColor: '#222' },
   sendBtnText:    { color: '#FFF', fontSize: 22, fontWeight: '700' },
+  micBtn: {
+    width: 46, height: 46, borderRadius: 23, backgroundColor: '#1A1A1A',
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: '#333',
+  },
+  micBtnActive: { backgroundColor: '#7B0000', borderColor: '#C0392B' },
+  micBtnText: { fontSize: 20 },
+  muteBtn: {
+    width: 38, height: 38, borderRadius: 19, backgroundColor: '#1A1A1A',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  muteBtnText: { fontSize: 18 },
+  speakingBar: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingHorizontal: 14, paddingVertical: 8,
+    backgroundColor: '#0F0F0F', borderTopWidth: 1, borderTopColor: '#1A1A1A',
+  },
+  speakingIcon: { fontSize: 16 },
+  speakingText: { flex: 1, color: '#888', fontSize: 13, lineHeight: 18, textAlign: 'right' },
+  speakingStop: { padding: 4 },
+  speakingStopText: { color: '#444', fontSize: 16, fontWeight: '700' },
 
   crisisBar: {
     backgroundColor: '#7B0000',

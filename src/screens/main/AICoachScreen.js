@@ -3,12 +3,13 @@ import {
   View, Text, StyleSheet, TextInput, TouchableOpacity,
   FlatList, KeyboardAvoidingView, Platform, ActivityIndicator,
 } from 'react-native';
+import { useVoice } from '../../hooks/useVoice';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { chatWithAI, getAIStatus } from '../../services/aiService';
 import { askTeam } from '../../services/agents';
 import {
   getOnboardingState, getFinancialData, isOnboardingComplete,
-  getChatHistory, saveChatHistory, getGameSessions,
+  getChatHistory, saveChatHistory, appendChatMessage, getGameSessions,
 } from '../../services/storage';
 import {
   getTodayOnboardingPrompt, processOnboardingAnswer,
@@ -38,6 +39,8 @@ export default function AICoachScreen({ navigation }) {
   const flatListRef = useRef(null);
   const mountedRef = useRef(true);
   const onboardingStateRef = useRef({});
+  const lastVoiceRef = useRef(false);
+  const voice = useVoice();
 
   useEffect(() => {
     mountedRef.current = true;
@@ -90,6 +93,7 @@ export default function AICoachScreen({ navigation }) {
   function addMsg(role, text) {
     const msg = { id: nextId(), role, text };
     setMessages(prev => [...prev, msg]);
+    if (role === 'assistant') voice.speak(text);
     return msg.id;
   }
 
@@ -128,12 +132,23 @@ export default function AICoachScreen({ navigation }) {
     addMsg('assistant', text);
   }
 
+  const sendVoice = () => {
+    if (voice.isListening) { voice.stopListening(); return; }
+    voice.stopSpeaking();
+    voice.startListening((transcript) => {
+      setInput(transcript);
+      lastVoiceRef.current = true;
+      setTimeout(() => send(transcript), 700);
+    });
+  };
+
   const send = async (text) => {
     if (!text.trim() || loading) return;
+    voice.stopSpeaking();
     setInput('');
     setLoading(true);
 
-    addMsg('user', text);
+    const userMsgId = addMsg('user', text);
     setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
 
     try {
@@ -151,6 +166,7 @@ export default function AICoachScreen({ navigation }) {
         await askNextQuestion(currentDay);
 
       } else {
+        appendChatMessage({ id: userMsgId, role: 'user', text }).catch(() => {});
         // מצב coaching — multi-agent
         const partialId = nextId();
         setMessages(prev => [...prev, { id: partialId, role: 'assistant', text: '' }]);
@@ -173,6 +189,8 @@ export default function AICoachScreen({ navigation }) {
               saveChatHistory(updated).catch(() => {});
               return updated;
             });
+            appendChatMessage({ id: partialId, role: 'assistant', text: finalText }).catch(() => {});
+            voice.speak(finalText);
           }
         } else {
           await chatWithAI(text, onboardingStateRef.current, (partial) => {
@@ -239,6 +257,17 @@ export default function AICoachScreen({ navigation }) {
         showsVerticalScrollIndicator={false}
       />
 
+      {/* Subtitle strip */}
+      {voice.isSpeaking && (
+        <View style={styles.speakingBar}>
+          <Text style={styles.speakingIcon}>🔊</Text>
+          <Text style={styles.speakingText} numberOfLines={2}>{voice.speakingText}</Text>
+          <TouchableOpacity onPress={voice.stopSpeaking} style={styles.speakingStop}>
+            <Text style={styles.speakingStopText}>✕</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Input */}
       <View style={styles.inputRow}>
         <TextInput
@@ -250,9 +279,21 @@ export default function AICoachScreen({ navigation }) {
           multiline
           textAlign="right"
         />
+        {voice.supported && (
+          <TouchableOpacity
+            style={[styles.micBtn, voice.isListening && styles.micBtnActive]}
+            onPress={sendVoice}
+            disabled={loading}
+          >
+            <Text style={styles.micBtnText}>{voice.isListening ? '⏹' : '🎤'}</Text>
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity style={styles.muteBtn} onPress={voice.toggleMute}>
+          <Text style={styles.muteBtnText}>{voice.muted ? '🔇' : '🔊'}</Text>
+        </TouchableOpacity>
         <TouchableOpacity
           style={[styles.sendBtn, (!input.trim() || loading) && styles.sendBtnDisabled]}
-          onPress={() => send(input)}
+          onPress={() => { lastVoiceRef.current = false; send(input); }}
           disabled={!input.trim() || loading}
         >
           {loading
@@ -265,9 +306,23 @@ export default function AICoachScreen({ navigation }) {
   );
 }
 
-// תגובות קצרות לאחר קבלת תשובה
 function getAck(field, answer) {
   const n = typeof answer === 'number' ? answer : null;
+  const t = typeof answer === 'string' ? answer.toLowerCase() : '';
+
+  if (field === 'endOfMonthFeeling') {
+    if (/עצבני|לחוץ|מתח|מפחד|חרד/.test(t)) return 'לחץ בסוף חודש — זה נפוץ, נעבוד על זה ביחד.';
+    if (/שקט|בסדר|טוב|רגוע/.test(t)) return 'שקט — זה כוח. נבנה עליו.';
+    if (/לא בודק|לא מסתכל|מתעלם/.test(t)) return 'לא בודק — כנות! זה נקודת פתיחה טובה.';
+    return 'הבנתי — נשים על זה עין ביחד.';
+  }
+  if (field === 'moneyPersonality') {
+    if (/חוסך|שומר|שמרן/.test(t)) return 'חוסך — בסיס טוב לבניית עתיד.';
+    if (/מוציא|מבזבז|קונה/.test(t)) return 'נוטה להוציא — נבין מה מניע את זה.';
+    if (/לא מסתכל|לא בודק|מתעלם/.test(t)) return 'לא מסתכל — כנות! נתחיל לבנות תמונה ברורה.';
+    return 'הבנתי. נלמד ביחד מה קורה עם הכסף.';
+  }
+
   const acks = {
     age:              `${answer} — מבין.`,
     familyStatus:     `${answer} — נרשם.`,
@@ -283,19 +338,40 @@ function getAck(field, answer) {
     overdraft:        n === 0 ? 'ללא מינוס — מצוין.' : `₪${(n || 0).toLocaleString('he-IL')} מינוס — רשמתי.`,
     savings:          n !== null ? `₪${n.toLocaleString('he-IL')} בצד — מבין.` : 'רשמתי.',
     assets:           'רשמתי.',
-    moneyGoal:          'מטרה ברורה — רשמתי.',
-    moneyFear:          'הבנתי. זה בדיוק מה שנעבוד עליו יחד.',
-    endOfMonthFeeling:  'הבנתי את התחושה. ממשיכים.',
-    moneyPersonality:   `${answer} — מבין את הדפוס שלך.`,
-    biggestDream:       'חלום ברור — שמרתי.',
-    spouseIncome:       'רשמתי.',
-    retirementSavings:  n !== null ? `₪${n.toLocaleString('he-IL')} לפנסיה — רשמתי.` : 'רשמתי.',
+    moneyGoal:        'מטרה ברורה — רשמתי.',
+    moneyFear:        'הבנתי. זה בדיוק מה שנעבוד עליו יחד.',
+    biggestDream:     /לא יודע|לא חושב|מורכב|קשה לענות|אין לי|אין/.test(t) ? 'בסדר — גם חוסר ודאות זה מידע. נמשיך.' : 'חלום יפה. בואו נגרום לזה לקרות.',
+    spouseIncome:     'רשמתי.',
+    retirementSavings: n !== null ? `₪${n.toLocaleString('he-IL')} לפנסיה — רשמתי.` : 'רשמתי.',
   };
   return acks[field] || 'רשמתי.';
 }
 
+const STAGE_RE = /^[🔍🧠✓✨⏳]/;
+
 function Bubble({ message }) {
   const isUser = message.role === 'user';
+  const isStage = !isUser && STAGE_RE.test(message.text || '');
+  const [displayed, setDisplayed] = useState(message.text || '');
+  const timerRef = useRef(null);
+
+  useEffect(() => {
+    const text = message.text || '';
+    if (isUser || isStage || !text) {
+      setDisplayed(text);
+      return;
+    }
+    clearInterval(timerRef.current);
+    let i = 0;
+    setDisplayed('');
+    timerRef.current = setInterval(() => {
+      i++;
+      setDisplayed(text.slice(0, i));
+      if (i >= text.length) clearInterval(timerRef.current);
+    }, 22);
+    return () => clearInterval(timerRef.current);
+  }, [message.text]);
+
   return (
     <View style={[styles.bubbleContainer, isUser ? styles.bubbleContainerUser : styles.bubbleContainerBot]}>
       {!isUser && (
@@ -305,7 +381,7 @@ function Bubble({ message }) {
       )}
       <View style={[styles.bubble, isUser ? styles.bubbleUser : styles.bubbleBot]}>
         <Text style={[styles.bubbleText, isUser ? styles.bubbleTextUser : styles.bubbleTextBot]}>
-          {message.text}
+          {displayed}
         </Text>
       </View>
     </View>
@@ -369,4 +445,25 @@ const styles = StyleSheet.create({
   },
   sendBtnDisabled: { backgroundColor: '#222' },
   sendBtnText: { color: '#FFF', fontSize: 22, fontWeight: '700' },
+  micBtn: {
+    width: 46, height: 46, borderRadius: 23, backgroundColor: '#1A1A1A',
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: '#333',
+  },
+  micBtnActive: { backgroundColor: '#7B0000', borderColor: '#C0392B' },
+  micBtnText: { fontSize: 20 },
+  muteBtn: {
+    width: 38, height: 38, borderRadius: 19, backgroundColor: '#1A1A1A',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  muteBtnText: { fontSize: 18 },
+  speakingBar: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingHorizontal: 14, paddingVertical: 8,
+    backgroundColor: '#0F0F0F', borderTopWidth: 1, borderTopColor: '#1A1A1A',
+  },
+  speakingIcon: { fontSize: 16 },
+  speakingText: { flex: 1, color: '#888', fontSize: 13, lineHeight: 18, textAlign: 'right' },
+  speakingStop: { padding: 4 },
+  speakingStopText: { color: '#444', fontSize: 16, fontWeight: '700' },
 });

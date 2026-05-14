@@ -5,11 +5,35 @@ if ($LASTEXITCODE -ne 0) {
   exit $LASTEXITCODE
 }
 
-# Patch dist/index.html — dark background and block bounce ONLY
+# Patch dist/index.html — viewport lock, dark bg, no scroll
 $htmlPath = "dist\index.html"
-$styleInject = "<style>body, html { background-color: #0A0A0A; overscroll-behavior: none; }</style></head>"
+$styleInject = @"
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  html {
+    background-color: #0A0A0A;
+    height: 100dvh; height: 100vh;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+  body {
+    background-color: #0A0A0A;
+    height: 100dvh; height: 100vh;
+    overflow: hidden;
+    overscroll-behavior: none;
+    margin: 0; padding: 0;
+    position: fixed; width: 100%;
+  }
+  #root {
+    height: 100dvh; height: 100vh;
+    overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+</style>
+</head>
+"@
 (Get-Content $htmlPath -Raw) -replace '</head>', $styleInject | Set-Content $htmlPath -NoNewline
-Write-Host "Patched index.html with dark background and bounce prevention" -ForegroundColor DarkGray
+Write-Host "Patched index.html — viewport lock + dark bg" -ForegroundColor DarkGray
 
 Write-Host "Configuring Vercel project..." -ForegroundColor Cyan
 New-Item -ItemType Directory -Force -Path "dist\.vercel" | Out-Null
