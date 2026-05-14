@@ -162,6 +162,8 @@ begin
   values (new.id, new.email)
   on conflict (id) do update
     set email = coalesce(public.profiles.email, excluded.email),
+        profile_intake_complete = false,
+        onboarding_complete = false,
         updated_at = now();
   return new;
 end;

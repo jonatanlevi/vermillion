@@ -57,11 +57,13 @@ export default function SettingsScreen({ navigation }) {
     if (Platform.OS === 'web') window.alert('ביטול מנוי יתאפשר בגרסה הבאה.');
   };
 
-  const handleResetQuestionnaire = () => {
+  const handleResetQuestionnaire = async () => {
     const confirmed = Platform.OS === 'web'
       ? window.confirm('איפוס הפרופיל — תועבר לתהליך ההרשמה מחדש. כל הנתונים ימחקו. האם אתה בטוח?')
       : true;
-    if (confirmed) resetOnboarding();
+    if (!confirmed) return;
+    await resetOnboarding();
+    navigation.navigate('CompleteProfile');
   };
 
   const handleClearChat = () => {

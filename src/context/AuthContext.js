@@ -85,9 +85,10 @@ export function AuthProvider({ children }) {
           }
         } catch {}
       }
-    } catch (_) {}
 
-    if (Platform.OS === 'web') window.location.reload();
+      // Refresh profile state without page reload — caller navigates to CompleteProfile
+      await loadProfile(userId);
+    } catch (_) {}
   }
 
   async function deleteAccount() {
