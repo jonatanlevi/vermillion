@@ -17,6 +17,7 @@ import {
 } from '../../services/onboardingAI';
 
 const USE_AGENT_TEAM = true;
+const VOICE_ENABLED = false; // re-enable after OpenAI TTS + Whisper are wired up
 const nextId = () => `msg_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
 
 function getDayNumber(startDate) {
@@ -155,7 +156,7 @@ export default function AICoachScreen({ navigation }) {
   function addMsg(role, text) {
     const msg = { id: nextId(), role, text };
     setMessages(prev => [...prev, msg]);
-    if (role === 'assistant') voice.speak(text);
+    if (role === 'assistant' && VOICE_ENABLED) voice.speak(text);
     return msg.id;
   }
 
@@ -253,7 +254,7 @@ export default function AICoachScreen({ navigation }) {
               return updated;
             });
             appendChatMessage({ id: partialId, role: 'assistant', text: finalText }).catch(() => {});
-            voice.speak(finalText);
+            if (VOICE_ENABLED) voice.speak(finalText);
           }
         } else {
           await chatWithAI(text, onboardingStateRef.current, (partial) => {
@@ -272,7 +273,7 @@ export default function AICoachScreen({ navigation }) {
   };
 
   // ── Voice Mode Screen ──────────────────────────────────────────
-  if (voiceMode) {
+  if (voiceMode && VOICE_ENABLED) {
     const rings = [ring1, ring2, ring3].map(r => ({
       scale:   r.interpolate({ inputRange: [0, 1], outputRange: [1, 3.2] }),
       opacity: r.interpolate({ inputRange: [0, 0.15, 0.7, 1], outputRange: [0, 0.55, 0.4, 0] }),
@@ -353,18 +354,20 @@ export default function AICoachScreen({ navigation }) {
             </View>
           </View>
         )}
-        <TouchableOpacity
-          style={[styles.voiceModeBtn, !voice.ttsSupported && { opacity: 0.35 }]}
-          onPress={() => {
-            if (!voice.ttsSupported) {
-              if (Platform.OS === 'web') window.alert('דפדפן זה אינו תומך בדיבור. נסה ב-Chrome או Brave.');
-              return;
-            }
-            enterVoiceMode();
-          }}
-        >
-          <Text style={styles.voiceModeBtnText}>🎙</Text>
-        </TouchableOpacity>
+        {VOICE_ENABLED && (
+          <TouchableOpacity
+            style={[styles.voiceModeBtn, !voice.ttsSupported && { opacity: 0.35 }]}
+            onPress={() => {
+              if (!voice.ttsSupported) {
+                if (Platform.OS === 'web') window.alert('דפדפן זה אינו תומך בדיבור. נסה ב-Chrome או Brave.');
+                return;
+              }
+              enterVoiceMode();
+            }}
+          >
+            <Text style={styles.voiceModeBtnText}>🎙</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       <FlatList
@@ -377,7 +380,7 @@ export default function AICoachScreen({ navigation }) {
         showsVerticalScrollIndicator={false}
       />
 
-      {voice.isSpeaking && (
+      {VOICE_ENABLED && voice.isSpeaking && (
         <View style={styles.speakingBar}>
           <Text style={styles.speakingIcon}>🔊</Text>
           <Text style={styles.speakingText} numberOfLines={2}>{voice.speakingText}</Text>
@@ -397,9 +400,11 @@ export default function AICoachScreen({ navigation }) {
           multiline
           textAlign="right"
         />
-        <TouchableOpacity style={styles.muteBtn} onPress={voice.toggleMute}>
-          <Text style={styles.muteBtnText}>{voice.muted ? '🔇' : '🔊'}</Text>
-        </TouchableOpacity>
+        {VOICE_ENABLED && (
+          <TouchableOpacity style={styles.muteBtn} onPress={voice.toggleMute}>
+            <Text style={styles.muteBtnText}>{voice.muted ? '🔇' : '🔊'}</Text>
+          </TouchableOpacity>
+        )}
         <TouchableOpacity
           style={[styles.sendBtn, (!input.trim() || loading) && styles.sendBtnDisabled]}
           onPress={() => { lastVoiceRef.current = false; send(input); }}

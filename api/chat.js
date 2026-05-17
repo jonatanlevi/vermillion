@@ -6,8 +6,22 @@ export default async function handler(req) {
   let body;
   try { body = await req.json(); } catch { return new Response('Bad JSON', { status: 400 }); }
 
-  const { messages, systemPrompt } = body || {};
+  const { messages, systemPrompt, taskType } = body || {};
   if (!messages?.length) return new Response(JSON.stringify({ error: 'missing messages' }), { status: 400 });
+
+  // ── Model routing by task type ─────────────────────────────────
+  // taskType: 'coaching' | 'quick_ack' | 'profile_reveal'
+  //
+  // profile_reveal → Claude Opus 4.7 (Anthropic) — deep one-time analysis
+  //   TODO: add ANTHROPIC_API_KEY + swap to Anthropic endpoint
+  //
+  // quick_ack      → llama-3.1-8b-instant (Groq) — short acknowledgments
+  // coaching       → llama-3.3-70b-versatile (Groq) — daily conversations
+  //
+  // During development everything routes to Groq (free tier).
+  const isQuickAck = taskType === 'quick_ack';
+  const groqModel  = isQuickAck ? 'llama-3.1-8b-instant' : 'llama-3.3-70b-versatile';
+  const maxTokens  = isQuickAck ? 120 : 600;
 
   const GROQ_API_KEY = process.env.GROQ_API_KEY;
   if (!GROQ_API_KEY) return new Response(JSON.stringify({ error: 'GROQ_API_KEY not configured' }), { status: 500 });
@@ -23,9 +37,9 @@ export default async function handler(req) {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'llama-3.3-70b-versatile',
+      model: groqModel,
       messages: groqMessages,
-      max_tokens: 600,
+      max_tokens: maxTokens,
       temperature: 0.4,
       stream: true,
     }),
