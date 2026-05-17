@@ -221,7 +221,7 @@ export default function ProfileRevealScreen({ navigation }) {
           {blindSpots.slice(0, 3).map((b) => (
             <Text key={b.key} style={styles.blindSpotItem}>• {b.blindSpot}</Text>
           ))}
-          <TouchableOpacity onPress={() => navigation.navigate('DailyQuestions')} activeOpacity={0.85}>
+          <TouchableOpacity onPress={() => navigation.navigate('OnboardingChat')} activeOpacity={0.85}>
             <Text style={styles.blindSpotsAction}>השלם ← (+{blindSpots.length} נקודות)</Text>
           </TouchableOpacity>
         </View>
@@ -229,7 +229,7 @@ export default function ProfileRevealScreen({ navigation }) {
 
       {!generating ? (
         <View style={styles.actionRow}>
-          <TouchableOpacity style={styles.editBtn} onPress={() => navigation.navigate('DailyQuestions')} activeOpacity={0.85}>
+          <TouchableOpacity style={styles.editBtn} onPress={() => navigation.navigate('OnboardingChat')} activeOpacity={0.85}>
             <Text style={styles.editBtnText}>✏️ תקן פרט</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.approveBtn} onPress={handleApprove} activeOpacity={0.88}>

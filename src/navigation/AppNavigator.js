@@ -25,6 +25,7 @@ import ProfileScreen    from '../screens/profile/ProfileScreen';
 
 import HomeScreen              from '../screens/main/HomeScreen';
 import DailyQuestionsScreen    from '../screens/main/DailyQuestionsScreen';
+import OnboardingChatScreen    from '../screens/main/OnboardingChatScreen';
 import DailyCoachingScreen     from '../screens/main/DailyCoachingScreen';
 import ProfileRevealScreen     from '../screens/main/ProfileRevealScreen';
 import SettingsScreen          from '../screens/main/SettingsScreen';
@@ -126,6 +127,7 @@ export default function AppNavigator() {
             <Stack.Screen name="ModelDownload"     component={ModelDownloadScreen} />
             <Stack.Screen name="Home"              component={HomeScreen} />
             <Stack.Screen name="DailyQuestions"    component={DailyQuestionsScreen} />
+            <Stack.Screen name="OnboardingChat"    component={OnboardingChatScreen} />
             <Stack.Screen name="DailyCoaching"     component={DailyCoachingScreen} />
             <Stack.Screen name="ProfileReveal"     component={ProfileRevealScreen} />
             <Stack.Screen name="Settings"          component={SettingsScreen} />

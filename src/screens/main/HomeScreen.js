@@ -150,7 +150,7 @@ export default function HomeScreen({ navigation }) {
               { borderColor: ts.todayDone ? '#27AE60' : todayMeta.color },
               ts.isLate && !ts.todayDone && styles.missionCardLate,
             ]}
-            onPress={() => !ts.todayDone && navigation.navigate('DailyQuestions')}
+            onPress={() => !ts.todayDone && navigation.navigate('OnboardingChat')}
             activeOpacity={ts.todayDone ? 1 : 0.88}
           >
             <View style={styles.missionLeft}>
