@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
-  Animated, Modal, Easing,
+  Animated, Modal, Easing, Platform, Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -36,11 +36,21 @@ import FlashCountGame  from '../../components/FlashCountGame';
 import SpeedMatchGame  from '../../components/SpeedMatchGame';
 import MathChainGame   from '../../components/MathChainGame';
 import DiceAddGame     from '../../components/DiceAddGame';
-import { saveCommitmentTime, getCommitmentTime, saveGameStamp, getGameLog, getLeaderboard, saveGameSession } from '../../services/storage';
+import {
+  saveCommitmentTime, saveChallengeTarget, getCommitmentTime,
+  completeGame, saveGameStamp, getGameLog, getLeaderboard, saveGameSession, syncProfileTimezone,
+} from '../../services/storage';
+import { getDeviceTimezone, getLocalTimeParts, getStampWindowStatus, getWindowWarning, stampErrorMessage } from '../../utils/stampWindow';
+import {
+  canSetChallengeTarget, clampChallengeHM, getChallengeConfig, getDefaultChallengeHM,
+  hmToMins, minsToHM,
+} from '../../constants/stampChallenge';
 import { getOnboardingState } from '../../services/storage';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../services/supabase';
 import Avatar3D from '../../components/Avatar3D';
+import DayScheduleBanner from '../../components/DayScheduleBanner';
+import { getDayScheduleView } from '../../utils/dayScheduleDisplay';
 import { getUnlockedEquipment, getEffectiveOverrides } from '../../utils/registrationGate';
 
 const MONTH_HE = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
@@ -209,22 +219,96 @@ function CommitModal({ visible, time, onClose }) {
   );
 }
 
-// ─── Daily stamp guidance card ─────────────────────────────────
-function DailyStampCard({ commitTime, todayStamped, activeDay }) {
-  const h   = commitTime ? String(commitTime.hour).padStart(2, '0')   : '--';
-  const m   = commitTime ? String(commitTime.minute).padStart(2, '0') : '--';
-  const now = new Date();
-  const nowH = String(now.getHours()).padStart(2, '0');
-  const nowM = String(now.getMinutes()).padStart(2, '0');
+function getChallengeTarget(commitTime, mode) {
+  if (!commitTime || !mode) return null;
+  if (mode === 'friday') return commitTime.fridayTarget || null;
+  if (mode === 'saturday') return commitTime.saturdayTarget || null;
+  return null;
+}
 
+function isTargetTimeReached(target) {
+  if (!target) return false;
+  const now = new Date();
   const gate = new Date(now);
-  if (commitTime) gate.setHours(commitTime.hour, commitTime.minute, 0, 0);
-  const timeReached = commitTime && now >= gate;
+  gate.setHours(target.hour, target.minute, 0, 0);
+  return now >= gate;
+}
+
+// ─── Daily stamp guidance card ─────────────────────────────────
+function DailyStampCard({ commitTime, todayStamped, stampWindow, onSetChallengeTime }) {
+  const schedule = getDayScheduleView(commitTime);
+
+  const isChallenge = stampWindow?.mode === 'friday' || stampWindow?.mode === 'saturday';
+  const challengeTarget = isChallenge ? getChallengeTarget(commitTime, stampWindow.mode) : null;
+  const activeTarget = isChallenge ? challengeTarget : commitTime;
+  const h = activeTarget ? String(activeTarget.hour).padStart(2, '0') : '--';
+  const m = activeTarget ? String(activeTarget.minute).padStart(2, '0') : '--';
+
+  const now = new Date();
+  const gate = new Date(now);
+  if (activeTarget) gate.setHours(activeTarget.hour, activeTarget.minute, 0, 0);
+  const timeReached = activeTarget && now >= gate;
+
+  const winCfg = isChallenge ? getChallengeConfig(stampWindow.mode) : null;
+  const { day, mins } = schedule;
+  const maySetChallenge = isChallenge && !challengeTarget && canSetChallengeTarget(day, mins);
 
   if (todayStamped) {
     return (
       <View style={dsc.card}>
         <Text style={dsc.doneText}>✅ חתמת היום! שחק לכיף בלבד</Text>
+      </View>
+    );
+  }
+
+  // שישי/שבת: המשתמש קובע שעה בתוך הטווח, ואז חותם כשמגיע
+  if (isChallenge) {
+    if (!stampWindow.open && !maySetChallenge) {
+      return (
+        <View style={dsc.card}>
+          <View style={dsc.topRow}>
+            <Text style={dsc.icon}>🔒</Text>
+            <Text style={dsc.dayText}>אתגר {winCfg.labelHe} — חלון סגור</Text>
+          </View>
+          <Text style={dsc.times}>{schedule.nowLine}</Text>
+          <Text style={dsc.hintLocked}>{stampWindow.message}</Text>
+        </View>
+      );
+    }
+    if (maySetChallenge) {
+      return (
+        <View style={[dsc.card, dsc.cardActive]}>
+          <View style={dsc.topRow}>
+            <Text style={dsc.icon}>📌</Text>
+            <Text style={dsc.dayText}>קבע מתי תחתום היום</Text>
+          </View>
+          <Text style={dsc.times}>טווח מותר: {winCfg.openLabel} – {winCfg.closeLabel}</Text>
+          <TouchableOpacity style={dsc.setTimeBtn} onPress={() => onSetChallengeTime(stampWindow.mode)} activeOpacity={0.85}>
+            <Text style={dsc.setTimeBtnText}>בחר שעת חתימה</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    if (!timeReached) {
+      return (
+        <View style={dsc.card}>
+          <View style={dsc.topRow}>
+            <Text style={dsc.icon}>🔒</Text>
+            <Text style={dsc.dayText}>חזור ב-{h}:{m} לחתום</Text>
+          </View>
+          <Text style={dsc.times}>יעד: {h}:{m}  ·  {schedule.nowLine}</Text>
+          <Text style={dsc.hintLocked}>שחק לכיף — החתימה נפתחת בשעה שבחרת (בתוך הטווח)</Text>
+        </View>
+      );
+    }
+    return (
+      <View style={[dsc.card, dsc.cardActive]}>
+        <View style={dsc.topRow}>
+          <Text style={dsc.icon}>⏱</Text>
+          <Text style={dsc.dayText}>הגיע הזמן — שחק וחתום!</Text>
+        </View>
+        <Text style={dsc.times}>יעד: {h}:{m}  ·  {schedule.nowLine}</Text>
+        <Text style={dsc.hint}>טווח {winCfg.openLabel}–{winCfg.closeLabel} · כל משחק יפתח חתימה</Text>
       </View>
     );
   }
@@ -236,8 +320,8 @@ function DailyStampCard({ commitTime, todayStamped, activeDay }) {
           <Text style={dsc.icon}>🔒</Text>
           <Text style={dsc.dayText}>חזור ב-{h}:{m} לחתום</Text>
         </View>
-        <Text style={dsc.times}>עכשיו: {nowH}:{nowM}  ·  נעול עד {h}:{m}</Text>
-        <Text style={dsc.hintLocked}>שחק עכשיו לכיף — stamp נפתח בזמן שקבעת</Text>
+        <Text style={dsc.times}>{schedule.nowLine}  ·  נעול עד {h}:{m}</Text>
+        <Text style={dsc.hintLocked}>שחק עכשיו לכיף — stamp נפתח בזמן ה-DNA שקבעת</Text>
       </View>
     );
   }
@@ -248,9 +332,66 @@ function DailyStampCard({ commitTime, todayStamped, activeDay }) {
         <Text style={dsc.icon}>⏱</Text>
         <Text style={dsc.dayText}>הגיע הזמן — שחק וחתום!</Text>
       </View>
-      <Text style={dsc.times}>קבעת: {h}:{m}  ·  עכשיו: {nowH}:{nowM}</Text>
+      <Text style={dsc.times}>DNA: {h}:{m}  ·  {schedule.nowLine}</Text>
       <Text style={dsc.hint}>כל משחק יפתח את כפתור החתימה →</Text>
     </View>
+  );
+}
+
+// ─── Window Warning Banner ─────────────────────────────────────
+function WindowWarningBanner({ warning }) {
+  if (!warning) return null;
+  return (
+    <View style={[lob.windowBanner, { backgroundColor: warning.bg, borderColor: warning.color + '55' }]}>
+      <Text style={[lob.windowBannerText, { color: warning.color }]}>
+        {warning.icon}  {warning.title}
+      </Text>
+      <Text style={[lob.windowBannerText, { color: '#888', fontSize: 12, fontWeight: '400', marginTop: 2 }]}>
+        {warning.body}
+      </Text>
+    </View>
+  );
+}
+
+// ─── Real Week Intro Modal ─────────────────────────────────────
+function RealWeekIntroModal({ visible, onDismiss }) {
+  if (!visible) return null;
+  return (
+    <Modal visible={visible} transparent animationType="fade">
+      <View style={rwi.overlay}>
+        <View style={rwi.card}>
+          <Text style={rwi.headline}>✨ שבוע אמיתי</Text>
+          <Text style={rwi.sub}>
+            7 הימים הראשונים הסתיימו.{'\n'}עכשיו מתחיל האתגר האמיתי.
+          </Text>
+          <View style={rwi.infoRow}>
+            <View style={rwi.infoCard}>
+              <Text style={rwi.infoIcon}>🧬</Text>
+              <Text style={rwi.infoTitle}>DNA</Text>
+              <Text style={rwi.infoDesc}>שעה אחת שבחרת{'\n'}VerMillion ממתין לך כל יום</Text>
+              <Text style={rwi.infoScore}>עד 1,000 נק׳</Text>
+            </View>
+            <View style={[rwi.infoCard, { borderColor: '#D4AF3744' }]}>
+              <Text style={rwi.infoIcon}>📌</Text>
+              <Text style={[rwi.infoTitle, { color: '#D4AF37' }]}>שישי</Text>
+              <Text style={rwi.infoDesc}>00:01 עד 15:30{'\n'}לשחקני בוקר</Text>
+            </View>
+            <View style={[rwi.infoCard, { borderColor: '#8E44AD44' }]}>
+              <Text style={rwi.infoIcon}>🌙</Text>
+              <Text style={[rwi.infoTitle, { color: '#8E44AD' }]}>שבת</Text>
+              <Text style={rwi.infoDesc}>21:00 עד 23:59{'\n'}לשחקני ערב</Text>
+            </View>
+          </View>
+          <Text style={rwi.note}>
+            הניקוד פוחת ככל שחותמים רחוק יותר מהשעה שבחרת.{'\n'}
+            שישי ושבת — מנגנון שונה לגמרי מהשגרה.
+          </Text>
+          <TouchableOpacity style={rwi.btn} onPress={onDismiss} activeOpacity={0.85}>
+            <Text style={rwi.btnText}>הבנתי — בוא נשחק 🎮</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -268,6 +409,8 @@ export default function GamesScreen({ navigation }) {
   const [stampAccuracy, setStampAccuracy]   = useState(null);
   const [activeDay, setActiveDay]           = useState(1);
   const [todayStamped, setTodayStamped]     = useState(false);
+  const [gameToken, setGameToken]           = useState(null);
+  const gameStartedAt                       = useRef(null);
   const [userRank, setUserRank]             = useState(null);
   const [leaderScore, setLeaderScore]       = useState(0);
   const [daysLeft, setDaysLeft]             = useState(0);
@@ -275,7 +418,13 @@ export default function GamesScreen({ navigation }) {
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [pickedHour, setPickedHour]         = useState(8);
   const [pickedMinute, setPickedMinute]     = useState(0);
+  const [challengePickerMode, setChallengePickerMode] = useState(null);
+  const [pickedChallengeMins, setPickedChallengeMins] = useState(600);
   const [gameLog, setGameLog]               = useState({});
+  const [stampWindow, setStampWindow]       = useState({ open: true, message: null });
+  const [stampError, setStampError]         = useState(null);
+  const [windowWarning, setWindowWarning]       = useState(null);
+  const [showRealWeekIntro, setShowRealWeekIntro] = useState(false);
   const fadeAnim  = useRef(new Animated.Value(1)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
@@ -294,13 +443,29 @@ export default function GamesScreen({ navigation }) {
       const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
       setDaysLeft(daysInMonth - now.getDate());
 
+      syncProfileTimezone().catch(() => {});
+      const refreshSchedule = () => {
+        const tz = getDeviceTimezone();
+        setStampWindow(getStampWindowStatus(tz));
+        setWindowWarning(getWindowWarning(tz));
+      };
+      refreshSchedule();
+
       Promise.all([getCommitmentTime(), getOnboardingState(), getGameLog()]).then(([c, state, log]) => {
         const onbDay = Math.min((state?.daysCompleted || []).length + 1, 7);
         setActiveDay(onbDay);
         setGameLog(log || {});
+        const completed = (state?.daysCompleted || []).length;
+        if (completed >= 7) {
+          try {
+            const seenKey = `@vermillion/real_week_intro_seen/${user?.id || 'local'}`;
+            const seen = typeof localStorage !== 'undefined' && localStorage.getItem(seenKey) === '1';
+            if (!seen) setShowRealWeekIntro(true);
+          } catch {}
+        }
         if (c) {
-          setHasCommitment(true);
           setCommitTime(c);
+          setHasCommitment(c.hour != null && c.minute != null);
           const entry = log[new Date().getDate()];
           const stampedToday = !!entry &&
             new Date(entry.stampedAt).toDateString() === new Date().toDateString();
@@ -315,10 +480,14 @@ export default function GamesScreen({ navigation }) {
           setLeaderScore(entry?.total_score ?? 0);
         }).catch(() => {});
       }
+      const tick = setInterval(refreshSchedule, 30_000);
+      return () => clearInterval(tick);
     }, [user?.id])
   );
 
   function selectGame(key) {
+    gameStartedAt.current = new Date().toISOString();
+    setGameToken(null);
     Animated.timing(fadeAnim, { toValue: 0, duration: 150, useNativeDriver: true }).start(() => {
       setActiveGame(key);
       setShowCommitBtn(false);
@@ -332,9 +501,27 @@ export default function GamesScreen({ navigation }) {
   }
 
   async function handleGameFinish(score) {
-    const playedGame = activeGame;
+    const playedGame  = activeGame;
+    const startedAt   = gameStartedAt.current || new Date().toISOString();
+    const durationMs  = new Date().getTime() - new Date(startedAt).getTime();
     setSessionScore(score);
     setActiveGame(null);
+
+    // Issue game token — proves this game was actually played
+    const gameResult = await completeGame({
+      day:        calendarDay,
+      gameKey:    playedGame,
+      gameScore:  score,
+      startedAt,
+      durationMs,
+    });
+    setGameToken(gameResult.token);
+    if (!gameResult.ok || !gameResult.token) {
+      const msg = stampErrorMessage(gameResult.error, gameResult.message);
+      if (Platform.OS === 'web') window.alert(msg);
+      else Alert.alert('לא ניתן לאשר את המשחק', msg);
+      return;
+    }
 
     const cat = CATEGORIES.find(c => c.games.includes(playedGame));
     if (playedGame && cat) saveGameSession(playedGame, cat.id, score).catch(() => {});
@@ -350,21 +537,69 @@ export default function GamesScreen({ navigation }) {
       } catch (_) {}
     }
 
-    if (!hasCommitment) {
-      setShowCommitBtn(true);
-      return;
+    const win = getStampWindowStatus(getDeviceTimezone());
+    setStampWindow(win);
+    const { day, mins } = getLocalTimeParts(new Date(), getDeviceTimezone());
+    const needsChallengeTarget =
+      (win.mode === 'friday' || win.mode === 'saturday') &&
+      !getChallengeTarget(commitTime, win.mode);
+
+    if (!hasCommitment || needsChallengeTarget) {
+      if (win.mode === 'friday' || win.mode === 'saturday') {
+        if (canSetChallengeTarget(day, mins)) {
+          openChallengePicker(win.mode);
+        }
+        return;
+      }
+      if (!hasCommitment) {
+        setShowCommitBtn(true);
+        return;
+      }
     }
     if (todayStamped) return;
+
     const now  = new Date();
-    const gate = new Date(now);
-    gate.setHours(commitTime.hour, commitTime.minute, 0, 0);
-    if (now >= gate) setShowDailyStamp(true);
-    // לפני הזמן — רק מציג ניקוד, stamp נעול
+    if (win.mode === 'friday' || win.mode === 'saturday') {
+      const target = getChallengeTarget(commitTime, win.mode);
+      if (!target) return;
+      if (!win.open || !isTargetTimeReached(target)) return;
+      setShowDailyStamp(true);
+    } else {
+      const gate = new Date(now);
+      gate.setHours(commitTime.hour, commitTime.minute, 0, 0);
+      if (now >= gate) setShowDailyStamp(true);
+    }
   }
 
   async function handleDailyStamp() {
-    const result = await saveGameStamp(calendarDay);
-    setStampAccuracy(result?.ms_diff ?? 0);
+    setStampError(null);
+    const win = getStampWindowStatus(getDeviceTimezone());
+    setStampWindow(win);
+    if (!win.open) {
+      setStampError(stampErrorMessage('WINDOW_CLOSED', win.message));
+      return;
+    }
+    if (win.mode === 'friday' || win.mode === 'saturday') {
+      const target = getChallengeTarget(commitTime, win.mode);
+      if (!target) {
+        setStampError(stampErrorMessage('CHALLENGE_TIME_REQUIRED'));
+        return;
+      }
+      if (!isTargetTimeReached(target)) {
+        setStampError(`החתימה נפתחת ב-${String(target.hour).padStart(2, '0')}:${String(target.minute).padStart(2, '0')}`);
+        return;
+      }
+    }
+    if (!gameToken) {
+      setStampError(stampErrorMessage('GAME_TOKEN_REQUIRED'));
+      return;
+    }
+    const result = await saveGameStamp(calendarDay, gameToken);
+    if (!result.ok) {
+      setStampError(stampErrorMessage(result.error, result.message));
+      return;
+    }
+    setStampAccuracy(result.ms_diff ?? 0);
   }
 
   function handleStampDone() {
@@ -375,13 +610,44 @@ export default function GamesScreen({ navigation }) {
   }
 
   async function handleCommit(hour, minute) {
-    await saveCommitmentTime(hour, minute);
+    const res = await saveCommitmentTime(hour, minute);
+    if (!res?.ok) {
+      const msg = stampErrorMessage(res?.error || 'DNA_LOCKED');
+      if (Platform.OS === 'web') window.alert(msg);
+      else Alert.alert('שעה נעולה', msg);
+      return;
+    }
     const saved = await getCommitmentTime();
     setCommitTime(saved);
     setHasCommitment(true);
     setShowCommitBtn(false);
     setShowTimePicker(false);
     setShowModal(true);
+  }
+
+  function openChallengePicker(mode) {
+    setShowCommitBtn(false);
+    setShowTimePicker(false);
+    const existing = getChallengeTarget(commitTime, mode);
+    const def = existing || getDefaultChallengeHM(mode);
+    const clamped = clampChallengeHM(mode, def.hour, def.minute);
+    setPickedChallengeMins(hmToMins(clamped.hour, clamped.minute));
+    setChallengePickerMode(mode);
+  }
+
+  async function handleChallengeCommit() {
+    if (!challengePickerMode) return;
+    const { hour, minute } = minsToHM(pickedChallengeMins);
+    const res = await saveChallengeTarget(challengePickerMode, hour, minute);
+    if (!res.ok) {
+      const msg = stampErrorMessage(res.error);
+      if (Platform.OS === 'web') window.alert(msg);
+      else Alert.alert('שעה לא תקינה', msg);
+      return;
+    }
+    const saved = await getCommitmentTime();
+    setCommitTime(saved);
+    setChallengePickerMode(null);
   }
 
   if (activeGame) {
@@ -429,9 +695,44 @@ export default function GamesScreen({ navigation }) {
   }
 
   // יום 2+: מסך חיתום דיוק יומי
+  if (challengePickerMode) {
+    const cfg = getChallengeConfig(challengePickerMode);
+    const { hour, minute } = minsToHM(pickedChallengeMins);
+    const hh = String(hour).padStart(2, '0');
+    const mm = String(minute).padStart(2, '0');
+    return (
+      <View style={[styles.commitScreen, { paddingTop: insets.top + 20 }]}>
+        <TouchableOpacity onPress={() => setChallengePickerMode(null)} style={tp.backBtn}>
+          <Text style={tp.backText}>← חזור</Text>
+        </TouchableOpacity>
+        <Text style={tp.title}>מתי תחתום ב{cfg.labelHe}?</Text>
+        <Text style={tp.sub}>בטווח {cfg.openLabel} – {cfg.closeLabel} (שעון מקומי)</Text>
+        <View style={tp.row}>
+          <View style={tp.col}>
+            <TouchableOpacity
+              onPress={() => setPickedChallengeMins((m) => Math.min(cfg.closeMins, m + 5))}
+              style={tp.arrow}
+            ><Text style={tp.arrowText}>▲</Text></TouchableOpacity>
+            <Text style={tp.digit}>{hh}:{mm}</Text>
+            <TouchableOpacity
+              onPress={() => setPickedChallengeMins((m) => Math.max(cfg.openMins, m - 5))}
+              style={tp.arrow}
+            ><Text style={tp.arrowText}>▼</Text></TouchableOpacity>
+          </View>
+        </View>
+        <TouchableOpacity style={tp.confirmBtn} onPress={handleChallengeCommit} activeOpacity={0.85}>
+          <Text style={tp.confirmText}>נעל {hh}:{mm} ל{cfg.labelHe} 🔒</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   if (showDailyStamp) {
-    const h = commitTime ? String(commitTime.hour).padStart(2,'0')   : '--';
-    const m = commitTime ? String(commitTime.minute).padStart(2,'0') : '--';
+    const stampTarget = (stampWindow.mode === 'friday' || stampWindow.mode === 'saturday')
+      ? getChallengeTarget(commitTime, stampWindow.mode)
+      : commitTime;
+    const h = stampTarget ? String(stampTarget.hour).padStart(2,'0')   : '--';
+    const m = stampTarget ? String(stampTarget.minute).padStart(2,'0') : '--';
     const accuracySec = stampAccuracy !== null ? Math.round(stampAccuracy / 1000) : null;
     const accuracyLabel =
       accuracySec === null ? null :
@@ -442,16 +743,43 @@ export default function GamesScreen({ navigation }) {
     return (
       <View style={[styles.commitScreen, { paddingTop: insets.top + 20 }]}>
         <Text style={ds.dayLabel}>יום {activeDay} / 7</Text>
-        <Text style={ds.title}>הזמן האישי שלך</Text>
-        <Text style={ds.commitTimeDisplay}>{h}:{m}</Text>
+        {(() => {
+          const sv = getDayScheduleView(commitTime);
+          return (
+            <>
+              <Text style={ds.title}>{sv.headline}</Text>
+              <Text style={ds.commitTimeDisplay}>{h}:{m}</Text>
+              {sv.windowLine ? <Text style={ds.sub}>{sv.windowLine}</Text> : null}
+              <Text style={ds.subHint}>{sv.nowLine}</Text>
+              <Text style={ds.sub}>
+                {stampWindow.mode === 'weekday'
+                  ? 'חתום קרוב לשעת ה-DNA שקבעת בהרשמה'
+                  : 'חתום קרוב לשעה שבחרת לאתגר — בתוך הטווח'}
+              </Text>
+            </>
+          );
+        })()}
 
         {stampAccuracy === null ? (
           <>
-            <Text style={ds.sub}>כבש את הרגע — לחץ כמה שיותר קרוב לשעה שקבעת</Text>
-            <Text style={ds.subHint}>המדידה: כמה שניות/דקות עברו מהשעה שלך עד עכשיו</Text>
-            <TouchableOpacity style={ds.stampBtn} onPress={handleDailyStamp} activeOpacity={0.85}>
+            {stampWindow.mode === 'weekday' ? (
+              <>
+                <Text style={ds.sub}>כבש את הרגע — לחץ כמה שיותר קרוב לשעת ה-DNA שקבעת בהרשמה</Text>
+                <Text style={ds.subHint}>הניקוד לפי השעון המקומי שלך עכשיו (איפה שאתה נמצא)</Text>
+              </>
+            ) : null}
+            {stampError ? <Text style={ds.stampErr}>{stampError}</Text> : null}
+            <TouchableOpacity
+              style={[ds.stampBtn, (!stampWindow.open || !gameToken) && ds.stampBtnDisabled]}
+              onPress={handleDailyStamp}
+              activeOpacity={0.85}
+              disabled={!stampWindow.open || !gameToken}
+            >
               <Text style={ds.stampBtnText}>⏱ חתום עכשיו</Text>
             </TouchableOpacity>
+            {!stampWindow.open && stampWindow.message ? (
+              <Text style={ds.windowClosed}>{stampWindow.message}</Text>
+            ) : null}
           </>
         ) : (
           <>
@@ -502,7 +830,15 @@ export default function GamesScreen({ navigation }) {
           <Text style={styles.scoreResultLabel}>סיימת את המשחק</Text>
           <Text style={styles.scoreResultVal}>+{sessionScore} נקודות 🔥</Text>
         </View>
-        <GlassButton onPress={() => setShowTimePicker(true)} />
+        <GlassButton onPress={() => {
+          const win = getStampWindowStatus(getDeviceTimezone());
+          if (win.mode === 'friday' || win.mode === 'saturday') {
+            const { day, mins } = getLocalTimeParts(new Date(), getDeviceTimezone());
+            if (canSetChallengeTarget(day, mins)) openChallengePicker(win.mode);
+            return;
+          }
+          setShowTimePicker(true);
+        }} />
       </View>
     );
   }
@@ -537,7 +873,7 @@ export default function GamesScreen({ navigation }) {
     <>
       <ScrollView
         style={styles.container}
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + 12 }]}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 80 }]}
         showsVerticalScrollIndicator={false}
       >
         {/* ── Header ── */}
@@ -558,6 +894,8 @@ export default function GamesScreen({ navigation }) {
           </View>
         </View>
 
+        <WindowWarningBanner warning={windowWarning} />
+
         {/* ── 4 Category Cards — free play ── */}
         <View style={lob.categoriesWrap}>
           <Text style={lob.categoriesTitle}>שחק חופשי לפי קטגוריה</Text>
@@ -572,9 +910,11 @@ export default function GamesScreen({ navigation }) {
                 <Text style={lob.catEmoji}>{cat.emoji}</Text>
                 <Text style={[lob.catLabel, { color: cat.color }]}>{cat.label}</Text>
               </TouchableOpacity>
-            ))}
+            )            )}
           </View>
         </View>
+
+        {hasCommitment ? <DayScheduleBanner commitTime={commitTime} /> : null}
 
         {/* ── Calendar ── */}
         <View style={lob.calendarSection}>
@@ -668,7 +1008,8 @@ export default function GamesScreen({ navigation }) {
           <DailyStampCard
             commitTime={commitTime}
             todayStamped={todayStamped}
-            activeDay={activeDay}
+            stampWindow={stampWindow}
+            onSetChallengeTime={openChallengePicker}
           />
         )}
 
@@ -691,6 +1032,16 @@ export default function GamesScreen({ navigation }) {
         time={commitTime}
         onClose={() => setShowModal(false)}
       />
+      <RealWeekIntroModal
+        visible={showRealWeekIntro}
+        onDismiss={() => {
+          try {
+            const seenKey = `@vermillion/real_week_intro_seen/${user?.id || 'local'}`;
+            if (typeof localStorage !== 'undefined') localStorage.setItem(seenKey, '1');
+          } catch {}
+          setShowRealWeekIntro(false);
+        }}
+      />
     </>
   );
 }
@@ -705,6 +1056,11 @@ const lob = StyleSheet.create({
   coinText:    { color: '#D4AF37', fontSize: 13, fontWeight: '800' },
   rankChip:    { backgroundColor: '#1A0808', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1, borderColor: '#C0392B44' },
   rankText:    { color: '#C0392B', fontSize: 13, fontWeight: '800' },
+  windowBanner: {
+    backgroundColor: '#1A1208', borderRadius: 12, borderWidth: 1, borderColor: '#D4AF3744',
+    paddingVertical: 10, paddingHorizontal: 14, marginBottom: 12,
+  },
+  windowBannerText: { color: '#D4AF37', fontSize: 13, fontWeight: '700', textAlign: 'right', lineHeight: 20 },
 
   categoriesWrap: { marginBottom: 14 },
   categoriesTitle: { color: '#333', fontSize: 10, fontWeight: '700', letterSpacing: 1, marginBottom: 8, textAlign: 'center' },
@@ -738,7 +1094,7 @@ const lob = StyleSheet.create({
   avatarRow: {
     alignItems: 'center',
     backgroundColor: '#0D0D0D', borderRadius: 18, borderWidth: 1, borderColor: '#1A1A1A',
-    paddingVertical: 12, marginBottom: 14,
+    paddingVertical: 12, marginBottom: 14, overflow: 'hidden',
   },
   avatarLabel: { alignItems: 'center', gap: 2 },
   avatarLabelText: { color: '#FFF', fontSize: 15, fontWeight: '800' },
@@ -824,7 +1180,9 @@ const dsc = StyleSheet.create({
   hint:    { color: '#C0392B', fontSize: 12, fontWeight: '700', textAlign: 'right' },
   cardActive:  { borderColor: '#C0392BAA' },
   doneText:    { color: '#27AE60', fontSize: 14, fontWeight: '700', textAlign: 'center' },
-  hintLocked:  { color: '#555', fontSize: 12, textAlign: 'right' },
+  hintLocked:     { color: '#555', fontSize: 12, textAlign: 'right' },
+  setTimeBtn:     { marginTop: 14, backgroundColor: '#C0392B', borderRadius: 12, paddingVertical: 12, alignItems: 'center' },
+  setTimeBtnText: { color: '#FFF', fontSize: 15, fontWeight: '800' },
 });
 
 // ─── Daily Stamp styles ─────────────────────────────────────────
@@ -838,8 +1196,11 @@ const ds = StyleSheet.create({
     backgroundColor: '#C0392B', borderRadius: 16,
     paddingVertical: 20, paddingHorizontal: 48, alignItems: 'center',
   },
-  stampBtnText:  { color: '#FFF', fontSize: 18, fontWeight: '900' },
-  accuracy:      { color: '#27AE60', fontSize: 18, fontWeight: '800', marginBottom: 40, textAlign: 'center' },
+  stampBtnText:      { color: '#FFF', fontSize: 18, fontWeight: '900' },
+  stampBtnDisabled:  { opacity: 0.45 },
+  stampErr:          { color: '#E74C3C', fontSize: 14, textAlign: 'center', marginBottom: 16, lineHeight: 22 },
+  windowClosed:      { color: '#D4AF37', fontSize: 13, textAlign: 'center', marginTop: 16, lineHeight: 20 },
+  accuracy:          { color: '#27AE60', fontSize: 18, fontWeight: '800', marginBottom: 40, textAlign: 'center' },
   continueBtn: {
     backgroundColor: '#1A1A1A', borderRadius: 16, borderWidth: 1, borderColor: '#C0392B44',
     paddingVertical: 18, paddingHorizontal: 32, alignItems: 'center', width: '100%',
@@ -928,6 +1289,35 @@ const tp = StyleSheet.create({
   colon:      { color: '#444', fontSize: 72, fontWeight: '900', marginBottom: 8 },
   confirmBtn: { backgroundColor: '#C0392B', borderRadius: 16, paddingVertical: 18, paddingHorizontal: 32, alignItems: 'center', width: '100%' },
   confirmText:{ color: '#FFF', fontSize: 16, fontWeight: '900' },
+});
+
+// ─── Real Week Intro styles ─────────────────────────────────────
+const rwi = StyleSheet.create({
+  overlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.92)',
+    justifyContent: 'center', alignItems: 'center', paddingHorizontal: 20,
+  },
+  card: {
+    backgroundColor: '#111', borderRadius: 20, padding: 24, width: '100%',
+    borderWidth: 1, borderColor: '#C0392B44',
+  },
+  headline: { color: '#FFF', fontSize: 22, fontWeight: '900', textAlign: 'center', marginBottom: 8 },
+  sub: { color: '#888', fontSize: 13, textAlign: 'center', marginBottom: 20, lineHeight: 20 },
+  infoRow: { flexDirection: 'row-reverse', gap: 8, marginBottom: 16 },
+  infoCard: {
+    flex: 1, backgroundColor: '#1A1A1A', borderRadius: 12, padding: 10,
+    borderWidth: 1, borderColor: '#C0392B22', alignItems: 'center', gap: 4,
+  },
+  infoIcon:  { fontSize: 20 },
+  infoTitle: { color: '#C0392B', fontSize: 13, fontWeight: '900' },
+  infoDesc:  { color: '#666', fontSize: 10, textAlign: 'center', lineHeight: 15 },
+  infoScore: { color: '#555', fontSize: 10, fontWeight: '700' },
+  note: { color: '#555', fontSize: 12, textAlign: 'center', lineHeight: 18, marginBottom: 20 },
+  btn: {
+    backgroundColor: '#C0392B', borderRadius: 14, height: 52,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  btnText: { color: '#FFF', fontSize: 16, fontWeight: '900' },
 });
 
 // ─── Commit Modal styles ────────────────────────────────────────

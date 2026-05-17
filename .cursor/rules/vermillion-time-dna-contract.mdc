@@ -1,0 +1,95 @@
+---
+description: VerMillion — חוזה זמן DNA, שישי/שבת, timezone (מקור אמת למוצר)
+alwaysApply: true
+---
+
+# חוזה זמן VerMillion (DNA + אתגרים)
+
+## ⛔ ימי שישי ושבת — "הסוד" (קריטי למוצר)
+
+ימים אלה **לא** DNA רגיל. הם מנוע ההבדל של VerMillion.
+
+| יום | חלון (שעון מכשיר ברגע חתימה) | DNA |
+|-----|------------------------------|-----|
+| שישי (5) | 00:01 – 15:30 | **לא** — יעד `friday_target_*` ננעל בבחירה ראשונה |
+| שבת (6) | 21:00 – 23:59 | **לא** — יעד `saturday_target_*` ננעל בבחירה ראשונה |
+| ראשון (0) | — | חוזר ל-DNA יומי `committed_hour/minute` |
+
+**נעילה:** מיגרציה `20260519_commitment_immutability.sql` + `saveCommitmentTime` / `saveChallengeTarget`.
+
+**חובות מימוש:**
+- לקוח: `src/constants/stampChallenge.js` + `getDeviceTimezone()` בלבד (לא `profile.timezone` לפתיחת חלון).
+- שרת: `supabase/functions/_shared/windows.ts` — ערכים **זהים** ללקוח.
+- `stamp` Edge Function חוסם `WINDOW_CLOSED` מחוץ לחלון — אין חריגים.
+
+**אסור לשבור:** להשתמש ב-DNA בשישי/שבת; לאפשר חתימה מחוץ לחלון; לגזור יום בשבוע מ-timezone של פרופיל במקום המכשיר.
+
+---
+
+## עקרון עליון
+
+**אין שעון ישראל קבוע באפליקציה.**  
+כל חישוב זמן בחתימה (Stamp) משתמש ב**אזור הזמן של המשתמש ברגע הלחיצה** (`client_timezone` מהמכשיר → `profiles.timezone`).
+
+---
+
+## 1. DNA אישי (ימי ראשון–חמישי + ראשון)
+
+| נושא | כלל |
+|------|-----|
+| מתי נקבע | **יום ההרשמה** — המשתמש בוחר שעה (למשל 08:00) |
+| איך נשמר | `commitment.committed_hour` + `commitment.committed_minute` (מספרים בלבד) |
+| מה לא לעשות | לא לגזור DNA מ-`committed_at` ISO לפי timezone; לא לקשור DNA למדינת הרשמה |
+| חתימה | השוואה: שעון מקומי **עכשיו** מול שעת DNA הקבועה |
+| ניקוד | `score = max(1, round(1000 * (1 - ms_diff / 86400000)))` כאשר `ms_diff` = מרחק מינימלי בדקות בין "עכשיו" ל-DNA באותו יום מקומי |
+
+---
+
+## 2. אתגר שישי (יום 5 מקומי)
+
+| חלון | שעון מקומי של המשתמש ברגע החתימה |
+|------|-----------------------------------|
+| פתוח | 00:01 – 15:30 |
+| סגור | אחרי 15:30 → הודעה + `WINDOW_CLOSED` |
+| ניקוד | קרבה לשעת היעד שבחר (כמו DNA), בתוך החלון |
+| DNA | **לא** משמש ביום שישי — רק יעד אתגר נעול |
+
+---
+
+## 3. אתגר שבת (יום 6 מקומי)
+
+| חלון | שעון מקומי של המשתמש ברגע החתימה |
+|------|-----------------------------------|
+| פתוח | 21:00 – 23:59 |
+| סגור | לפני 21:00 או אחרי 23:59 |
+| ניקוד | קרבה לשעת היעד שבחר, בתוך החלון |
+| DNA | **לא** משמש בשבת — רק יעד אתגר נעול |
+
+---
+
+## 4. זרימת מוצר (חובה)
+
+```
+משחק נגמר → game-complete (token) → משתמש לוחץ Stamp → stamp (שריפת token + daily_stamps)
+```
+
+- בלי token תקף → אין חתימה.
+- שעון השרת (`new Date()` ב-Edge Function) קובע את "עכשיו" לחתימה; timezone קובע **איך** מפרשים את "עכשיו" ליום בשבוע ולשעה על השעון.
+
+---
+
+## 5. קבצי מקור
+
+- **הסוד (שישי/שבת):** `src/constants/stampChallenge.js` ↔ `supabase/functions/_shared/windows.ts`
+- שרת: `supabase/functions/stamp/index.ts`, `game-complete/index.ts`, `_shared/time.ts`
+- לקוח: `src/utils/stampWindow.js`, `src/screens/games/GamesScreen.js`, `src/services/storage.js`
+- DB: `commitment` (hour/minute), `game_sessions`, `daily_stamps`, `profiles.timezone`
+
+---
+
+## 6. אסור לשבור בלי אישור מוצרי
+
+- להחזיר חישוב timezone דרך `toLocaleString` + `new Date(string)` (באג ידוע).
+- לכתוב חתימה מוצלחת ל-local לפני אישור שרת.
+- לדלג על `APP_SECRET` בפרודקשן.
+- לשרוף token לפני כתיבת `daily_stamps` מוצלחת (או בלי rollback).

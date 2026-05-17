@@ -12,22 +12,22 @@ $styleInject = @"
   *, *::before, *::after { box-sizing: border-box; }
   html {
     background-color: #0A0A0A;
-    height: 100dvh; height: 100vh;
+    height: 100vh; height: 100dvh;
     overflow: hidden;
     overscroll-behavior: none;
   }
   body {
     background-color: #0A0A0A;
-    height: 100dvh; height: 100vh;
+    height: 100vh; height: 100dvh;
     overflow: hidden;
     overscroll-behavior: none;
     margin: 0; padding: 0;
-    position: fixed; width: 100%;
   }
   #root {
-    height: 100dvh; height: 100vh;
+    height: 100vh; height: 100dvh;
     overflow: hidden;
     display: flex; flex-direction: column;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 </style>
 </head>

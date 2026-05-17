@@ -79,7 +79,7 @@ export default function HomeScreen({ navigation }) {
               </Text>
             </View>
             <View style={styles.paywallBtn}>
-              <Text style={styles.paywallBtnText}>₪79/חודש</Text>
+              <Text style={styles.paywallBtnText}>₪99/חודש</Text>
             </View>
           </TouchableOpacity>
         )}
@@ -338,7 +338,7 @@ function StatCard({ icon, label, value, accent }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0A0A0A' },
-  content: { paddingHorizontal: 20, paddingBottom: 48 },
+  content: { paddingHorizontal: 20, paddingBottom: 100 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
   greeting: { fontSize: 26, fontWeight: '800', color: '#FFF' },
   date: { fontSize: 13, color: '#555', marginTop: 2 },

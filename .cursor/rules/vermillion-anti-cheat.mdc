@@ -1,0 +1,51 @@
+---
+description: VerMillion anti-cheat — game token, stamp, Edge Functions, storage
+globs: supabase/functions/**/*,src/screens/games/**/*,src/services/storage.js,src/utils/stampWindow.js,supabase/migrations/**/*
+alwaysApply: false
+---
+
+# Anti-Cheat VerMillion — תקן טכני
+
+## 3 שכבות
+
+1. **game-complete** — מאמת משחק; מנפיק `token` חד-פעמי ל-`game_sessions`.
+2. **stamp** — מאמת token; שורף אטומית; מחשב ניקוד; כותב `daily_stamps`.
+3. **לקוח** — `gameStartedAt` → `completeGame` → `saveGameStamp(token)`.
+
+## game-complete (שרת)
+
+- JWT + `APP_SECRET` חובה.
+- `duration_ms` ≥ מינימום למשחק (`GAME_MIN_MS`).
+- `started_at` לא עתידי; גיל session ≤ 30 דק׳.
+- `duration_ms` ≤ זמן קיר + slack (מניעת זיוף).
+- Upsert `game_sessions` על `(user_id, day, month_key)` — token ישן מתבטל אחרי משחק חדש באותו יום.
+
+## stamp (שרת)
+
+- `client_timezone` בבקשה — עדיף על `profiles.timezone` (מכשיר ברגע לחיצה).
+- שריפת token: `UPDATE … WHERE token_used = false` + `select` — אטומי.
+- חלון שישי/שבת לפי `getLocalTimeParts(now, userTz)`.
+- ימי חול: `committed_hour` / `committed_minute` מ-`commitment`.
+- כשל ב-`daily_stamps` → rollback `token_used = false`.
+
+## לקוח
+
+- `completeGame` נכשל → alert; **לא** להמשיך ל-stamp.
+- `saveGameStamp` נכשל → `ok: false`; **לא** `score: 1` מזויף.
+- לפני stamp: `syncProfileTimezone()` + שליחת `client_timezone`.
+- שישי/שבת: הצגת stamp לפי `stampWindow.open`, לא רק לפי שעת DNA.
+
+## DB / RLS
+
+- `game_sessions`: אין גישה ישירה מלקוח (RLS deny all).
+- `daily_stamps`: INSERT רק דרך Edge Function (service role).
+- מיגרציות: `20260516` … `20260519` (כולל נעילת DNA בטריגר).
+- מסמכים: `docs/LEGAL_SYSTEM_SPEC_HE.md`, `docs/SUPABASE_SETUP_CHECKLIST_HE.md`.
+
+## Deploy
+
+```bash
+supabase secrets set APP_SECRET=...
+supabase functions deploy game-complete
+supabase functions deploy stamp
+```

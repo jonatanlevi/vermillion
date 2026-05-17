@@ -48,7 +48,7 @@ export default function LoginScreen({ navigation }) {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : Platform.OS === 'web' ? 'height' : undefined}
     >
       <View style={[styles.inner, { paddingTop: insets.top + 20 }]}>
         <TouchableOpacity style={styles.back} onPress={() => navigation.goBack()}>

@@ -50,14 +50,19 @@ export function useVoice() {
 
     const doSpeak = () => {
       const utt = new SpeechSynthesisUtterance(clean);
+      utt.lang = 'he-IL';
+
       const voices = window.speechSynthesis.getVoices();
-      const heVoice = voices.find(v => v.lang.startsWith('he'));
-      if (heVoice) {
-        utt.voice = heVoice;
-        utt.lang  = 'he-IL';
-      }
-      utt.rate  = 1.0;
-      utt.pitch = 1.0;
+      const heVoices = voices.filter(v => v.lang.startsWith('he'));
+      const MALE_HINTS = ['male', 'moshe', 'aaron', 'man', 'guy', 'גבר'];
+      const maleVoice = heVoices.find(v => MALE_HINTS.some(h => v.name.toLowerCase().includes(h)));
+      const heVoice = maleVoice || heVoices[heVoices.length - 1] || heVoices[0];
+      // fallback to any voice — better than silence
+      const selected = heVoice || voices[0];
+      if (selected) utt.voice = selected;
+
+      utt.rate  = 0.88;
+      utt.pitch = maleVoice ? 1.0 : 0.82;
       utt.onstart = () => { setIsSpeaking(true); setSpeakingText(clean); };
       utt.onend   = () => { setIsSpeaking(false); setSpeakingText(''); };
       utt.onerror = () => { setIsSpeaking(false); setSpeakingText(''); };
@@ -68,10 +73,21 @@ export function useVoice() {
     if (voices.length > 0) {
       doSpeak();
     } else {
+      // Android fix: onvoiceschanged sometimes never fires — force after 600ms
+      let done = false;
       window.speechSynthesis.onvoiceschanged = () => {
+        if (done) return;
+        done = true;
         window.speechSynthesis.onvoiceschanged = null;
         doSpeak();
       };
+      setTimeout(() => {
+        if (!done) {
+          done = true;
+          window.speechSynthesis.onvoiceschanged = null;
+          doSpeak();
+        }
+      }, 600);
     }
   }, []);
 
@@ -82,5 +98,5 @@ export function useVoice() {
     setSpeakingText('');
   }, []);
 
-  return { isListening, isSpeaking, muted, speakingText, startListening, stopListening, speak, stopSpeaking, toggleMute, supported: STT_OK };
+  return { isListening, isSpeaking, muted, speakingText, startListening, stopListening, speak, stopSpeaking, toggleMute, supported: STT_OK, ttsSupported: TTS_OK };
 }

@@ -1,5 +1,19 @@
 # VerMillion — Cursor Handoff
-> עדכון: 2026-04-30 | URL: https://vermillion-ashen.vercel.app
+> עדכון: 2026-05-17 | URL: https://vermillion-ashen.vercel.app
+
+---
+
+## 📜 חוזים ותקנון (נשמר בזיכרון פרויקט)
+
+| מסמך | למי |
+|------|-----|
+| `docs/LEGAL_SYSTEM_SPEC_HE.md` | עורך דין / מנכ"ל |
+| `docs/SUPABASE_SETUP_CHECKLIST_HE.md` | DevOps — מה לפתוח ב-Supabase |
+| `docs/CODE_REVIEW_ANTI_CHEAT.md` | QA + ביקורת |
+| `docs/PRODUCT_CONTRACT.md` | מפתחים |
+| `.cursor/rules/vermillion-*.mdc` | Cursor AI |
+
+סיכום: DNA יומי (הרשמה, נעול) → שישי/שבת יעד בטווח (נעול) → ראשון חוזר ל-DNA יומי → משחק → token → stamp.
 
 ---
 

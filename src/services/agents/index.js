@@ -1,30 +1,15 @@
 import { computeFinancialMetrics, calcCompletion } from '../../data/dailyQuestions';
 import { classifyTier } from '../financialTier';
+import { buildSystemPrompt, generatePersonalizedGreeting, buildDynamicContext } from '../aiPrompts';
 
-// ─── Groq cloud call (via Vercel serverless function) ────────────
-async function callGroq(userMessage, context, chatHistory) {
-  const { metricsText, lifestyleText, tier, gameText } = context;
-
-  const systemPrompt = `אתה VerMillion — יועץ פיננסי אישי לישראלים.
-
-פרופיל המשתמש:
-${metricsText}
-${lifestyleText}
-שלב פיננסי: ${tier}${gameText ? `\n${gameText}` : ''}
-
-חוקים:
-- ענה בעברית בלבד
-- מקסימום 5-6 שורות
-- טון: סמכותי, אמפתי, ישיר
-- הפרופיל כבר נאסף — אל תשאל שאלות איסוף מידע
-- אם שלב = "עיוור" או "ייצוב" — אל תמליץ על מניות/השקעות
-- אתה בהמשך שיחה — אל תתחיל מחדש
-- סיים עם שאלה קצרה אחת`;
+// ─── Groq streaming call (via Vercel edge function) ──────────────
+async function callGroq(userMessage, userData, chatHistory, onToken) {
+  const systemPrompt = buildSystemPrompt(userData) + buildDynamicContext(userMessage, userData, chatHistory);
 
   const STAGE_RE_LOCAL = /^[🔍🧠✓✨⏳]/;
   const filteredHistory = (chatHistory || [])
-    .filter(m => !STAGE_RE_LOCAL.test(m.text || '') && (m.text || '').length <= 300)
-    .slice(-8);
+    .filter(m => !STAGE_RE_LOCAL.test(m.text || '') && (m.text || '').length <= 500)
+    .slice(-12);
 
   const messages = [
     ...filteredHistory.map(m => ({
@@ -42,8 +27,31 @@ ${lifestyleText}
       body: JSON.stringify({ messages, systemPrompt }),
     });
     if (!res.ok) return '';
-    const data = await res.json();
-    return data.response || '';
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let fullText = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value, { stream: true });
+      for (const line of chunk.split('\n')) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith('data: ')) continue;
+        const data = trimmed.slice(6);
+        if (data === '[DONE]') continue;
+        try {
+          const token = JSON.parse(data).choices?.[0]?.delta?.content || '';
+          if (token) {
+            fullText += token;
+            onToken?.(fullText);
+          }
+        } catch { /* partial chunk */ }
+      }
+    }
+    return fullText;
   } catch {
     return '';
   }
@@ -263,13 +271,13 @@ function buildOfflineResponse(userMessage, context, chatHistory) {
 const CRISIS_RE = /אין לי סיבה לחיות|לא רוצה לחיות|אין טעם|להתאבד|לסיים את החיים/;
 
 // ─── Public API ───────────────────────────────────────────────────
-export async function askTeam(userMessage, userData, onProgress, chatHistory) {
+export async function askTeam(userMessage, userData, onProgress, chatHistory, onToken) {
   const context = buildContext(userData);
 
   // Greeting shortcut — instant, no API call
   if (GREETING_RE.test(userMessage.trim())) {
     onProgress?.({ stage: 'synthesizing' });
-    return { response: buildGreetingResponse(context), agentsUsed: [], raw: [], context, isCrisis: false };
+    return { response: generatePersonalizedGreeting(userData), agentsUsed: [], raw: [], context, isCrisis: false };
   }
 
   // Crisis detection
@@ -283,8 +291,8 @@ export async function askTeam(userMessage, userData, onProgress, chatHistory) {
 
   onProgress?.({ stage: 'synthesizing' });
 
-  // Groq AI call
-  const groqResponse = await callGroq(userMessage, context, chatHistory);
+  // Groq streaming call
+  const groqResponse = await callGroq(userMessage, userData, chatHistory, onToken);
 
   if (groqResponse) {
     return {

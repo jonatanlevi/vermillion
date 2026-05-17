@@ -245,7 +245,7 @@ function buildFallbackProfile(metrics, tier) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0A0A0A' },
-  content: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 50 },
+  content: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 100 },
 
   header: { alignItems: 'center', marginBottom: 24 },
   tierBadge: {

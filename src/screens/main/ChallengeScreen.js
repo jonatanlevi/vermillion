@@ -76,7 +76,7 @@ export default function ChallengeScreen({ navigation }) {
   if (!isPremium) {
     return (
       <View style={styles.container}>
-        <View style={[styles.paywallWrap, { paddingTop: insets.top + 28 }]}>
+        <ScrollView contentContainerStyle={[styles.paywallWrap, { paddingTop: insets.top + 28, paddingBottom: 100 }]} showsVerticalScrollIndicator={false}>
           <Text style={styles.paywallLock}>🔒</Text>
           <Text style={styles.paywallTitle}>האתגר היומי</Text>
           <Text style={styles.paywallTitle}>פרמיום בלבד</Text>
@@ -100,7 +100,7 @@ export default function ChallengeScreen({ navigation }) {
             <Text style={styles.paywallBtnText}>התחל 7 ימי ניסיון חינם</Text>
           </TouchableOpacity>
           <Text style={styles.paywallPrice}>₪79 לחודש אחרי הניסיון</Text>
-        </View>
+        </ScrollView>
       </View>
     );
   }
@@ -109,7 +109,7 @@ export default function ChallengeScreen({ navigation }) {
   if (gameMode === null) {
     return (
       <View style={styles.container}>
-        <View style={[styles.centered, { paddingTop: insets.top + 24 }]}>
+        <ScrollView contentContainerStyle={[styles.centered, { paddingTop: insets.top + 24, paddingBottom: 100 }]} showsVerticalScrollIndicator={false}>
           <Text style={styles.pickerTitle}>בחר אתגר להיום</Text>
           <AttemptsRow attemptsLeft={attemptsLeft} total={DAILY_ATTEMPTS} />
           <View style={styles.pickerCards}>
@@ -126,7 +126,7 @@ export default function ChallengeScreen({ navigation }) {
               </TouchableOpacity>
             ))}
           </View>
-        </View>
+        </ScrollView>
       </View>
     );
   }
@@ -354,7 +354,7 @@ const styles = StyleSheet.create({
   pickerDesc: { color: '#555', fontSize: 13 },
 
   // Quiz
-  quizContainer: { padding: 20, paddingBottom: 40 },
+  quizContainer: { padding: 20, paddingBottom: 100 },
   quizHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
   quizHeaderTitle: { color: '#FFF', fontSize: 16, fontWeight: '700' },
   backBtn: { paddingVertical: 8, paddingHorizontal: 4 },

@@ -1,9 +1,22 @@
 # VerMillion — CLAUDE.md
 > קרא את זה לפני כל שינוי. זה ה-DNA של הפרויקט.
 
+## חוזים ותקנון (חובה)
+
+| מסמך | תוכן |
+|------|------|
+| `docs/LEGAL_SYSTEM_SPEC_HE.md` | **מפרט לעורך דין** — מוצר + anti-cheat + נעילות |
+| `docs/SUPABASE_SETUP_CHECKLIST_HE.md` | מה לפתוח ולהריץ ב-Supabase (מסודר) |
+| `docs/CODE_REVIEW_ANTI_CHEAT.md` | ביקורת קוד + QA |
+| `docs/PRODUCT_CONTRACT.md` | חוזה טכני-מוצרי |
+| `.cursor/rules/vermillion-time-dna-contract.mdc` | זמן + timezone — תמיד פעיל |
+| `.cursor/rules/vermillion-anti-cheat.mdc` | game-complete / stamp / storage |
+
+**כלל זהב:** DNA = שעה מיום ההרשמה. חתימה = שעון מקומי ברגע הלחיצה. **לא** Asia/Jerusalem לכולם.
+
 ## מה זה?
 אפליקציית React Native לאימון פיננסי אישי לישראלים.
-- ₪79/חודש | ₪749/שנה
+- ₪99/חודש | ₪749/שנה
 - פרס חודשי: ₪45,000 לניצחון ב-30 יום אתגר
 - חזון: "יועץ פיננסי אישי לכל אדם בכיס"
 

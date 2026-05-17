@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Platform } from 'react-native';
-import { supabase } from '../services/supabase';
-import { clearAllData } from '../services/storage';
+import { supabase, isLocalUserId } from '../services/supabase';
+import { clearAllData, getProfile } from '../services/storage';
+import { getGhostPlaySession } from '../services/ghostPlaySession';
 
 const AuthContext = createContext(null);
 
@@ -13,10 +14,19 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     supabase.auth
       .getSession()
-      .then(({ data: { session } }) => {
-        setUser(session?.user ?? null);
-        if (session?.user) loadProfile(session.user.id);
-        else setLoading(false);
+      .then(async ({ data: { session } }) => {
+        if (session?.user) {
+          setUser(session.user);
+          loadProfile(session.user.id);
+          return;
+        }
+        const ghost = await getGhostPlaySession();
+        if (ghost?.ghostId) {
+          setUser({ id: ghost.ghostId, email: ghost.email || '' });
+          loadProfile(ghost.ghostId);
+          return;
+        }
+        setLoading(false);
       })
       .catch(() => setLoading(false));
 
@@ -32,6 +42,11 @@ export function AuthProvider({ children }) {
 
   async function loadProfile(userId) {
     try {
+      if (isLocalUserId(userId)) {
+        const local = await getProfile();
+        setProfile(local ? { id: userId, ...local } : { id: userId });
+        return;
+      }
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -80,7 +95,8 @@ export function AuthProvider({ children }) {
             const k = localStorage.key(i);
             if (k && (
               k.startsWith('@vermillion/intake_complete/') ||
-              k.startsWith('@vermillion/onboarding_complete/')
+              k.startsWith('@vermillion/onboarding_complete/') ||
+              k.startsWith('@vermillion/terms_accepted/')
             )) localStorage.removeItem(k);
           }
         } catch {}
@@ -102,6 +118,8 @@ export function AuthProvider({ children }) {
           await supabase.from('profiles').update({
             profile_intake_complete: false,
             onboarding_complete: false,
+            terms_accepted_at: null,
+            terms_version: null,
           }).eq('id', userId);
         } catch (_) {}
       }

@@ -2,28 +2,12 @@ import { mockChatWithAI, resetMockConversation } from './mockAI';
 import { buildSystemPrompt } from './aiPrompts';
 import { buildPersonalizedCoachingContext } from './personalizationAgent';
 import { validateResponse, shouldFallback } from './validatorAgent';
-import { CONFIG } from '../config';
 
 let chatHistory = [];
-let _ollamaAvailable = null;
 
-async function checkOllama() {
-  if (_ollamaAvailable !== null) return _ollamaAvailable;
-  try {
-    const res = await fetch(`${CONFIG.OLLAMA_BASE_URL}/api/tags`, {
-      method: 'GET',
-      signal: AbortSignal.timeout(2500),
-    });
-    _ollamaAvailable = res.ok;
-  } catch {
-    _ollamaAvailable = false;
-  }
-  return _ollamaAvailable;
-}
-
+/** Always returns true — Groq is cloud-based, no local check needed */
 export async function getAIStatus() {
-  _ollamaAvailable = null;
-  return checkOllama();
+  return true;
 }
 
 export function resetConversation() {
@@ -39,80 +23,64 @@ export async function chatWithAI(userMessage, userData, onPartial, coachingDay) 
   chatHistory.push({ role: 'user', content: userMessage });
   if (chatHistory.length > 16) chatHistory = chatHistory.slice(-16);
 
-  const ollamaUp = await checkOllama();
-  if (!ollamaUp) {
-    const result = await mockChatWithAI(userMessage, userData, onPartial);
-    if (result) chatHistory.push({ role: 'assistant', content: result });
-    return result;
-  }
+  try {
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const res = await fetch(`${origin}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messages: chatHistory,
+        systemPrompt,
+      }),
+    });
 
-  const response = await fetch(`${CONFIG.OLLAMA_BASE_URL}/api/chat`, {
-    method: 'POST',
-    signal: AbortSignal.timeout(90000),
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: CONFIG.AI_MODEL,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        ...chatHistory,
-      ],
-      options: {
-        num_ctx:     CONFIG.AI_NUM_CTX,
-        num_predict: CONFIG.AI_MAX_TOKENS,
-        temperature: CONFIG.AI_TEMPERATURE,
-        stop: ['User:', 'Human:', '用户:', '请', '您'],
-      },
-      stream: true,
-    }),
-  });
+    if (!res.ok) throw new Error(`Chat API error: ${res.status}`);
 
-  if (!response.ok) throw new Error(`Ollama error: ${response.status}`);
+    let fullResponse = '';
 
-  let fullResponse = '';
-
-  if (response.body) {
-    const reader = response.body.getReader();
+    const reader = res.body.getReader();
     const decoder = new TextDecoder();
-    let buffer = '';
 
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
 
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop();
-
-      for (const line of lines) {
-        if (!line.trim()) continue;
+      const chunk = decoder.decode(value, { stream: true });
+      for (const line of chunk.split('\n')) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith('data: ')) continue;
+        const data = trimmed.slice(6);
+        if (data === '[DONE]') continue;
         try {
-          const obj = JSON.parse(line);
-          const token = obj.message?.content || '';
+          const token = JSON.parse(data).choices?.[0]?.delta?.content || '';
           if (token) {
             fullResponse += token;
             onPartial?.(fullResponse);
           }
-        } catch { /* partial JSON line — skip */ }
+        } catch { /* partial chunk */ }
       }
     }
-  } else {
-    const data = await response.json();
-    fullResponse = data.message?.content || data.response || 'שגיאה בתשובה';
-    onPartial?.(fullResponse);
-  }
 
-  // Validate response — guardrails + tier rules
-  if (fullResponse) {
-    const validation = validateResponse(fullResponse, userData);
-    if (shouldFallback(validation)) {
-      chatHistory.pop();
-      const fallback = await mockChatWithAI(userMessage, userData, onPartial);
-      if (fallback) chatHistory.push({ role: 'user', content: userMessage });
-      if (fallback) chatHistory.push({ role: 'assistant', content: fallback });
-      return fallback;
+    // Validate response — guardrails + tier rules
+    if (fullResponse) {
+      const validation = validateResponse(fullResponse, userData);
+      if (shouldFallback(validation)) {
+        chatHistory.pop();
+        const fallback = await mockChatWithAI(userMessage, userData, onPartial);
+        if (fallback) chatHistory.push({ role: 'user', content: userMessage });
+        if (fallback) chatHistory.push({ role: 'assistant', content: fallback });
+        return fallback;
+      }
     }
-  }
 
-  if (fullResponse) chatHistory.push({ role: 'assistant', content: fullResponse });
-  return fullResponse;
+    if (fullResponse) chatHistory.push({ role: 'assistant', content: fullResponse });
+    return fullResponse;
+
+  } catch (err) {
+    console.error('[aiService] chatWithAI failed:', err.message);
+    // Fallback to mock if API is unreachable
+    const result = await mockChatWithAI(userMessage, userData, onPartial);
+    if (result) chatHistory.push({ role: 'assistant', content: result });
+    return result;
+  }
 }

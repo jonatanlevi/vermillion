@@ -194,7 +194,7 @@ export default function CompleteProfileScreen({ navigation }) {
   });
 
   return (
-    <KeyboardAvoidingView style={s.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={s.root} behavior={Platform.OS === 'ios' ? 'padding' : Platform.OS === 'web' ? 'height' : undefined}>
       <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 
         {/* Back */}
@@ -419,7 +419,7 @@ const Field = React.forwardRef(function Field(
 /* ─── Styles ─── */
 const s = StyleSheet.create({
   root:   { flex: 1, backgroundColor: '#0A0A0A' },
-  scroll: { paddingHorizontal: 22, paddingTop: 56, paddingBottom: 48 },
+  scroll: { paddingHorizontal: 22, paddingTop: 56, paddingBottom: 120 },
 
   back:     { marginBottom: 28 },
   backText: { color: '#555', fontSize: 15 },

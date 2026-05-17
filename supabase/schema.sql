@@ -33,6 +33,9 @@ alter table public.profiles add column if not exists date_of_birth date;
 alter table public.profiles add column if not exists id_number_last4 text;
 alter table public.profiles add column if not exists v_coins integer default 0;
 alter table public.profiles add column if not exists equipment jsonb default '[]';
+alter table public.profiles add column if not exists timezone text default 'UTC';
+alter table public.profiles add column if not exists terms_accepted_at timestamptz;
+alter table public.profiles add column if not exists terms_version text;
 
 alter table public.profiles enable row level security;
 
@@ -101,6 +104,12 @@ create table if not exists public.commitment (
   id            uuid        default uuid_generate_v4() primary key,
   user_id       uuid        references auth.users(id) on delete cascade not null unique,
   committed_at  timestamptz,
+  committed_hour   int,
+  committed_minute int,
+  friday_target_hour   int,
+  friday_target_minute int,
+  saturday_target_hour   int,
+  saturday_target_minute int,
   streak_days   int         default 0,
   updated_at    timestamptz default now()
 );

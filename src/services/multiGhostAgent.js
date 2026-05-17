@@ -3,36 +3,10 @@
 // Catches: tier violations, language drift, Budget Battle breakage, leaderboard anomalies.
 // Previous ghostAgent.js covered only אביב — this covers everyone.
 
-import { ghostUser } from '../mock/data';
-import { ghostMiriam } from '../mock/ghostMiriam';
-import { ghostRoni } from '../mock/ghostRoni';
-import { ghostNoa } from '../mock/ghostNoa';
-import { ghostYosef } from '../mock/ghostYosef';
-import { ghostDana } from '../mock/ghostDana';
-import { ghostOmer } from '../mock/ghostOmer';
-import { ghostRachel } from '../mock/ghostRachel';
-import { ghostMohammad } from '../mock/ghostMohammad';
-import { ghostShimi } from '../mock/ghostShimi';
-import { ghostGalit } from '../mock/ghostGalit';
-import { ghostDavid } from '../mock/ghostDavid';
+import { ALL_GHOSTS } from '../mock/ghostRegistry';
 import { mockChatWithAI } from './mockAI';
 import { classifyTier } from './financialTier';
 import { calcCompletion, computeFinancialMetrics } from '../data/dailyQuestions';
-
-const ALL_GHOSTS = [
-  ghostUser,
-  ghostMiriam,
-  ghostRoni,
-  ghostNoa,
-  ghostYosef,
-  ghostDana,
-  ghostOmer,
-  ghostRachel,
-  ghostMohammad,
-  ghostShimi,
-  ghostGalit,
-  ghostDavid,
-];
 
 const BASE_QUESTIONS = [
   'מה הצעד הכי חשוב שאני צריך לעשות עכשיו?',

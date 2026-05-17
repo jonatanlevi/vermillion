@@ -209,7 +209,7 @@ export default function DailyCoachingScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0A0A0A' },
-  content: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 50 },
+  content: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 100 },
 
   milestoneCard: { backgroundColor: '#0A1A0A', borderRadius: 14, padding: 16, marginBottom: 16, borderWidth: 1.5, borderColor: '#27AE6044' },
   milestoneTitle: { color: '#27AE60', fontSize: 14, fontWeight: '900', marginBottom: 6 },

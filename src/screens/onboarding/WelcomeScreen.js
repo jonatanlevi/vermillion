@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, ActivityIndicator, Dimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage } from '../../context/LanguageContext';
 import LanguagePicker from '../../components/LanguagePicker';
 import { signInWithGoogle } from '../../services/authService';
@@ -8,6 +9,7 @@ const { width: SW } = Dimensions.get('window');
 
 export default function WelcomeScreen({ navigation }) {
   const { t } = useLanguage();
+  const insets = useSafeAreaInsets();
   const fade = useRef(new Animated.Value(0)).current;
   const slideY = useRef(new Animated.Value(40)).current;
   const [loading, setLoading] = useState(false);
@@ -24,7 +26,7 @@ export default function WelcomeScreen({ navigation }) {
       <View style={styles.bgAccent} />
       <View style={styles.bgAccent2} />
 
-      <Animated.View style={[styles.inner, { opacity: fade, transform: [{ translateY: slideY }] }]}>
+      <Animated.View style={[styles.inner, { opacity: fade, transform: [{ translateY: slideY }], paddingTop: insets.top + 16, paddingBottom: Math.max(insets.bottom + 16, 32) }]}>
 
         {/* Top bar */}
         <View style={styles.topBar}>
@@ -127,7 +129,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(192,57,43,0.04)',
   },
 
-  inner: { flex: 1, paddingHorizontal: 28, paddingTop: 56, paddingBottom: 32, justifyContent: 'space-between' },
+  inner: { flex: 1, paddingHorizontal: 28, justifyContent: 'space-between' },
 
   topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   logoRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },

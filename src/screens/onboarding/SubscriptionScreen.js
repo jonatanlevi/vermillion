@@ -65,7 +65,7 @@ export default function SubscriptionScreen({ navigation }) {
           >
             {selected === 'monthly' && <View style={styles.planBadge}><Text style={styles.planBadgeText}>פופולרי</Text></View>}
             <Text style={styles.planPeriod}>חודשי</Text>
-            <Text style={styles.planPrice}>₪79</Text>
+            <Text style={styles.planPrice}>₪99</Text>
             <Text style={styles.planPeriodSub}>לחודש</Text>
           </TouchableOpacity>
 
@@ -74,7 +74,7 @@ export default function SubscriptionScreen({ navigation }) {
             onPress={() => setSelected('annual')}
             activeOpacity={0.85}
           >
-            <View style={styles.planSaveBadge}><Text style={styles.planSaveText}>חוסך ₪190</Text></View>
+            <View style={styles.planSaveBadge}><Text style={styles.planSaveText}>חוסך ₪439</Text></View>
             <Text style={styles.planPeriod}>שנתי</Text>
             <Text style={styles.planPrice}>₪749</Text>
             <Text style={styles.planPeriodSub}>₪62.40/חודש</Text>
@@ -99,7 +99,7 @@ export default function SubscriptionScreen({ navigation }) {
         {/* CTA */}
         <TouchableOpacity style={styles.ctaBtn} onPress={handleSubscribe} activeOpacity={0.88}>
           <Text style={styles.ctaBtnText}>
-            {selected === 'monthly' ? 'התחל 7 ימים חינם · ₪79/חודש' : 'התחל 7 ימים חינם · ₪749/שנה'}
+            {selected === 'monthly' ? 'התחל 7 ימים חינם · ₪99/חודש' : 'התחל 7 ימים חינם · ₪749/שנה'}
           </Text>
         </TouchableOpacity>
 

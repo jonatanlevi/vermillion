@@ -493,7 +493,7 @@ export default function DailyQuestionsScreen({ navigation }) {
   }
 
   return (
-    <KeyboardAvoidingView style={s.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={s.root} behavior={Platform.OS === 'ios' ? 'padding' : Platform.OS === 'web' ? 'height' : undefined}>
       <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 
         {/* Header */}
@@ -600,7 +600,7 @@ export default function DailyQuestionsScreen({ navigation }) {
 /* ─── Styles ─── */
 const s = StyleSheet.create({
   root:   { flex: 1, backgroundColor: '#0A0A0A' },
-  scroll: { paddingTop: 56, paddingHorizontal: 22, paddingBottom: 48 },
+  scroll: { paddingTop: 56, paddingHorizontal: 22, paddingBottom: 100 },
   center: { flex: 1, backgroundColor: '#0A0A0A', alignItems: 'center', justifyContent: 'center', gap: 16 },
   header:          { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 24 },
   back:            { color: '#555', fontSize: 22 },

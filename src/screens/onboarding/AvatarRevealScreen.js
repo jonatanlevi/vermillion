@@ -104,7 +104,7 @@ export default function AvatarRevealScreen({ navigation, route }) {
       await saveProfile({ avatar_style: avatarStyle });
       await reloadProfile();
     } catch (_) {}
-    navigation.replace('ModelDownload');
+    navigation.replace('RegulationsConsent');
   }
 
   return (

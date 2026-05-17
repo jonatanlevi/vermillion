@@ -232,7 +232,130 @@ export function generateUserContext(userData) {
 }
 
 /* ──────────────────────────────────────────────────────────────
- * 5. BUILD FINAL SYSTEM PROMPT — הרכבה סופית
+ * 5. DYNAMIC SESSION CONTEXT — 10 פרמטרי תקשורת בזמן אמת
+ *    מחושב לפני כל קריאת GROQ, מוזרק לסוף ה-system prompt
+ * ──────────────────────────────────────────────────────────── */
+
+export function buildDynamicContext(userMessage = '', userData = {}, chatHistory = []) {
+  const msg     = userMessage.trim();
+  const history = chatHistory || [];
+  const finData = userData?.financialData || {};
+
+  // ── 1. Emotional tone ─────────────────────────────────────
+  const EMOTIONS = {
+    anxious:   /דאג|מפחד|חרד|מוטרד|לא יודע מה לעשות|אבוד|בלחץ|מתח|פחד/,
+    frustrated:/נמאס|עייף|כועס|לא מבין למה|תקוע|אין לי כוח|מתסכל|עצבן/,
+    hopeful:   /רוצה להתחיל|אפשר לשנות|מוכן|החלטתי|רוצה לשנות|ביטחון|אופטימי/,
+    defeated:  /מה יעזור|אין תקווה|כבר ניסיתי|לא עוזר|אין טעם|כבר לא/,
+    curious:   /מה זה|איך זה עובד|רוצה להבין|הסבר לי|תלמד|שאלה/,
+    decisive:  /החלטתי|אני הולך|מוכן לעשות|בוא נעשה|רוצה להתחיל מיד/,
+  };
+  let detectedEmotion = 'neutral';
+  for (const [emotion, re] of Object.entries(EMOTIONS)) {
+    if (re.test(msg)) { detectedEmotion = emotion; break; }
+  }
+  const emotionInstructions = {
+    anxious:   'פתח בהרגעה: "אני שומע אותך." — אז עבור לפתרון.',
+    frustrated:'הכר בתסכול תחילה: "זה מובן שמרגיש ככה כי..." — אל תדלג ישר לעצה.',
+    hopeful:   'אשר את המוכנות: "זה המינדסט הנכון." — תן מהלך ראשון קונקרטי.',
+    defeated:  'אל תיתן פתרון מיד — שאל: "מה ניסית עד עכשיו?" כדי להבין את החסם.',
+    curious:   'לומד עכשיו — הסבר עם אנלוגיה פשוטה לפני מספרים.',
+    decisive:  'משתמש פועל — קפוץ ישר למהלך הבא, אל תסביר יותר מדי.',
+    neutral:   'טון רגיל — עקוב אחר GUARDRAILS.',
+  };
+
+  // ── 2. Financial literacy ─────────────────────────────────
+  const ADVANCED_TERMS = /ETF|תיק השקעות|דיבידנד|P\/E|שארפ|אלפא|בטא|מינוף|options|אופציות|yield|sharp ratio|annualized|variance/i;
+  const BASIC_SIGNALS  = /מה זה |לא מבין|פשוט ת|קשה להבין|איך זה עובד|הסבר לי|מה הכוונה/;
+  const literacy = ADVANCED_TERMS.test(msg) ? 'advanced'
+    : BASIC_SIGNALS.test(msg)              ? 'basic'
+    : 'intermediate';
+  const literacyGuide = {
+    basic:        'השתמש במשלים יומיומיים, הסבר כל מושג, אל תניח שום ידע.',
+    intermediate: 'שפה ברורה, הסבר מושגים רק אם יש סיכוי שלא מכיר.',
+    advanced:     'דבר ישיר, השתמש בטרמינולוגיה, אל תפשט יתר על המידה.',
+  };
+
+  // ── 3. Urgency level ──────────────────────────────────────
+  const isUrgent = /עכשיו|דחוף|מיידי|היום|לא יכול לשלם|חייב לסגור|גרוש|לא נשאר כלום/.test(msg);
+
+  // ── 4. Life stage (from age) ──────────────────────────────
+  let age = null;
+  if (userData?.dob) {
+    const { dobD, dobM, dobY } = userData.dob;
+    if (dobD && dobM && dobY) {
+      const birth = new Date(Number(dobY), Number(dobM) - 1, Number(dobD));
+      const today = new Date();
+      age = today.getFullYear() - birth.getFullYear();
+      if (today < new Date(today.getFullYear(), birth.getMonth(), birth.getDate())) age--;
+    }
+  }
+  const lifeStage = !age ? null
+    : age < 28 ? 'צעיר — בנה הרגלים עכשיו, הזמן הוא הנכס'
+    : age < 35 ? 'תחילת קריירה — בסיס חזק = עושר עתידי'
+    : age < 45 ? 'אמצע קריירה — צביר ואופטימיזציה'
+    : age < 55 ? 'סוף קריירה — האצת צבירה לפני פרישה'
+    : 'לקראת פרישה — שימור והכנה לקצבה';
+
+  // ── 5. Motivation frame ───────────────────────────────────
+  const moneyFear = finData.moneyFear || '';
+  const isLossAverse = /לאבד|להפסיד|פחד|ביטחון|שמירה|לא לאבד|רזרבה|מגן/.test(moneyFear + ' ' + msg);
+  const motivationGuide = isLossAverse
+    ? 'מסגר עצות כמניעת סיכון: "זה מגן עליך מ..." במקום "זה יניב לך..."'
+    : 'מסגר עצות כהזדמנות: "זה יניב לך..." — דגש על פוטנציאל.';
+
+  // ── 6. Response need ──────────────────────────────────────
+  const needsValidation = /נכון\?|מה אתה חושב|האם זה טוב|עשיתי נכון|אני צודק|האם כדאי/.test(msg);
+
+  // ── 7. Family decision context ────────────────────────────
+  const familyStatus = finData.familyStatus || userData?.dailyAnswers?.day1?.family_status || '';
+  const hasSpouse = /נשוי|נשואה|זוג|פרטנר/.test(familyStatus);
+
+  // ── 8. Stuck pattern detection ────────────────────────────
+  const TOPICS = {
+    חוב:     /חוב|הלוואה|אשראי|מינוס|ריבית/,
+    חיסכון:  /חיסכ|חסכ|קרן חירום|לחסוך/,
+    השקעה:   /השקע|מניות|ETF|בורסה|קריפטו/,
+    הכנסה:   /הכנסה|שכר|משכורת|להרוויח|עבודה/,
+    דיור:    /דירה|משכנתא|שכירות|נדל/,
+  };
+  const topicCounts = {};
+  history.slice(-12).forEach(m => {
+    const t = m.text || '';
+    for (const [topic, re] of Object.entries(TOPICS)) {
+      if (re.test(t)) topicCounts[topic] = (topicCounts[topic] || 0) + 1;
+    }
+  });
+  const topEntry = Object.entries(topicCounts).sort((a, b) => b[1] - a[1])[0];
+  const stuckOn = topEntry && topEntry[1] >= 3 ? topEntry[0] : null;
+
+  // ── 9. Progress signal ────────────────────────────────────
+  const reportedProgress = /הצלחתי|עשיתי|חסכתי|סגרתי|שילמתי|הורדתי|הגעתי|עמדתי/.test(msg);
+
+  // ── 10. Coaching mode ─────────────────────────────────────
+  const isVague = msg.length < 15 || /מה לעשות|מה הצעד|מה אתה אומר|איך מתחילים/.test(msg);
+  const coachingMode = isVague ? 'socratic' : 'directive';
+
+  // ── Assemble ──────────────────────────────────────────────
+  return `
+═══════════════════════════════════════
+🧠 Session Intelligence (זמן אמת)
+═══════════════════════════════════════
+1️⃣  מצב רגשי: ${detectedEmotion} → ${emotionInstructions[detectedEmotion]}
+2️⃣  אוריינות פיננסית: ${literacy} → ${literacyGuide[literacy]}
+3️⃣  דחיפות: ${isUrgent ? '🔴 גבוהה — פתח בפעולה מיידית, לא בתיאוריה' : '🟢 רגיל — אפשר לחשוב לטווח ארוך'}
+4️⃣  שלב חיים: ${lifeStage || 'לא ידוע'}${age ? ` (גיל ${age})` : ''}
+5️⃣  מניע: ${motivationGuide}
+6️⃣  צורך בתגובה: ${needsValidation ? 'מחפש אישור → אשר תחילה ("כן, זה נכון כי..."), אז הוסף ניואנס' : 'מחפש פעולה → ייעוץ ישיר ללא מבוא'}
+7️⃣  הקשר משפחתי: ${hasSpouse ? 'יש בן/בת זוג — הזכר שהחלטות גדולות דורשות שיתוף' : 'מחליט לבד — תן החלטה ישירה'}
+8️⃣  תבנית שיחה: ${stuckOn ? `⚠️ נושא "${stuckOn}" חוזר ${topEntry[1]}x — נסה זווית אחרת, שאל "מה מונע אותך?"` : 'אין תבנית חוזרת'}
+9️⃣  התקדמות: ${reportedProgress ? '🎉 המשתמש מדווח על הצלחה — חגוג תחילה (משפט אחד), אז המשך' : 'אין דיווח התקדמות'}
+🔟  מצב קואוצ\'ינג: ${coachingMode === 'socratic' ? 'שאלה פתוחה לפני תשובה — "מה לדעתך גורם לכך?"' : 'ישיר — תן ניתוח + מהלך'}
+═══════════════════════════════════════`;
+}
+
+/* ──────────────────────────────────────────────────────────────
+ * 6. BUILD FINAL SYSTEM PROMPT — הרכבה סופית
  * ──────────────────────────────────────────────────────────── */
 export function buildSystemPrompt(userData) {
   const completion = calcCompletion(userData?.dailyAnswers || {});

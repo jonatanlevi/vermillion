@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage } from '../../context/LanguageContext';
 import { saveFinancialData } from '../../services/storage';
 
@@ -24,15 +25,31 @@ function parseOccupation(text) {
 export default function AvatarIntroScreen({ navigation, route }) {
   const { appearance, tone } = route.params;
   const { t } = useLanguage();
+  const insets = useSafeAreaInsets();
   const DAY1_QUESTIONS = t.introQuestions;
 
   const [answers, setAnswers] = useState({});
   const [step, setStep] = useState(0);
+  const [kavHeight, setKavHeight] = useState(0);
+  const [vvHeight, setVvHeight] = useState(() => {
+    if (Platform.OS !== 'web') return 0;
+    return window.visualViewport?.height ?? window.innerHeight;
+  });
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !window.visualViewport) return;
+    const update = () => setVvHeight(window.visualViewport.height);
+    window.visualViewport.addEventListener('resize', update);
+    return () => window.visualViewport.removeEventListener('resize', update);
+  }, []);
 
   const current = DAY1_QUESTIONS[step];
   const isLast = step === DAY1_QUESTIONS.length - 1;
   const progress = (step + 1) / DAY1_QUESTIONS.length;
   const val = answers[current.key] || '';
+
+  // How much the keyboard pushed content — only nonzero when dvh didn't already handle it
+  const kbOffset = Platform.OS === 'web' && kavHeight > 0 ? Math.max(0, kavHeight - vvHeight) : 0;
 
   const next = () => {
     if (!val.trim()) return;
@@ -54,8 +71,9 @@ export default function AvatarIntroScreen({ navigation, route }) {
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      onLayout={e => setKavHeight(e.nativeEvent.layout.height)}
     >
-      <ScrollView contentContainerStyle={styles.inner} keyboardShouldPersistTaps="handled">
+      <ScrollView style={styles.scroll} contentContainerStyle={[styles.inner, { paddingTop: insets.top + 24 }]} keyboardShouldPersistTaps="handled">
 
         <View style={styles.header}>
           <TouchableOpacity onPress={() => step > 0 ? setStep(step - 1) : navigation.goBack()}>
@@ -93,22 +111,27 @@ export default function AvatarIntroScreen({ navigation, route }) {
           onSubmitEditing={next}
         />
 
-        <TouchableOpacity
-          style={[styles.nextBtn, !val.trim() && styles.nextBtnDisabled]}
-          onPress={next}
-          disabled={!val.trim()}
-        >
-          <Text style={styles.nextBtnText}>{isLast ? t.introRevealBtn : t.introNextBtn}</Text>
-        </TouchableOpacity>
-
       </ScrollView>
+
+      <TouchableOpacity
+        style={[styles.nextBtn, !val.trim() && styles.nextBtnDisabled, {
+          marginHorizontal: 24,
+          marginBottom: Math.max(insets.bottom + 12, 24) + kbOffset,
+        }]}
+        onPress={next}
+        disabled={!val.trim()}
+      >
+        <Text style={styles.nextBtnText}>{isLast ? t.introRevealBtn : t.introNextBtn}</Text>
+      </TouchableOpacity>
+
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0A0A0A' },
-  inner: { paddingTop: 56, paddingHorizontal: 24, paddingBottom: 40 },
+  scroll: { flex: 1 },
+  inner: { paddingHorizontal: 24, paddingBottom: 16 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 28 },
   back: { color: '#555', fontSize: 22 },
   progressWrap: { flex: 1, gap: 6 },
@@ -144,7 +167,7 @@ const styles = StyleSheet.create({
   nextBtn: {
     backgroundColor: '#C0392B',
     borderRadius: 14, paddingVertical: 18,
-    alignItems: 'center',
+    alignItems: 'center', flexShrink: 0,
   },
   nextBtnDisabled: { backgroundColor: '#2A1010', opacity: 0.5 },
   nextBtnText: { color: '#FFF', fontSize: 17, fontWeight: '800' },

@@ -40,7 +40,7 @@ async function readLocalUserId() {
   return AsyncStorage.getItem(LOCAL_USER_KEY);
 }
 
-async function writeLocalUserId(id) {
+export async function writeLocalUserId(id) {
   if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
     localStorage.setItem(LOCAL_USER_KEY, id);
     return;

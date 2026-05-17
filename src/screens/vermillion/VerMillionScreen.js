@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useVoice } from '../../hooks/useVoice';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity,
-  FlatList, KeyboardAvoidingView, Platform, ActivityIndicator, Animated,
+  FlatList, KeyboardAvoidingView, Platform, ActivityIndicator, Animated, ScrollView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -15,6 +15,7 @@ import { askTeam } from '../../services/agents';
 import Avatar3D from '../../components/Avatar3D';
 import { useAuth } from '../../context/AuthContext';
 import { getUnlockedEquipment, getEffectiveOverrides } from '../../utils/registrationGate';
+import { getDayScheduleView } from '../../utils/dayScheduleDisplay';
 
 const DEV_BYPASS_TIMER = true; // TODO: set false before launch
 
@@ -41,10 +42,12 @@ function formatCountdown(ms) {
 function DNATimer({ day, insets, onGoGames, onUnlock, userId, avatarStyle, equipment, purchasedEquipment }) {
   const [commitment, setCommitment] = useState(null);
   const [msLeft, setMsLeft] = useState(0);
+  const [schedule, setSchedule] = useState(null);
 
   useEffect(() => {
     getCommitmentTime().then(c => {
       setCommitment(c);
+      setSchedule(getDayScheduleView(c));
       setMsLeft(getMsUntilCommitment(c));
     });
   }, []);
@@ -55,6 +58,7 @@ function DNATimer({ day, insets, onGoGames, onUnlock, userId, avatarStyle, equip
     const tick = setInterval(() => {
       const ms = getMsUntilCommitment(commitment);
       setMsLeft(ms);
+      setSchedule(getDayScheduleView(commitment));
       if (ms <= 0) {
         clearInterval(tick);
         onUnlock?.();
@@ -90,7 +94,7 @@ function DNATimer({ day, insets, onGoGames, onUnlock, userId, avatarStyle, equip
   const glowOpacity = glowAnim.interpolate({ inputRange: [0, 1], outputRange: [0.3, 0.8] });
 
   return (
-    <View style={[dna.container, { paddingTop: insets.top + 24 }]}>
+    <ScrollView style={dna.container} contentContainerStyle={{ paddingTop: insets.top + 24, paddingBottom: 40, alignItems: 'center' }} showsVerticalScrollIndicator={false}>
 
       {/* Header */}
       <View style={dna.header}>
@@ -127,11 +131,23 @@ function DNATimer({ day, insets, onGoGames, onUnlock, userId, avatarStyle, equip
         </View>
       </View>
 
-      {/* Countdown */}
+      {/* Countdown — שעות לפי יום (שישי / שבת / חול) */}
+      {schedule ? (
+        <View style={dna.scheduleBox}>
+          <Text style={dna.scheduleHeadline}>{schedule.headline}</Text>
+          {schedule.windowLine ? (
+            <Text style={dna.scheduleWindow}>{schedule.windowLine}</Text>
+          ) : null}
+          <Text style={dna.scheduleTarget}>{schedule.targetLine}</Text>
+          <Text style={dna.scheduleNow}>{schedule.nowLine}</Text>
+        </View>
+      ) : null}
       <Text style={dna.label}>
-        {commitment
-          ? `השאלות שלך בשעה ${String(commitment.hour).padStart(2,'0')}:${String(commitment.minute).padStart(2,'0')} — בעוד`
-          : 'שאלות חדשות בעוד'}
+        {schedule?.targetStr
+          ? `${schedule.kindLabel} בשעה ${schedule.targetStr} — בעוד`
+          : commitment
+            ? `השאלות שלך בשעה ${String(commitment.hour).padStart(2,'0')}:${String(commitment.minute).padStart(2,'0')} — בעוד`
+            : 'שאלות חדשות בעוד'}
       </Text>
       <View style={dna.clockRow}>
         <View style={dna.clockBlock}>
@@ -169,7 +185,7 @@ function DNATimer({ day, insets, onGoGames, onUnlock, userId, avatarStyle, equip
           ? `עוד ${7 - day} ימים לאפיון המלא שלך`
           : 'מחר VerMillion שלך יהיה מוכן לגמרי'}
       </Text>
-    </View>
+    </ScrollView>
   );
 }
 
@@ -189,10 +205,21 @@ export default function VerMillionScreen({ navigation }) {
   const [needsFirstGame, setNeedsFirstGame] = useState(false);
   const [showCrisisBar, setShowCrisisBar] = useState(false);
   const [quickTopics, setQuickTopics] = useState([]);
+  const [voiceMode, setVoiceMode] = useState(false);
   const pulseAnim  = useRef(new Animated.Value(1)).current;
+  const vmPulse    = useRef(new Animated.Value(1)).current;
+  const vmGlow     = useRef(new Animated.Value(0)).current;
+  const vmRing1    = useRef(new Animated.Value(0)).current;
+  const vmRing2    = useRef(new Animated.Value(0)).current;
+  const vmRing3    = useRef(new Animated.Value(0)).current;
   const flatListRef = useRef(null);
   const mountedRef  = useRef(true);
-  const lastVoiceRef = useRef(false);
+  const lastVoiceRef    = useRef(false);
+  const voiceReadyRef   = useRef(false);
+  const voiceModeRef    = useRef(false);
+  const sendRef         = useRef(null);
+  const lastSavedFieldRef    = useRef(null);
+  const currentQuestionRef   = useRef('');
   const voice = useVoice();
 
   useFocusEffect(
@@ -210,6 +237,96 @@ export default function VerMillionScreen({ navigation }) {
       return () => { mountedRef.current = false; };
     }, [])
   );
+
+  // Keep sendRef and voiceModeRef current
+  useEffect(() => { sendRef.current = send; });
+  useEffect(() => { voiceModeRef.current = voiceMode; }, [voiceMode]);
+
+  // Voice mode — pulse/glow when speaking
+  useEffect(() => {
+    if (!voiceMode) return;
+    if (voice.isSpeaking) {
+      Animated.loop(Animated.sequence([
+        Animated.timing(vmPulse, { toValue: 1.12, duration: 500, useNativeDriver: true }),
+        Animated.timing(vmPulse, { toValue: 1.0,  duration: 500, useNativeDriver: true }),
+      ])).start();
+      Animated.loop(Animated.sequence([
+        Animated.timing(vmGlow, { toValue: 0.7, duration: 400, useNativeDriver: true }),
+        Animated.timing(vmGlow, { toValue: 0.2, duration: 400, useNativeDriver: true }),
+      ])).start();
+    } else {
+      vmPulse.stopAnimation();
+      vmGlow.stopAnimation();
+      Animated.spring(vmPulse, { toValue: 1, friction: 5, useNativeDriver: true }).start();
+      Animated.timing(vmGlow, { toValue: 0, duration: 300, useNativeDriver: true }).start();
+    }
+  }, [voiceMode, voice.isSpeaking]);
+
+  // Voice mode — ripple rings when listening
+  useEffect(() => {
+    if (!voiceMode) return;
+    if (voice.isListening) {
+      const ripple = (anim, delay) => Animated.loop(Animated.sequence([
+        Animated.delay(delay),
+        Animated.timing(anim, { toValue: 1, duration: 1200, useNativeDriver: true }),
+        Animated.timing(anim, { toValue: 0, duration: 0,    useNativeDriver: true }),
+      ]));
+      ripple(vmRing1, 0).start();
+      ripple(vmRing2, 400).start();
+      ripple(vmRing3, 800).start();
+    } else {
+      [vmRing1, vmRing2, vmRing3].forEach(r => { r.stopAnimation(); r.setValue(0); });
+    }
+  }, [voiceMode, voice.isListening]);
+
+  // Voice mode — auto-listen after AI stops speaking
+  useEffect(() => {
+    if (!voiceMode || !voiceReadyRef.current) return;
+    if (!voice.isSpeaking && !loading && !voice.isListening && voice.supported) {
+      const timer = setTimeout(() => {
+        if (!mountedRef.current || !voiceMode) return;
+        voice.startListening((transcript) => {
+          if (!transcript?.trim()) return;
+          lastVoiceRef.current = true;
+          sendRef.current?.(transcript);
+        });
+      }, 700);
+      return () => clearTimeout(timer);
+    }
+  }, [voiceMode, voice.isSpeaking, loading, voice.isListening]);
+
+  function enterVoiceMode() {
+    voiceReadyRef.current = false;
+    voice.stopSpeaking();
+    setVoiceMode(true);
+
+    // קרא בקול את השאלה האחרונה של VerMillion
+    const lastBotMsg = [...messages].reverse().find(m => m.role === 'assistant' && m.text && !m.text.startsWith('✨'));
+    if (lastBotMsg?.text) {
+      setTimeout(() => {
+        if (!mountedRef.current) return;
+        voice.speak(lastBotMsg.text);
+      }, 300);
+    }
+
+    if (!voice.supported) return;
+    setTimeout(() => {
+      if (!mountedRef.current) return;
+      voiceReadyRef.current = true;
+      voice.startListening((transcript) => {
+        if (!transcript?.trim()) return;
+        lastVoiceRef.current = true;
+        sendRef.current?.(transcript);
+      });
+    }, 500);
+  }
+
+  function exitVoiceMode() {
+    voice.stopListening();
+    voice.stopSpeaking();
+    voiceReadyRef.current = false;
+    setVoiceMode(false);
+  }
 
   function startPulse() {
     Animated.loop(
@@ -286,8 +403,12 @@ export default function VerMillionScreen({ navigation }) {
         }
 
         if (progress.complete) {
-          // שאלות היום הושלמו → DNA timer עד commitment הבא
-          setDayDone(true);
+          if (day < 7) {
+            // שאלות יום הושלמו — שלח למשחקים (commitment/stamp)
+            navigation.navigate('Games');
+          } else {
+            setDayDone(true);
+          }
         } else if (day > 1) {
           // לפני שאלות — בדוק אם הגיע זמן ה-commitment
           const now  = new Date();
@@ -324,9 +445,27 @@ export default function VerMillionScreen({ navigation }) {
     const msg = { id: nextId(), role, text };
     setMessages(prev => [...prev, msg]);
     setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
-    if (role === 'assistant') voice.speak(text);
+    if (role === 'assistant' && voiceModeRef.current) voice.speak(text);
     return msg.id;
   }
+
+  const DAY_INTROS = {
+    2: 'יום 2 — היום נסתכל על הדיור וההוצאות הקבועות שלך.\n\n',
+    3: 'יום 3 — היום נבין את ההוצאות המשתנות והחובות.\n\n',
+    4: 'יום 4 — היום נצלול לחובות ולחיסכון שלך.\n\n',
+    5: 'יום 5 — היום נגיע לנכסים ולמטרות שלך.\n\n',
+    6: 'יום 6 — היום נבין את המנטליות הפיננסית שלך — החלק הכי מעניין.\n\n',
+    7: 'יום 7 — יום אחרון לפני שהאפיון המלא שלך מוכן. כמעט שם.\n\n',
+  };
+
+  const DAY_COMPLETIONS = {
+    1: 'יום 1 ✅\n\nלמדתי על המשפחה וההכנסה שלך — בסיס טוב.\n\nמחר נמשיך לדיור וההוצאות. כל יום מוסיף שכבה לתמונה.',
+    2: 'יום 2 ✅\n\nעכשיו יש לי תמונה על הדיור וההוצאות שלך.\n\nמחר נגיע לחובות — זה בדרך כלל הנושא הכי מפתיע.',
+    3: 'יום 3 ✅ — חצי דרך!\n\nיש לי כבר תמונה על ההוצאות והחובות שלך.\n\nמחר נצלול לחיסכון ולנכסים.',
+    4: 'יום 4 ✅\n\nמצוין. עכשיו יש לי תמונה ברורה על החובות והחיסכון.\n\nמחר נגיע למטרות — מה אתה רוצה להשיג.',
+    5: 'יום 5 ✅\n\nיש לי כבר פרופיל פיננסי עשיר עליך.\n\nמחר נדבר על מה שמניע אותך — הלב של הייעוץ.',
+    6: 'יום 6 ✅\n\nיום נהדר! יש לי כמעט תמונה שלמה.\n\nמחר — יום אחרון. אחריו האפיון המלא שלך מוכן.',
+  };
 
   async function askNextOnboardingQuestion(day, doneCount) {
     const prompt = await getTodayOnboardingPrompt(day);
@@ -338,7 +477,7 @@ export default function VerMillionScreen({ navigation }) {
 
       if (day >= 7) {
         setAvatarMood('excited');
-        addMsg('assistant', 'רגע אחד — מכין את האפיון האישי שלך...');
+        addMsg('assistant', '⏳ רגע אחד — מכין את האפיון האישי שלך...');
         setTimeout(async () => {
           if (!mountedRef.current) return;
           try {
@@ -350,18 +489,18 @@ export default function VerMillionScreen({ navigation }) {
           } catch {
             setMessages(prev => [
               ...prev.slice(0, -1),
-              { id: nextId(), role: 'assistant', text: 'האפיון שלך מוכן! VerMillion ילמד אותך טוב יותר מיום ליום.\n\n✅ אנחנו מתחילים!' },
+              { id: nextId(), role: 'assistant', text: '✅ האפיון שלך מוכן!\n\nVerMillion ילמד אותך טוב יותר מיום ליום. אנחנו מתחילים.' },
             ]);
           }
           setPhase('coaching');
         }, 1500);
       } else {
         setAvatarMood('happy');
-        addMsg('assistant', `מצוין! סיימנו ליום ${day} 💪\n\nעובר אותך למשחקים...`);
+        addMsg('assistant', DAY_COMPLETIONS[day] || `יום ${day} ✅\n\nעובר אותך למשחקים...`);
         setTimeout(() => {
           if (!mountedRef.current) return;
           navigation.navigate('Games');
-        }, 1800);
+        }, 2200);
       }
       setPendingField(null);
       return;
@@ -369,13 +508,16 @@ export default function VerMillionScreen({ navigation }) {
 
     const { field, question } = prompt;
     setPendingField(field);
+    currentQuestionRef.current = question;
     setAvatarMood('asking');
 
     let text = question;
     if (day === 1 && doneCount === 0) {
       const firstName = profile?.first_name || profile?.name?.split(' ')[0] || '';
-      const greeting = firstName ? `שלום ${firstName}!` : 'שלום!';
-      text = `${greeting} אני VerMillion — היועץ הפיננסי האישי שלך.\n\nבשבוע הקרוב נכיר אחד את השני — 3 שאלות ביום. בסוף השבוע יהיה לי אפיון מלא ונוכל להתחיל לעבוד ברצינות.\n\n${question}`;
+      const greeting = firstName ? `שלום ${firstName}! 👋` : 'שלום! 👋';
+      text = `${greeting}\n\nאני VerMillion — היועץ הפיננסי האישי שלך.\n\nאנחנו יוצאים למסע של שבוע — 3 שאלות ביום. בסוף השבוע יהיה לי פרופיל פיננסי מלא עליך, ותקבל יועץ שמכיר אותך באמת.\n\nנתחיל?\n\n${question}`;
+    } else if (doneCount === 0 && day > 1 && DAY_INTROS[day]) {
+      text = `${DAY_INTROS[day]}${question}`;
     }
 
     addMsg('assistant', text);
@@ -402,7 +544,45 @@ export default function VerMillionScreen({ navigation }) {
 
     try {
       if (phase === 'onboarding' && pendingField) {
+        // ── בלבול: חזור על השאלה ─────────────────────────────
+        const CONFUSION_RE = /לא שמעתי|לא הבנתי|מה אמרת|תחזור|מה\?|סליחה\?|תגיד שוב|לא ברור|מה הכוונה|לא קלטתי/i;
+        if (CONFUSION_RE.test(text)) {
+          setLoading(false);
+          const q = currentQuestionRef.current || 'נסה שוב — אני מקשיב.';
+          const repeatMsg = `אחזור:\n\n${q}`;
+          addMsg('assistant', repeatMsg);
+          if (voiceModeRef.current) voice.speak(repeatMsg);
+          return;
+        }
+
+        // ── תיקון: משתמש מתקן תשובה קודמת ──────────────────
+        const CORRECTION_RE = /^(?:לא[,!\s]|לא נכון|לא זה|לא כך|רגע[,!\s]|תיקון|טעיתי|שגיתי|אני מתקן)/i;
+        if (CORRECTION_RE.test(text) && lastSavedFieldRef.current) {
+          const correctedText = text.replace(CORRECTION_RE, '').trim();
+          if (correctedText.length > 1) {
+            setLoading(false);
+            const correctedValue = await processOnboardingAnswer(lastSavedFieldRef.current, correctedText);
+            const ackMsg = `תוקן — ${getAck(lastSavedFieldRef.current, correctedValue)}`;
+            addMsg('assistant', ackMsg);
+            if (voiceModeRef.current) voice.speak(ackMsg);
+            return;
+          }
+        }
+
+        // ── ולידציה: שדות מספריים חייבים מספר ───────────────
+        const NUMERIC_FIELDS = new Set(['netIncome','housingCost','fixedExpenses','variableExpenses',
+          'creditDebt','loans','overdraft','savings','assets','spouseIncome','retirementSavings','kids']);
+        const ZERO_WORDS = /^(אין|לא|אפס|כלום|שום|0|null|none|לא יודע|לא בטוח)$/i;
+        if (NUMERIC_FIELDS.has(pendingField) && !ZERO_WORDS.test(text.trim()) && !/\d/.test(text) && !/אלף|מאה|מיליון|אלפיים|אחד|שניים|שלוש|ארבע|חמש|שש|שבע|שמונה|תשע|עשר/.test(text)) {
+          setLoading(false);
+          const retryMsg = `לא קלטתי מספר. ${currentQuestionRef.current}`;
+          addMsg('assistant', retryMsg);
+          if (voiceModeRef.current) voice.speak(retryMsg);
+          return;
+        }
+
         const parsedValue = await processOnboardingAnswer(pendingField, text);
+        lastSavedFieldRef.current = pendingField;
         const newCount = questionsToday + 1;
         setQuestionsToday(newCount);
         setPendingField(null);
@@ -418,34 +598,28 @@ export default function VerMillionScreen({ navigation }) {
         const partialId = nextId();
         setMessages(prev => [...prev, { id: partialId, role: 'assistant', text: '...' }]);
 
-        const AGENT_HE = { ANALYST: 'אנליסט', STRATEGIST: 'אסטרטג', PSYCHOLOGIST: 'פסיכולוג', COACH: 'מאמן', CRISIS: 'תמיכה' };
-        const doneAgents = [];
-
         const [onbState, financialData, gameSessions] = await Promise.all([getOnboardingState(), getFinancialData(), getGameSessions()]);
-        const recentHistory = messages.filter(m => m.role !== undefined && m.text && !m.text.startsWith('🔍') && !m.text.startsWith('🧠') && !m.text.startsWith('✓') && !m.text.startsWith('✨')).slice(-8);
-        const { response, isCrisis } = await askTeam(text, { dailyAnswers: onbState, financialData, gameSessions }, (progress) => {
-          if (!mountedRef.current) return;
-          let t = '';
-          if (progress.stage === 'routing') {
-            t = '🔍 מנתב לסוכנים מומחים...';
-          } else if (progress.stage === 'thinking') {
-            const names = (progress.agents || []).map(a => AGENT_HE[a] || a).join(' · ');
-            t = `🧠 ${names} חושבים בשבילך...`;
-          } else if (progress.stage === 'agent_done') {
-            doneAgents.push(AGENT_HE[progress.agent] || progress.agent);
-            t = doneAgents.map(n => `✓ ${n}`).join('   ') + '\n⏳ מסיים...';
-          } else if (progress.stage === 'synthesizing') {
-            t = '✨ מאחד את התובנות...';
-          }
-          if (t) setMessages(prev => prev.map(m => m.id === partialId ? { ...m, text: t } : m));
-        }, recentHistory);
+        const recentHistory = messages.filter(m => m.role !== undefined && m.text && !m.text.startsWith('✨')).slice(-8);
+
+        let streamStarted = false;
+        const { response, isCrisis } = await askTeam(
+          text,
+          { dailyAnswers: onbState, financialData, gameSessions },
+          null,
+          recentHistory,
+          (fullTextSoFar) => {
+            if (!mountedRef.current) return;
+            if (!streamStarted) { streamStarted = true; setLoading(false); }
+            setMessages(prev => prev.map(m => m.id === partialId ? { ...m, text: fullTextSoFar, streaming: true } : m));
+          },
+        );
 
         const finalText = response || 'לא קיבלתי תשובה. נסה שוב.';
         if (mountedRef.current) {
-          setMessages(prev => prev.map(m => m.id === partialId ? { ...m, text: finalText } : m));
+          setMessages(prev => prev.map(m => m.id === partialId ? { ...m, text: finalText, streaming: false } : m));
           appendChatMessage({ id: partialId, role: 'assistant', text: finalText }).catch(() => {});
           if (isCrisis) setShowCrisisBar(true);
-          voice.speak(finalText);
+          if (voiceModeRef.current) voice.speak(finalText);
         }
         setAvatarMood('neutral');
       }
@@ -458,11 +632,92 @@ export default function VerMillionScreen({ navigation }) {
     }
   };
 
+  const moodColors = {
+    neutral:  '#C0392B',
+    asking:   '#E67E22',
+    thinking: '#8E44AD',
+    happy:    '#27AE60',
+    excited:  '#D4AF37',
+  };
+
   if (phase === null) {
     return (
       <View style={styles.loadingScreen}>
         <ActivityIndicator color="#C0392B" size="large" />
       </View>
+    );
+  }
+
+  // ── Voice Mode ─────────────────────────────────────────────────
+  if (voiceMode) {
+    const moodColor = moodColors[avatarMood] || '#C0392B';
+    const rings = [vmRing1, vmRing2, vmRing3].map(r => ({
+      scale:   r.interpolate({ inputRange: [0, 1], outputRange: [1, 3.0] }),
+      opacity: r.interpolate({ inputRange: [0, 0.15, 0.7, 1], outputRange: [0, 0.5, 0.35, 0] }),
+    }));
+    const status = voice.isListening ? 'מקשיב...'
+                 : loading           ? 'חושב...'
+                 : voice.isSpeaking  ? 'מדבר...'
+                 : !voice.supported  ? 'כתוב הודעה למטה'
+                 : '· · ·';
+    return (
+      <KeyboardAvoidingView
+        style={vm.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        {/* Exit */}
+        <TouchableOpacity style={[vm.exit, { top: insets.top + 16 }]} onPress={exitVoiceMode}>
+          <Text style={vm.exitText}>✕</Text>
+        </TouchableOpacity>
+
+        {/* Avatar stage */}
+        <View style={vm.avatarStage}>
+          {rings.map((r, i) => (
+            <Animated.View key={i} style={[vm.ring, { borderColor: moodColor, transform: [{ scale: r.scale }], opacity: r.opacity }]} />
+          ))}
+          <Animated.View style={[vm.glow, { backgroundColor: moodColor, opacity: vmGlow }]} />
+          <Animated.View style={{ transform: [{ scale: vmPulse }] }}>
+            <Avatar3D
+              archetype={profile?.avatar_style?.archetype || 'builder'}
+              userId={user?.id}
+              seed={profile?.avatar_style?.seed}
+              equipment={getUnlockedEquipment(profile?.v_coins)}
+              overrides={getEffectiveOverrides(profile?.avatar_style?.overrides, profile?.equipment)}
+              size={200}
+              showGlow={true}
+              accentColor={moodColor}
+            />
+          </Animated.View>
+        </View>
+
+        {/* Status */}
+        <Text style={vm.status}>{status}</Text>
+
+        {/* Caption when speaking */}
+        {voice.isSpeaking && (
+          <Text style={vm.caption} numberOfLines={3}>{voice.speakingText}</Text>
+        )}
+
+        {/* Input row (for TTS-only mode) */}
+        <View style={[vm.inputRow, { paddingBottom: Math.max(insets.bottom + 12, 20) }]}>
+          <TextInput
+            style={vm.input}
+            placeholder="כתוב כאן..."
+            placeholderTextColor="#333"
+            value={input}
+            onChangeText={setInput}
+            multiline
+            textAlign="right"
+          />
+          <TouchableOpacity
+            style={[vm.sendBtn, (!input.trim() || loading) && vm.sendBtnDisabled]}
+            onPress={() => { lastVoiceRef.current = false; send(input); }}
+            disabled={!input.trim() || loading}
+          >
+            <Text style={vm.sendBtnText}>↑</Text>
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
     );
   }
 
@@ -504,18 +759,10 @@ export default function VerMillionScreen({ navigation }) {
     );
   }
 
-  const moodColors = {
-    neutral:  '#C0392B',
-    asking:   '#E67E22',
-    thinking: '#8E44AD',
-    happy:    '#27AE60',
-    excited:  '#D4AF37',
-  };
-
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : Platform.OS === 'web' ? 'height' : undefined}
       keyboardVerticalOffset={90}
     >
       {/* ── CHARACTER STAGE ── */}
@@ -528,7 +775,7 @@ export default function VerMillionScreen({ navigation }) {
             seed={profile?.avatar_style?.seed}
             equipment={getUnlockedEquipment(profile?.v_coins)}
             overrides={getEffectiveOverrides(profile?.avatar_style?.overrides, profile?.equipment)}
-            size={180}
+            size={120}
             showGlow={true}
             accentColor={moodColors[avatarMood]}
           />
@@ -584,17 +831,7 @@ export default function VerMillionScreen({ navigation }) {
         </View>
       )}
 
-      {voice.isSpeaking && (
-        <View style={styles.speakingBar}>
-          <Text style={styles.speakingIcon}>🔊</Text>
-          <Text style={styles.speakingText} numberOfLines={2}>{voice.speakingText}</Text>
-          <TouchableOpacity onPress={voice.stopSpeaking} style={styles.speakingStop}>
-            <Text style={styles.speakingStopText}>✕</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      <View style={styles.inputRow}>
+      <View style={[styles.inputRow, { paddingBottom: Math.max(insets.bottom + 12, 20) }]}>
         <TextInput
           style={styles.input}
           placeholder="כתוב כאן..."
@@ -604,17 +841,11 @@ export default function VerMillionScreen({ navigation }) {
           multiline
           textAlign="right"
         />
-        {voice.supported && (
-          <TouchableOpacity
-            style={[styles.micBtn, voice.isListening && styles.micBtnActive]}
-            onPress={sendVoice}
-            disabled={loading}
-          >
-            <Text style={styles.micBtnText}>{voice.isListening ? '⏹' : '🎤'}</Text>
-          </TouchableOpacity>
-        )}
-        <TouchableOpacity style={styles.muteBtn} onPress={voice.toggleMute}>
-          <Text style={styles.muteBtnText}>{voice.muted ? '🔇' : '🔊'}</Text>
+        <TouchableOpacity
+          style={styles.voiceModeBtn}
+          onPress={enterVoiceMode}
+        >
+          <Text style={styles.micBtnText}>🎙</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.sendBtn, { backgroundColor: moodColors[avatarMood] }, (!input.trim() || loading) && styles.sendBtnDisabled]}
@@ -634,42 +865,112 @@ export default function VerMillionScreen({ navigation }) {
 function getAck(field, answer) {
   const n = typeof answer === 'number' ? answer : null;
   const t = typeof answer === 'string' ? answer.toLowerCase() : '';
+  const fmt = x => `₪${Number(x).toLocaleString('he-IL')}`;
+
+  if (field === 'kids') {
+    if (answer === 0) return 'ללא ילדים תלויים — פותח גמישות רבה יותר בתכנון. 👍';
+    const num = typeof answer === 'number' ? answer : parseInt(answer) || answer;
+    return `${num} ילד${num > 1 ? 'ים' : ''} — מציין. נתחשב בזה בכל ההמלצות שניתן.`;
+  }
+
+  if (field === 'netIncome') {
+    if (!n) return 'קיבלתי — זה הבסיס שנעבוד ממנו.';
+    return `${fmt(n)} נטו — הבסיס שנעבוד ממנו. נראה כמה מזה נשאר בסוף החודש.`;
+  }
+
+  if (field === 'incomeStability') {
+    if (/קבוע|קבועה/.test(t)) return 'הכנסה קבועה — יתרון גדול לתכנון. יאפשר לנו לבנות לוח זמנים מדויק.';
+    return 'הכנסה משתנה — מורכב יותר, אבל יש אסטרטגיות מותאמות. נבנה אותן ביחד.';
+  }
+
+  if (field === 'housingType') {
+    if (/שכיר|שכירות|שוכר/.test(t)) return 'שכירות — אחת ההוצאות הגדולות. נסתכל כמה מהכנסה היא לוקחת.';
+    if (/משכנתא|בבעלות/.test(t)) return 'משכנתא — גם נכס וגם התחייבות חודשית. נסתכל על הפרמטרים.';
+    if (/הורים|אמא|אבא/.test(t)) return 'אצל הורים — חוסך בהוצאות דיור, פוטנציאל גדול לצבירה מהירה.';
+    return 'הבנתי — רשמתי את סוג הדיור שלך.';
+  }
+
+  if (field === 'housingCost') {
+    if (!n || n === 0) return 'ללא עלות דיור — יתרון ממשי, עוד כסף להכניס לעבודה.';
+    return `${fmt(n)} על דיור — רשמתי. אחת ההוצאות המרכזיות, נסתכל עליה בהקשר.`;
+  }
+
+  if (field === 'fixedExpenses') {
+    if (n === 0) return 'ללא הוצאות קבועות נוספות — מצוין, עומס מינימלי על התקציב.';
+    return n ? `${fmt(n)} בהוצאות קבועות — כל שקל כאן חשוב, רשמתי.` : 'הבנתי — רשמתי.';
+  }
+
+  if (field === 'variableExpenses') {
+    return n ? `${fmt(n)} משתנות — כאן לרוב יש הכי הרבה מרחב לשיפור. רשמתי.` : 'הבנתי — רשמתי.';
+  }
+
+  if (field === 'biggestExpense') {
+    return 'מעניין — זה מגלה הרבה על סדרי העדיפויות שלך. רשמתי.';
+  }
+
+  if (field === 'creditDebt') {
+    if (n === 0) return 'ללא חוב בכרטיס — מצוין. אחד הדברים הכי בריאים שאפשר לראות.';
+    return `${fmt(n)} בכרטיס — אשראי הוא לרוב היקר ביותר. נדע לטפל בו נכון.`;
+  }
+
+  if (field === 'loans') {
+    if (n === 0) return 'ללא הלוואות — מצוין, פחות עומס חודשי.';
+    return n ? `${fmt(n)} בהלוואות — הבנתי. נבנה יחד תכנית פירעון הגיונית.` : 'הבנתי — רשמתי.';
+  }
+
+  if (field === 'overdraft') {
+    if (n === 0) return 'ללא מינוס — בסיס בריא מאוד. 👍';
+    return `${fmt(n)} מינוס — נפוץ בישראל. זה יהיה מהראשונים שנייצב.`;
+  }
+
+  if (field === 'savings') {
+    if (!n || n === 0) return 'ללא חיסכון נזיל עדיין — נבנה קרן חירום כנקודת פתיחה ראשונה.';
+    return `${fmt(n)} בצד — טוב! נראה אם זה מספיק לפי הצרכים שלך.`;
+  }
+
+  if (field === 'assets') {
+    return 'רשמתי את הנכסים — חשוב לתמונה הכוללת של העושר שלך.';
+  }
+
+  if (field === 'moneyGoal') {
+    return 'מטרה ברורה — זה הכיוון שלנו. כל ההמלצות שלי יחתרו לקראתו.';
+  }
+
+  if (field === 'moneyFear') {
+    return 'הבנתי — זה בדיוק מה שנטפל בו. לא לבד בזה.';
+  }
 
   if (field === 'endOfMonthFeeling') {
-    if (/עצבני|לחוץ|מתח|מפחד|חרד/.test(t)) return 'לחץ בסוף חודש — זה נפוץ, נעבוד על זה ביחד.';
-    if (/שקט|בסדר|טוב|רגוע/.test(t)) return 'שקט — זה כוח. נבנה עליו.';
-    if (/לא בודק|לא מסתכל|מתעלם/.test(t)) return 'לא בודק — כנות! זה נקודת פתיחה טובה.';
-    return 'הבנתי — נשים על זה עין ביחד.';
+    if (/עצבני|לחוץ|מתח|מפחד|חרד/.test(t)) return 'לחץ בסוף חודש — זה נפוץ יותר ממה שחושבים. בדיוק בשביל זה אני פה.';
+    if (/שקט|בסדר|טוב|רגוע/.test(t)) return 'שקט פיננסי — זה כוח אמיתי. נשמר ונגדיל אותו.';
+    if (/לא בודק|לא מסתכל|מתעלם/.test(t)) return 'לא בודק — כנות שמחייבת. נתחיל לבנות תמונה ברורה ביחד.';
+    return 'הבנתי. תחושות כסף הן מידע חשוב — נשים על זה עין.';
   }
 
   if (field === 'moneyPersonality') {
-    if (/חוסך|שומר|שמרן/.test(t)) return 'חוסך — בסיס טוב לבניית עתיד.';
-    if (/מוציא|מבזבז|קונה/.test(t)) return 'נוטה להוציא — נבין מה מניע את זה.';
-    if (/לא מסתכל|לא בודק|מתעלם/.test(t)) return 'לא מסתכל — כנות! נתחיל לבנות תמונה ברורה.';
-    return 'הבנתי. נלמד ביחד מה קורה עם הכסף.';
+    if (/חוסך|שומר|שמרן/.test(t)) return 'חוסך — בסיס מצוין. נגרום לחיסכון לעבוד קשה יותר בשבילך.';
+    if (/מוציא|מבזבז|קונה/.test(t)) return 'נוטה להוציא — בסדר. נבין מה מניע את זה ונמצא איזון.';
+    if (/לא מסתכל|לא בודק|מתעלם/.test(t)) return 'לא מסתכל — זה ישתנה. עד סוף השבוע תהיה לך תמונה ברורה.';
+    return 'הבנתי. נלמד ביחד מה מאפיין אותך עם כסף.';
   }
 
-  const map = {
-    kids:              answer === 0 ? 'ללא ילדים.' : `${answer} ילדים — רשמתי.`,
-    netIncome:         n ? `₪${n.toLocaleString('he-IL')} נטו — רשמתי.` : 'רשמתי.',
-    incomeStability:   `${answer} — מבין.`,
-    housingType:       `${answer} — רשמתי.`,
-    housingCost:       n ? `₪${n.toLocaleString('he-IL')} — רשמתי.` : 'רשמתי.',
-    fixedExpenses:     n === 0 ? 'ללא הוצאות קבועות נוספות.' : n ? `₪${n.toLocaleString('he-IL')} — רשמתי.` : 'רשמתי.',
-    variableExpenses:  n ? `₪${n.toLocaleString('he-IL')} — מבין.` : 'רשמתי.',
-    biggestExpense:    'מעניין — רשמתי.',
-    creditDebt:        n === 0 ? 'ללא חוב כרטיס — טוב.' : `₪${(n||0).toLocaleString('he-IL')} — רשמתי.`,
-    loans:             n === 0 ? 'ללא הלוואות.' : 'רשמתי.',
-    overdraft:         n === 0 ? 'ללא מינוס — מצוין.' : `₪${(n||0).toLocaleString('he-IL')} מינוס.`,
-    savings:           n ? `₪${n.toLocaleString('he-IL')} בצד — מבין.` : 'רשמתי.',
-    assets:            'רשמתי.',
-    moneyGoal:         'מטרה ברורה — רשמתי.',
-    moneyFear:         'הבנתי. זה בדיוק מה שנעבוד עליו.',
-    biggestDream:      /לא יודע|לא חושב|מורכב|קשה לענות|אין לי|אין/.test(t) ? 'בסדר — גם חוסר ודאות זה מידע. נמשיך.' : 'חלום יפה. בואו נגרום לזה לקרות.',
-    spouseIncome:      n === 0 ? 'ללא הכנסה נוספת — רשמתי.' : 'רשמתי.',
-    retirementSavings: n === 0 ? 'ללא פנסיה כרגע — חשוב לדעת.' : 'רשמתי.',
-  };
-  return map[field] || 'רשמתי.';
+  if (field === 'biggestDream') {
+    if (/לא יודע|לא חושב|מורכב|קשה לענות|אין לי|אין/.test(t))
+      return 'חוסר ודאות הוא גם מידע — יבוא הזמן שנגלה ביחד מה אתה רוצה.';
+    return 'חלום יפה. בואו נגרום לבסיס הכלכלי לתמוך בו.';
+  }
+
+  if (field === 'spouseIncome') {
+    if (n === 0) return 'ללא הכנסה נוספת בבית כרגע — עובדים עם מה שיש, ויש מה לעשות.';
+    return n ? `${fmt(n)} נוספים — הכנסה משולבת משנה את החישוב. רשמתי.` : 'הבנתי — רשמתי.';
+  }
+
+  if (field === 'retirementSavings') {
+    if (n === 0) return 'ללא הפקדות פנסיוניות כרגע — נקודה חשובה שנטפל בה.';
+    return `${fmt(n)} בחודש לפנסיה — מצוין. נבין אם זה מספיק לפי גילך ומטרותיך.`;
+  }
+
+  return 'הבנתי — רשמתי.';
 }
 
 const STAGE_RE = /^[🔍🧠✓✨⏳]/;
@@ -682,7 +983,9 @@ function Bubble({ message }) {
 
   useEffect(() => {
     const text = message.text || '';
-    if (isUser || isStage || !text) {
+    // streaming: text already arrives token-by-token — show as-is
+    if (isUser || isStage || !text || message.streaming) {
+      clearInterval(timerRef.current);
       setDisplayed(text);
       return;
     }
@@ -695,7 +998,7 @@ function Bubble({ message }) {
       if (i >= text.length) clearInterval(timerRef.current);
     }, 22);
     return () => clearInterval(timerRef.current);
-  }, [message.text]);
+  }, [message.text, message.streaming]);
 
   return (
     <View style={[styles.bubbleWrap, isUser ? styles.bubbleWrapUser : styles.bubbleWrapBot]}>
@@ -745,7 +1048,7 @@ const styles = StyleSheet.create({
 
   characterStage: {
     alignItems: 'center',
-    paddingBottom: 8,
+    paddingBottom: 4,
     borderBottomWidth: 1,
     borderBottomColor: '#1A1A1A',
     backgroundColor: '#0A0A0A',
@@ -804,7 +1107,7 @@ const styles = StyleSheet.create({
 
   inputRow: {
     flexDirection: 'row', alignItems: 'flex-end', gap: 10,
-    padding: 12, paddingBottom: Platform.OS === 'ios' ? 30 : 12,
+    padding: 12,
     borderTopWidth: 1, borderTopColor: '#1A1A1A', backgroundColor: '#0A0A0A',
   },
   input: {
@@ -816,6 +1119,11 @@ const styles = StyleSheet.create({
   sendBtn:        { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center' },
   sendBtnDisabled:{ backgroundColor: '#222' },
   sendBtnText:    { color: '#FFF', fontSize: 22, fontWeight: '700' },
+  voiceModeBtn: {
+    width: 46, height: 46, borderRadius: 23, backgroundColor: '#1A0808',
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: '#C0392B55',
+  },
   micBtn: {
     width: 46, height: 46, borderRadius: 23, backgroundColor: '#1A1A1A',
     alignItems: 'center', justifyContent: 'center',
@@ -848,11 +1156,57 @@ const styles = StyleSheet.create({
   crisisBarSub:  { color: '#FF9999', fontSize: 11, marginTop: 2 },
 });
 
+// ─── Voice Mode styles ────────────────────────────────────────
+const vm = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#050505', alignItems: 'center' },
+  exit: {
+    position: 'absolute', right: 20, width: 40, height: 40, borderRadius: 20,
+    backgroundColor: '#1A1A1A', alignItems: 'center', justifyContent: 'center', zIndex: 10,
+  },
+  exitText: { color: '#666', fontSize: 18, fontWeight: '700' },
+  avatarStage: {
+    flex: 1, alignItems: 'center', justifyContent: 'center',
+  },
+  ring: {
+    position: 'absolute', width: 220, height: 220, borderRadius: 110,
+    borderWidth: 1.5,
+  },
+  glow: {
+    position: 'absolute', width: 260, height: 260, borderRadius: 130,
+    opacity: 0,
+  },
+  status: {
+    color: '#555', fontSize: 14, letterSpacing: 2, fontWeight: '600',
+    marginBottom: 8,
+  },
+  caption: {
+    paddingHorizontal: 36, color: '#444',
+    fontSize: 14, lineHeight: 22, textAlign: 'center', marginBottom: 8,
+  },
+  inputRow: {
+    flexDirection: 'row', alignItems: 'flex-end', gap: 10,
+    padding: 12, width: '100%',
+    borderTopWidth: 1, borderTopColor: '#111', backgroundColor: '#050505',
+  },
+  input: {
+    flex: 1, backgroundColor: '#0F0F0F', borderRadius: 24,
+    paddingHorizontal: 18, paddingVertical: 12,
+    color: '#FFF', fontSize: 15, maxHeight: 100,
+    borderWidth: 1, borderColor: '#1A1A1A',
+  },
+  sendBtn: {
+    width: 46, height: 46, borderRadius: 23, backgroundColor: '#C0392B',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  sendBtnDisabled: { backgroundColor: '#222' },
+  sendBtnText: { color: '#FFF', fontSize: 22, fontWeight: '700' },
+});
+
 // ─── DNA Timer styles ──────────────────────────────────────────
 const dna = StyleSheet.create({
   container: {
     flex: 1, backgroundColor: '#0A0A0A',
-    alignItems: 'center', paddingHorizontal: 24,
+    paddingHorizontal: 24,
   },
   header: {
     flexDirection: 'row', alignItems: 'center', gap: 14,
@@ -879,6 +1233,12 @@ const dna = StyleSheet.create({
   dotLeft: { width: 14, height: 14, borderRadius: 7, backgroundColor: '#C0392B' },
   bridge:  { width: 64, height: 2, backgroundColor: '#2A2A2A' },
   dotRight:{ width: 14, height: 14, borderRadius: 7, backgroundColor: '#E67E22' },
+
+  scheduleBox:      { width: '100%', alignItems: 'flex-end', marginBottom: 16, padding: 12, borderRadius: 12, backgroundColor: '#111', borderWidth: 1, borderColor: '#222' },
+  scheduleHeadline: { color: '#FFF', fontSize: 15, fontWeight: '800', textAlign: 'right', marginBottom: 4 },
+  scheduleWindow:   { color: '#D4AF37', fontSize: 12, fontWeight: '700', textAlign: 'right', marginBottom: 4 },
+  scheduleTarget: { color: '#AAA', fontSize: 12, textAlign: 'right', marginBottom: 2 },
+  scheduleNow:    { color: '#666', fontSize: 11, textAlign: 'right' },
 
   label: { color: '#555', fontSize: 13, fontWeight: '700', letterSpacing: 1, marginBottom: 12 },
 

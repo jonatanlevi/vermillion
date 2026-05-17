@@ -1,6 +1,9 @@
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase, getOrCreateUser, isLocalUserId, clearDeviceLocalIdentity } from './supabase';
+import { isHmInChallengeWindow } from '../constants/stampChallenge';
+import { getMsUntilActiveTarget } from '../utils/dayScheduleDisplay';
+import { getStampWindowStatus, parseGameCompleteError, parseStampInvokeError } from '../utils/stampWindow';
 
 const L = {
   FIN:      '@vermillion/local/financial',
@@ -47,6 +50,11 @@ async function localRemoveAll() {
   }
 }
 
+/** איפוס נתוני משחק לוקאלי לפני הפעלת רפא — לא מוחק סשן ghost_play */
+export async function localRemoveAllForGhost() {
+  await localRemoveAll();
+}
+
 // ─── helpers ───────────────────────────────────────────────
 async function uid() {
   const user = await getOrCreateUser();
@@ -84,47 +92,122 @@ async function dbUpsert(table, userId, payload) {
 // ─── Commitment ─────────────────────────────────────────────
 export async function saveCommitmentTime(hour, minute) {
   const userId = await uid();
-  const now = new Date();
-  if (hour !== undefined && minute !== undefined) {
-    now.setHours(hour, minute, 0, 0);
+  const existing = await getCommitmentTime();
+  if (existing?.hour != null && existing?.minute != null) {
+    return { ok: false, error: 'DNA_LOCKED' };
   }
+
+  const now = new Date();
   const payload = {
-    committed_at: now.toISOString(),
-    streak_days: 0,
+    committed_hour:   hour,
+    committed_minute: minute,
+    committed_at:     now.toISOString(),
+    streak_days:      0,
   };
   if (isLocalUserId(userId)) {
     await localSet(L.COMMIT, payload);
-    return;
+    return { ok: true };
   }
+  await syncProfileTimezone();
   const { error } = await dbUpsert('commitment', userId, payload);
   if (error) {
+    if (error.message?.includes('DNA_LOCKED')) {
+      return { ok: false, error: 'DNA_LOCKED' };
+    }
     console.warn('[storage] commitment remote failed — device cache', error?.message || error);
     await localSet(L.COMMIT, payload);
   }
+  return { ok: true };
+}
+
+function mapCommitmentRow(row) {
+  if (!row) return null;
+  const out = {
+    fridayTarget: row.friday_target_hour != null && row.friday_target_minute != null
+      ? { hour: row.friday_target_hour, minute: row.friday_target_minute }
+      : null,
+    saturdayTarget: row.saturday_target_hour != null && row.saturday_target_minute != null
+      ? { hour: row.saturday_target_hour, minute: row.saturday_target_minute }
+      : null,
+  };
+  if (row.committed_hour != null && row.committed_minute != null) {
+    out.hour = row.committed_hour;
+    out.minute = row.committed_minute;
+    out.setAt = row.committed_at;
+  } else if (row.committed_at) {
+    const d = new Date(row.committed_at);
+    out.hour = d.getHours();
+    out.minute = d.getMinutes();
+    out.setAt = row.committed_at;
+  }
+  if (out.hour == null && !out.fridayTarget && !out.saturdayTarget) return null;
+  return out;
+}
+
+export async function saveChallengeTarget(mode, hour, minute) {
+  if (!isHmInChallengeWindow(mode, hour, minute)) {
+    return { ok: false, error: 'OUT_OF_WINDOW' };
+  }
+
+  const existing = await getCommitmentTime();
+  const prior = mode === 'friday' ? existing?.fridayTarget : existing?.saturdayTarget;
+  if (prior) {
+    return { ok: false, error: mode === 'friday' ? 'FRIDAY_DNA_LOCKED' : 'SATURDAY_DNA_LOCKED' };
+  }
+
+  const userId = await uid();
+  const fields = mode === 'friday'
+    ? { friday_target_hour: hour, friday_target_minute: minute }
+    : { saturday_target_hour: hour, saturday_target_minute: minute };
+
+  if (isLocalUserId(userId)) {
+    const prev = (await localGet(L.COMMIT, null)) || {};
+    await localSet(L.COMMIT, { ...prev, ...fields });
+    return { ok: true };
+  }
+
+  await syncProfileTimezone();
+  const { error } = await dbUpsert('commitment', userId, fields);
+  if (error) {
+    const msg = error.message || '';
+    if (msg.includes('FRIDAY_DNA_LOCKED') || msg.includes('SATURDAY_DNA_LOCKED')) {
+      return { ok: false, error: mode === 'friday' ? 'FRIDAY_DNA_LOCKED' : 'SATURDAY_DNA_LOCKED' };
+    }
+    console.warn('[storage] challenge target failed — device cache', msg);
+    const prev = (await localGet(L.COMMIT, null)) || {};
+    await localSet(L.COMMIT, { ...prev, ...fields });
+  }
+  return { ok: true };
 }
 
 export async function getCommitmentTime() {
   const userId = await uid();
   if (isLocalUserId(userId)) {
-    const row = await localGet(L.COMMIT, null);
-    if (!row?.committed_at) return null;
-    const d = new Date(row.committed_at);
-    return { hour: d.getHours(), minute: d.getMinutes(), setAt: row.committed_at };
+    return mapCommitmentRow(await localGet(L.COMMIT, null));
   }
   const { data } = await supabase
-    .from('commitment').select('committed_at').eq('user_id', userId).maybeSingle();
-  if (!data?.committed_at) return null;
-  const d = new Date(data.committed_at);
-  return { hour: d.getHours(), minute: d.getMinutes(), setAt: data.committed_at };
+    .from('commitment')
+    .select(
+      'committed_hour, committed_minute, committed_at, friday_target_hour, friday_target_minute, saturday_target_hour, saturday_target_minute',
+    )
+    .eq('user_id', userId)
+    .maybeSingle();
+  return mapCommitmentRow(data);
 }
 
 export function getMsUntilCommitment(commitment) {
   if (!commitment) return getMsUntilMidnight();
+
+  const win = getStampWindowStatus();
+  if (win.mode === 'friday' || win.mode === 'saturday') {
+    const ms = getMsUntilActiveTarget(commitment);
+    return ms > 0 ? ms : getMsUntilMidnight();
+  }
+
   const now  = new Date();
   const next = new Date(now);
   next.setHours(commitment.hour, commitment.minute, 0, 0);
 
-  // אם ה-commitment נקבע היום — הסשן הראשון הוא מחר (לא באותו יום)
   const setAt    = commitment.setAt ? new Date(commitment.setAt) : null;
   const setToday = setAt && setAt.toDateString() === now.toDateString();
 
@@ -147,6 +230,7 @@ const PROFILE_DB_COLUMNS = [
   'first_name', 'last_name', 'phone', 'date_of_birth', 'id_number_last4',
   'avatar_style', 'subscription', 'lang',
   'onboarding_complete', 'profile_intake_complete',
+  'terms_accepted_at', 'terms_version',
 ];
 
 export async function saveProfile(data) {
@@ -336,34 +420,90 @@ export async function getDailyLog() {
 }
 
 // ─── Game log ─────────────────────────────────────────────────
-export async function saveGameStamp(day) {
-  const userId    = await uid();
-  const monthKey  = new Date().toISOString().slice(0, 7);
-  const stampedAt = new Date().toISOString();
 
-  const existing = await getGameLog();
-  existing[day] = { msDiff: 0, score: 1, stampedAt };
-  await localSet(L.GAME, existing);
+// Called when a game genuinely finishes — returns a single-use token
+export async function completeGame({ day, gameKey, gameScore, startedAt, durationMs }) {
+  const userId = await uid();
+  if (isLocalUserId(userId)) return { token: 'local', ok: true };
+
+  const monthKey = new Date().toISOString().slice(0, 7);
+  const secret   = process.env.EXPO_PUBLIC_APP_SECRET || '';
+
+  try {
+    const { data, error } = await supabase.functions.invoke('game-complete', {
+      body: { day, month_key: monthKey, game_key: gameKey, game_score: gameScore, started_at: startedAt, duration_ms: durationMs },
+      headers: { 'x-vermillion-secret': secret },
+    });
+    if (data?.error) {
+      return { token: null, ok: false, error: data.error, message: data.message, minMs: data.minMs };
+    }
+    if (error) throw error;
+    if (!data?.token) return { token: null, ok: false, error: 'NO_TOKEN' };
+    return { token: data.token, ok: true };
+  } catch (e) {
+    const parsed = parseGameCompleteError(e, null);
+    console.warn('[storage] game-complete failed:', parsed.code, parsed.message || '');
+    return { token: null, ok: false, error: parsed.code, message: parsed.message };
+  }
+}
+
+export async function saveGameStamp(day, gameToken) {
+  const userId   = await uid();
+  const monthKey = new Date().toISOString().slice(0, 7);
 
   if (isLocalUserId(userId)) {
-    return { score: 1, ms_diff: 0 };
+    const existing = await getGameLog();
+    existing[day] = { msDiff: 0, score: 1, stampedAt: new Date().toISOString() };
+    await localSet(L.GAME, existing);
+    return { score: 1, ms_diff: 0, ok: true };
+  }
+
+  if (!gameToken) {
+    console.warn('[storage] saveGameStamp: no game token — stamp blocked');
+    return { score: 0, ms_diff: 0, ok: false, error: 'GAME_TOKEN_REQUIRED' };
   }
 
   try {
+    const clientTimezone = await syncProfileTimezone();
     const { data, error } = await supabase.functions.invoke('stamp', {
-      body: { day, month_key: monthKey },
+      body: {
+        day,
+        month_key: monthKey,
+        game_token: gameToken,
+        client_timezone: clientTimezone,
+      },
       headers: { 'x-vermillion-secret': process.env.EXPO_PUBLIC_APP_SECRET || '' },
     });
+
+    if (data?.error) {
+      return { score: 0, ms_diff: 0, ok: false, error: data.error, message: data.message, next_open: data.next_open };
+    }
     if (error) throw error;
 
+    const stampedAt = new Date().toISOString();
+    const existing = await getGameLog();
     existing[day] = { msDiff: data.ms_diff, score: data.score, stampedAt };
     await localSet(L.GAME, existing);
 
-    return { score: data.score, ms_diff: data.ms_diff };
+    return { score: data.score, ms_diff: data.ms_diff, ok: true, window_mode: data.window_mode };
   } catch (e) {
-    console.warn('[storage] stamp edge function failed:', e?.message || e);
-    return { score: 1, ms_diff: 0 };
+    const parsed = parseStampInvokeError(e, null);
+    console.warn('[storage] stamp edge function failed:', parsed.code, parsed.message || '');
+    return { score: 0, ms_diff: 0, ok: false, error: parsed.code, message: parsed.message };
   }
+}
+
+/** Sync IANA timezone to profile for Fri/Sat window checks on server */
+export async function syncProfileTimezone() {
+  const userId = await uid();
+  if (isLocalUserId(userId)) return;
+  let tz = 'UTC';
+  try {
+    tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  } catch { /* keep UTC */ }
+  const { error } = await supabase.from('profiles').update({ timezone: tz }).eq('id', userId);
+  if (error) console.warn('[storage] syncProfileTimezone:', error.message);
+  return tz;
 }
 
 export async function getLeaderboard(monthKey) {
@@ -392,6 +532,72 @@ export async function getLeaderboard(monthKey) {
       .map((u, i) => ({ ...u, rank: i + 1 }));
   } catch (e) {
     console.warn('[storage] getLeaderboard:', e?.message || e);
+    return [];
+  }
+}
+
+export async function getLeaderboardWeekly() {
+  const now = new Date();
+  // ISO week: Monday = day 0
+  const dayOfWeek = (now.getDay() + 6) % 7;
+  const weekStart = new Date(now);
+  weekStart.setDate(now.getDate() - dayOfWeek);
+  weekStart.setHours(0, 0, 0, 0);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 7);
+
+  const monthKey = now.toISOString().slice(0, 7);
+
+  try {
+    const { data, error } = await supabase
+      .from('daily_stamps')
+      .select('user_id, score, ms_diff, stamped_at, profiles(name, avatar_style)')
+      .eq('month_key', monthKey);
+    if (error || !data) return [];
+
+    // Count total month stamps per user (minimum participation check)
+    const monthDays = {};
+    for (const row of data) monthDays[row.user_id] = (monthDays[row.user_id] || 0) + 1;
+
+    // Filter to current week's stamps only
+    const weekRows = data.filter(row => {
+      if (!row.stamped_at) return false;
+      const ts = new Date(row.stamped_at);
+      return ts >= weekStart && ts < weekEnd;
+    });
+
+    // Group by user — require ≥7 stamps this month (past the intro week)
+    const grouped = {};
+    for (const row of weekRows) {
+      const uid = row.user_id;
+      if ((monthDays[uid] || 0) < 7) continue;
+      if (!grouped[uid]) {
+        const raw = row.profiles?.avatar_style;
+        const avatarStyle = typeof raw === 'string' ? (() => { try { return JSON.parse(raw); } catch { return {}; } })() : (raw || {});
+        grouped[uid] = {
+          user_id: uid,
+          name: row.profiles?.name || 'אנונימי',
+          avatar_style: avatarStyle,
+          week_score: 0,
+          week_days: 0,
+          month_days: monthDays[uid],
+        };
+      }
+      grouped[uid].week_score += row.score;
+      grouped[uid].week_days++;
+    }
+
+    // Sort: week_score weighted by month participation ratio
+    return Object.values(grouped)
+      .sort((a, b) => {
+        const wA = a.week_score * (1 + a.month_days / 30);
+        const wB = b.week_score * (1 + b.month_days / 30);
+        return wB - wA;
+      })
+      .slice(0, 5)
+      .map((u, i) => ({ ...u, rank: i + 1 }));
+  } catch (e) {
+    console.warn('[storage] getLeaderboardWeekly:', e?.message || e);
     return [];
   }
 }
@@ -446,6 +652,7 @@ export async function clearAllData(knownUserId) {
         if (k && (
           k.startsWith('@vermillion/intake_complete/') ||
           k.startsWith('@vermillion/onboarding_complete/') ||
+          k.startsWith('@vermillion/terms_accepted/') ||
           k.startsWith(`${AVATAR_STYLE_KEY}/`)
         )) keysToRemove.push(k);
       }

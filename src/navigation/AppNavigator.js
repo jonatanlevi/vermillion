@@ -15,6 +15,7 @@ import AvatarAppearanceScreen from '../screens/onboarding/AvatarAppearanceScreen
 import AvatarToneScreen       from '../screens/onboarding/AvatarToneScreen';
 import AvatarIntroScreen      from '../screens/onboarding/AvatarIntroScreen';
 import AvatarRevealScreen     from '../screens/onboarding/AvatarRevealScreen';
+import RegulationsConsentScreen from '../screens/onboarding/RegulationsConsentScreen';
 import SubscriptionScreen     from '../screens/onboarding/SubscriptionScreen';
 import ModelDownloadScreen    from '../screens/onboarding/ModelDownloadScreen';
 
@@ -27,8 +28,10 @@ import DailyQuestionsScreen    from '../screens/main/DailyQuestionsScreen';
 import DailyCoachingScreen     from '../screens/main/DailyCoachingScreen';
 import ProfileRevealScreen     from '../screens/main/ProfileRevealScreen';
 import SettingsScreen          from '../screens/main/SettingsScreen';
+import RegulationsScreen       from '../screens/main/RegulationsScreen';
 import Day30CelebrationScreen  from '../screens/main/Day30CelebrationScreen';
 import AvatarGalleryScreen     from '../screens/dev/AvatarGalleryScreen';
+import GhostPlayScreen         from '../screens/dev/GhostPlayScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab   = createBottomTabNavigator();
@@ -118,6 +121,7 @@ export default function AppNavigator() {
             <Stack.Screen name="AvatarTone"        component={AvatarToneScreen} />
             <Stack.Screen name="AvatarIntro"       component={AvatarIntroScreen} />
             <Stack.Screen name="AvatarReveal"      component={AvatarRevealScreen} />
+            <Stack.Screen name="RegulationsConsent" component={RegulationsConsentScreen} />
             <Stack.Screen name="Subscription"      component={SubscriptionScreen} />
             <Stack.Screen name="ModelDownload"     component={ModelDownloadScreen} />
             <Stack.Screen name="Home"              component={HomeScreen} />
@@ -125,7 +129,9 @@ export default function AppNavigator() {
             <Stack.Screen name="DailyCoaching"     component={DailyCoachingScreen} />
             <Stack.Screen name="ProfileReveal"     component={ProfileRevealScreen} />
             <Stack.Screen name="Settings"          component={SettingsScreen} />
+            <Stack.Screen name="Regulations"     component={RegulationsScreen} />
             <Stack.Screen name="AvatarGallery"     component={AvatarGalleryScreen} />
+            <Stack.Screen name="GhostPlay"         component={GhostPlayScreen} />
             <Stack.Screen name="Day30Celebration"  component={Day30CelebrationScreen} />
           </>
         ) : (

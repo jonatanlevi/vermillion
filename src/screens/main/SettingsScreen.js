@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
 import { getAIStatus, resetConversation } from '../../services/aiService';
 import { CONFIG } from '../../config';
+import { REGULATION_SECTIONS } from '../../constants/regulationsHe';
 
 const AI_MODEL_ROWS = [
   ['צ׳אט · ניתוב · Coach', CONFIG.AI_MODEL],
@@ -143,6 +144,40 @@ export default function SettingsScreen({ navigation }) {
           />
         </View>
 
+        <SectionHeader title="תקנון וחוזים" />
+        <View style={s.card}>
+          <SettingRow
+            label="תקנון VerMillion (מלא)"
+            value="קרא"
+            valueStyle={s.accentValue}
+            onPress={() => navigation.navigate('Regulations')}
+          />
+          <Divider />
+          {REGULATION_SECTIONS.filter((sec) =>
+            ['dna', 'friday', 'saturday', 'game'].includes(sec.id),
+          ).map((sec, i) => (
+            <React.Fragment key={sec.id}>
+              {i > 0 ? <Divider /> : null}
+              <SettingRow
+                label={sec.title}
+                value="›"
+                valueStyle={s.mutedValue}
+                onPress={() => navigation.navigate('Regulations', { sectionId: sec.id })}
+              />
+            </React.Fragment>
+          ))}
+        </View>
+
+        <SectionHeader title="QA — משתמשי רפאים" />
+        <View style={s.card}>
+          <SettingRow
+            label="משחק 14 יום (שבוע אתגר + שבוע אמיתי)"
+            value="פתח"
+            valueStyle={s.accentValue}
+            onPress={() => navigation.navigate('GhostPlay')}
+          />
+        </View>
+
         <SectionHeader title="אודות" />
         <View style={s.card}>
           <SettingRow label="גרסה" value="1.0.0" />
@@ -165,7 +200,7 @@ export default function SettingsScreen({ navigation }) {
           <Text style={s.deleteText}>מחק חשבון לצמיתות</Text>
         </TouchableOpacity>
 
-        <Text style={s.footer}>₪79/חודש · ₪749/שנה</Text>
+        <Text style={s.footer}>₪99/חודש · ₪749/שנה</Text>
 
       </ScrollView>
     </View>
@@ -203,7 +238,7 @@ const s = StyleSheet.create({
   },
   scroll: {
     paddingHorizontal: 20,
-    paddingBottom: 48,
+    paddingBottom: 100,
     paddingTop: 4,
   },
   sectionHeader: {

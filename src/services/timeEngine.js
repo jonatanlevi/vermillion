@@ -1,7 +1,13 @@
+import { getGhostPlayMeta, isGhostPlayActive } from './ghostPlaySession';
+
 const DAY_MS = 86_400_000;
 
-// Day 1-30 from registration date
+// Day 1-30 from registration date (או 1–14 במשחק רפאים)
 export function getCurrentDay(registrationDate) {
+  if (isGhostPlayActive()) {
+    const meta = getGhostPlayMeta();
+    if (meta) return meta.programDay;
+  }
   const start = new Date(registrationDate);
   start.setHours(0, 0, 0, 0);
   const today = new Date();
@@ -13,6 +19,13 @@ export function getCurrentDay(registrationDate) {
 // What phase is the user in?
 // lifestyle (1-3) → financial (4-7) → reveal (8) → coaching (9-30) → complete (31+)
 export function getPhase(currentDay) {
+  if (isGhostPlayActive()) {
+    if (currentDay <= 3) return 'lifestyle';
+    if (currentDay <= 7) return 'financial';
+    if (currentDay === 8) return 'reveal';
+    if (currentDay <= 14) return 'coaching';
+    return 'complete';
+  }
   if (currentDay <= 3) return 'lifestyle';
   if (currentDay <= 7) return 'financial';
   if (currentDay === 8) return 'reveal';
@@ -80,6 +93,7 @@ export function isTodayDone(dailyAnswers, currentDay) {
 
 // Days remaining in the 30-day challenge
 export function getDaysLeft(currentDay) {
+  if (isGhostPlayActive()) return Math.max(0, 14 - currentDay);
   return Math.max(0, 30 - currentDay);
 }
 

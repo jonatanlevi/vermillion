@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity,
-  FlatList, KeyboardAvoidingView, Platform, ActivityIndicator,
+  FlatList, KeyboardAvoidingView, Platform, ActivityIndicator, Animated,
 } from 'react-native';
 import { useVoice } from '../../hooks/useVoice';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -19,7 +19,6 @@ import {
 const USE_AGENT_TEAM = true;
 const nextId = () => `msg_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
 
-// ─── כמה ימים עברו מהיום הראשון ─────────────────────────────
 function getDayNumber(startDate) {
   if (!startDate) return 1;
   const diff = Math.floor((Date.now() - new Date(startDate).getTime()) / 86400000);
@@ -32,15 +31,25 @@ export default function AICoachScreen({ navigation }) {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [aiOnline, setAiOnline] = useState(null);
-  const [phase, setPhase] = useState(null); // 'onboarding' | 'coaching' | null
+  const [phase, setPhase] = useState(null);
   const [currentDay, setCurrentDay] = useState(1);
   const [dayProgress, setDayProgress] = useState({ total: 0, done: 0, complete: false });
   const [pendingField, setPendingField] = useState(null);
+  const [voiceMode, setVoiceMode] = useState(false);
   const flatListRef = useRef(null);
   const mountedRef = useRef(true);
   const onboardingStateRef = useRef({});
   const lastVoiceRef = useRef(false);
+  const voiceReadyRef = useRef(false);
+  const sendRef = useRef(null);
   const voice = useVoice();
+
+  // Voice mode animations
+  const pulseAnim   = useRef(new Animated.Value(1)).current;
+  const glowOpacity = useRef(new Animated.Value(0)).current;
+  const ring1 = useRef(new Animated.Value(0)).current;
+  const ring2 = useRef(new Animated.Value(0)).current;
+  const ring3 = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     mountedRef.current = true;
@@ -48,6 +57,65 @@ export default function AICoachScreen({ navigation }) {
     getAIStatus().then(ok => { if (mountedRef.current) setAiOnline(ok); });
     return () => { mountedRef.current = false; };
   }, []);
+
+  // Pulse when speaking
+  useEffect(() => {
+    if (!voiceMode) return;
+    if (voice.isSpeaking) {
+      Animated.loop(Animated.sequence([
+        Animated.timing(pulseAnim,   { toValue: 1.14, duration: 480, useNativeDriver: true }),
+        Animated.timing(pulseAnim,   { toValue: 1.0,  duration: 480, useNativeDriver: true }),
+      ])).start();
+      Animated.loop(Animated.sequence([
+        Animated.timing(glowOpacity, { toValue: 0.8, duration: 380, useNativeDriver: true }),
+        Animated.timing(glowOpacity, { toValue: 0.2, duration: 380, useNativeDriver: true }),
+      ])).start();
+    } else {
+      pulseAnim.stopAnimation();
+      glowOpacity.stopAnimation();
+      Animated.spring(pulseAnim,   { toValue: 1, friction: 5, useNativeDriver: true }).start();
+      Animated.timing(glowOpacity, { toValue: 0, duration: 300, useNativeDriver: true }).start();
+    }
+  }, [voiceMode, voice.isSpeaking]);
+
+  // Ripple rings when listening
+  useEffect(() => {
+    if (!voiceMode) return;
+    if (voice.isListening) {
+      const ripple = (anim, delay) => {
+        anim.setValue(0);
+        Animated.loop(Animated.sequence([
+          Animated.delay(delay),
+          Animated.timing(anim, { toValue: 1, duration: 1600, useNativeDriver: true }),
+        ])).start();
+      };
+      ripple(ring1, 0);
+      ripple(ring2, 500);
+      ripple(ring3, 1000);
+    } else {
+      [ring1, ring2, ring3].forEach(r => { r.stopAnimation(); r.setValue(0); });
+    }
+  }, [voiceMode, voice.isListening]);
+
+  // Auto-listen loop: after AI stops speaking → listen again
+  useEffect(() => {
+    sendRef.current = send;
+  });
+
+  useEffect(() => {
+    if (!voiceMode || !voiceReadyRef.current) return;
+    if (!voice.isSpeaking && !loading && !voice.isListening) {
+      const timer = setTimeout(() => {
+        if (!mountedRef.current || !voiceMode) return;
+        voice.startListening((transcript) => {
+          if (!transcript?.trim()) return;
+          lastVoiceRef.current = true;
+          sendRef.current?.(transcript);
+        });
+      }, 700);
+      return () => clearTimeout(timer);
+    }
+  }, [voiceMode, voice.isSpeaking, loading, voice.isListening]);
 
   async function init() {
     const complete = await isOnboardingComplete();
@@ -66,9 +134,7 @@ export default function AICoachScreen({ navigation }) {
         const lastMsg = history[history.length - 1];
         const ts = parseInt((lastMsg.id || '').split('_')[1] || '0', 10);
         const hoursAgo = ts > 0 ? (Date.now() - ts) / 3600000 : 99;
-        if (hoursAgo > 3) {
-          addMsg('assistant', 'ברוך שובך 👋 ממשיכים?');
-        }
+        if (hoursAgo > 3) addMsg('assistant', 'ברוך שובך 👋 ממשיכים?');
       } else {
         addMsg('assistant', state.profileText
           ? `${state.profileText}\n\nמה תרצה לדון בו היום?`
@@ -78,13 +144,9 @@ export default function AICoachScreen({ navigation }) {
       setPhase('onboarding');
       const progress = await getDayProgress(day);
       setDayProgress(progress);
-
       if (progress.complete) {
-        // יום זה כבר הושלם — מחכה ליום הבא
-        addMsg('assistant',
-          `יום ${day} הושלם ✅\n\nחזור מחר ליום ${day + 1}. בכל יום אנחנו מעמיקים קצת יותר — עד שיהיה לי תמונה מלאה של המצב שלך.`);
+        addMsg('assistant', `יום ${day} הושלם ✅\n\nחזור מחר ליום ${day + 1}.`);
       } else {
-        // שאל את השאלה הבאה של היום
         await askNextQuestion(day);
       }
     }
@@ -100,47 +162,53 @@ export default function AICoachScreen({ navigation }) {
   async function askNextQuestion(day) {
     const prompt = await getTodayOnboardingPrompt(day);
     if (!prompt) {
-      // יום הושלם
       await completeDay(day);
       const progress = await getDayProgress(day);
       setDayProgress(progress);
-
       if (day >= 7) {
-        // אפיון מלא!
         addMsg('assistant', 'רגע — מכין את האפיון שלך...');
         const { profileText } = await generateProfile();
         setMessages(prev => [...prev.slice(0, -1),
-          { id: nextId(), role: 'assistant', text: `${profileText}\n\n✅ האפיון שלך מוכן ונשמר על הטלפון שלך בלבד.\n\nמה תרצה לעבוד עליו קודם?` }
+          { id: nextId(), role: 'assistant', text: `${profileText}\n\n✅ האפיון שלך מוכן.\n\nמה תרצה לעבוד עליו קודם?` }
         ]);
         setPhase('coaching');
       } else {
-        addMsg('assistant', `יום ${day} הושלם ✅\n\nחזור מחר ליום ${day + 1} — נעמיק עוד.`);
+        addMsg('assistant', `יום ${day} הושלם ✅\n\nחזור מחר ליום ${day + 1}.`);
       }
       setPendingField(null);
       return;
     }
-
     const { field, question } = prompt;
     setPendingField(field);
-
-    // פתיחה טבעית ביום 1
     let text = question;
     if (day === 1 && !(await getDayProgress(day)).done) {
-      text = `שלום! אני VerMillion — היועץ הפיננסי האישי שלך.\n\nבשבוע הקרוב נכיר אחד את השני. כל יום כמה שאלות קצרות, ובסוף השבוע יהיה לי אפיון מלא של המצב שלך — ונוכל להתחיל לעבוד ברצינות.\n\n${question}`;
+      text = `שלום! אני VerMillion — היועץ הפיננסי האישי שלך.\n\nבשבוע הקרוב נכיר אחד את השני. כל יום כמה שאלות קצרות, ובסוף השבוע יהיה לי אפיון מלא של המצב שלך.\n\n${question}`;
     }
-
     addMsg('assistant', text);
   }
 
-  const sendVoice = () => {
-    if (voice.isListening) { voice.stopListening(); return; }
+  function enterVoiceMode() {
+    voiceReadyRef.current = false;
     voice.stopSpeaking();
-    voice.startListening((transcript) => {
-      setInput(transcript);
-      lastVoiceRef.current = true;
-      setTimeout(() => send(transcript), 700);
-    });
-  };
+    setVoiceMode(true);
+    if (!voice.supported) return;
+    setTimeout(() => {
+      if (!mountedRef.current) return;
+      voiceReadyRef.current = true;
+      voice.startListening((transcript) => {
+        if (!transcript?.trim()) return;
+        lastVoiceRef.current = true;
+        sendRef.current?.(transcript);
+      });
+    }, 500);
+  }
+
+  function exitVoiceMode() {
+    voice.stopListening();
+    voice.stopSpeaking();
+    voiceReadyRef.current = false;
+    setVoiceMode(false);
+  }
 
   const send = async (text) => {
     if (!text.trim() || loading) return;
@@ -153,21 +221,16 @@ export default function AICoachScreen({ navigation }) {
 
     try {
       if (phase === 'onboarding' && pendingField) {
-        // שמור את התשובה
         await processOnboardingAnswer(pendingField, text);
         const progress = await getDayProgress(currentDay);
         setDayProgress(progress);
         setPendingField(null);
-
-        // תגובה קצרה + שאלה הבאה
         const ack = getAck(pendingField, text);
         addMsg('assistant', ack);
         await new Promise(r => setTimeout(r, 600));
         await askNextQuestion(currentDay);
-
       } else {
         appendChatMessage({ id: userMsgId, role: 'user', text }).catch(() => {});
-        // מצב coaching — multi-agent
         const partialId = nextId();
         setMessages(prev => [...prev, { id: partialId, role: 'assistant', text: '' }]);
 
@@ -208,6 +271,52 @@ export default function AICoachScreen({ navigation }) {
     }
   };
 
+  // ── Voice Mode Screen ──────────────────────────────────────────
+  if (voiceMode) {
+    const rings = [ring1, ring2, ring3].map(r => ({
+      scale:   r.interpolate({ inputRange: [0, 1], outputRange: [1, 3.2] }),
+      opacity: r.interpolate({ inputRange: [0, 0.15, 0.7, 1], outputRange: [0, 0.55, 0.4, 0] }),
+    }));
+
+    const status = voice.isListening         ? 'מקשיב לך...'
+                 : loading                   ? 'חושב...'
+                 : voice.isSpeaking          ? 'מדבר...'
+                 : !voice.supported          ? 'כתוב הודעה למטה לשוחח'
+                 : '· · ·';
+
+    return (
+      <View style={vm.container}>
+        {/* Exit */}
+        <TouchableOpacity style={[vm.exit, { top: insets.top + 16 }]} onPress={exitVoiceMode}>
+          <Text style={vm.exitText}>✕</Text>
+        </TouchableOpacity>
+
+        {/* Name */}
+        <Text style={[vm.name, { marginTop: insets.top + 72 }]}>VerMillion AI</Text>
+
+        {/* Avatar + rings + glow */}
+        <View style={vm.avatarWrap}>
+          {rings.map((r, i) => (
+            <Animated.View key={i} style={[vm.ring, { transform: [{ scale: r.scale }], opacity: r.opacity }]} />
+          ))}
+          <Animated.View style={[vm.glow, { opacity: glowOpacity }]} />
+          <Animated.View style={[vm.avatar, { transform: [{ scale: pulseAnim }] }]}>
+            <Text style={vm.avatarV}>V</Text>
+          </Animated.View>
+        </View>
+
+        {/* Status */}
+        <Text style={vm.status}>{status}</Text>
+
+        {/* What AI is saying */}
+        {voice.isSpeaking && (
+          <Text style={vm.caption} numberOfLines={3}>{voice.speakingText}</Text>
+        )}
+      </View>
+    );
+  }
+
+  // ── Loading Screen ─────────────────────────────────────────────
   if (phase === null) {
     return (
       <View style={styles.loadingScreen}>
@@ -216,13 +325,13 @@ export default function AICoachScreen({ navigation }) {
     );
   }
 
+  // ── Normal Chat Screen ─────────────────────────────────────────
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : Platform.OS === 'web' ? 'height' : undefined}
       keyboardVerticalOffset={90}
     >
-      {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <View style={styles.aiAvatar}><Text style={styles.aiAvatarText}>V</Text></View>
         <View style={{ flex: 1 }}>
@@ -244,9 +353,20 @@ export default function AICoachScreen({ navigation }) {
             </View>
           </View>
         )}
+        <TouchableOpacity
+          style={[styles.voiceModeBtn, !voice.ttsSupported && { opacity: 0.35 }]}
+          onPress={() => {
+            if (!voice.ttsSupported) {
+              if (Platform.OS === 'web') window.alert('דפדפן זה אינו תומך בדיבור. נסה ב-Chrome או Brave.');
+              return;
+            }
+            enterVoiceMode();
+          }}
+        >
+          <Text style={styles.voiceModeBtnText}>🎙</Text>
+        </TouchableOpacity>
       </View>
 
-      {/* Messages */}
       <FlatList
         ref={flatListRef}
         data={messages}
@@ -257,7 +377,6 @@ export default function AICoachScreen({ navigation }) {
         showsVerticalScrollIndicator={false}
       />
 
-      {/* Subtitle strip */}
       {voice.isSpeaking && (
         <View style={styles.speakingBar}>
           <Text style={styles.speakingIcon}>🔊</Text>
@@ -268,8 +387,7 @@ export default function AICoachScreen({ navigation }) {
         </View>
       )}
 
-      {/* Input */}
-      <View style={styles.inputRow}>
+      <View style={[styles.inputRow, { paddingBottom: Math.max(insets.bottom + 12, 20) }]}>
         <TextInput
           style={styles.input}
           placeholder="כתוב כאן..."
@@ -279,15 +397,6 @@ export default function AICoachScreen({ navigation }) {
           multiline
           textAlign="right"
         />
-        {voice.supported && (
-          <TouchableOpacity
-            style={[styles.micBtn, voice.isListening && styles.micBtnActive]}
-            onPress={sendVoice}
-            disabled={loading}
-          >
-            <Text style={styles.micBtnText}>{voice.isListening ? '⏹' : '🎤'}</Text>
-          </TouchableOpacity>
-        )}
         <TouchableOpacity style={styles.muteBtn} onPress={voice.toggleMute}>
           <Text style={styles.muteBtnText}>{voice.muted ? '🔇' : '🔊'}</Text>
         </TouchableOpacity>
@@ -309,7 +418,6 @@ export default function AICoachScreen({ navigation }) {
 function getAck(field, answer) {
   const n = typeof answer === 'number' ? answer : null;
   const t = typeof answer === 'string' ? answer.toLowerCase() : '';
-
   if (field === 'endOfMonthFeeling') {
     if (/עצבני|לחוץ|מתח|מפחד|חרד/.test(t)) return 'לחץ בסוף חודש — זה נפוץ, נעבוד על זה ביחד.';
     if (/שקט|בסדר|טוב|רגוע/.test(t)) return 'שקט — זה כוח. נבנה עליו.';
@@ -322,7 +430,6 @@ function getAck(field, answer) {
     if (/לא מסתכל|לא בודק|מתעלם/.test(t)) return 'לא מסתכל — כנות! נתחיל לבנות תמונה ברורה.';
     return 'הבנתי. נלמד ביחד מה קורה עם הכסף.';
   }
-
   const acks = {
     age:              `${answer} — מבין.`,
     familyStatus:     `${answer} — נרשם.`,
@@ -357,10 +464,7 @@ function Bubble({ message }) {
 
   useEffect(() => {
     const text = message.text || '';
-    if (isUser || isStage || !text) {
-      setDisplayed(text);
-      return;
-    }
+    if (isUser || isStage || !text) { setDisplayed(text); return; }
     clearInterval(timerRef.current);
     let i = 0;
     setDisplayed('');
@@ -388,6 +492,55 @@ function Bubble({ message }) {
   );
 }
 
+// ── Voice Mode Styles ──────────────────────────────────────────────
+const vm = StyleSheet.create({
+  container: {
+    flex: 1, backgroundColor: '#050505',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  exit: {
+    position: 'absolute', right: 20,
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: '#1A1A1A', alignItems: 'center', justifyContent: 'center',
+  },
+  exitText: { color: '#666', fontSize: 18, fontWeight: '700' },
+  name: {
+    position: 'absolute', top: 0,
+    color: '#333', fontSize: 13, fontWeight: '700', letterSpacing: 3,
+  },
+  avatarWrap: {
+    width: 130, height: 130,
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: 40,
+  },
+  ring: {
+    position: 'absolute',
+    width: 130, height: 130, borderRadius: 65,
+    borderWidth: 1.5, borderColor: '#C0392B',
+  },
+  glow: {
+    position: 'absolute',
+    width: 155, height: 155, borderRadius: 77.5,
+    backgroundColor: '#C0392B',
+  },
+  avatar: {
+    width: 110, height: 110, borderRadius: 55,
+    backgroundColor: '#C0392B',
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 2.5, borderColor: '#FF5544',
+  },
+  avatarV: { color: '#FFF', fontSize: 48, fontWeight: '900' },
+  status: {
+    color: '#555', fontSize: 14, letterSpacing: 2, fontWeight: '600',
+    marginBottom: 24,
+  },
+  caption: {
+    paddingHorizontal: 36, color: '#444',
+    fontSize: 14, lineHeight: 22, textAlign: 'center',
+  },
+});
+
+// ── Chat Styles ────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0A0A0A' },
   loadingScreen: { flex: 1, backgroundColor: '#0A0A0A', alignItems: 'center', justifyContent: 'center' },
@@ -412,7 +565,14 @@ const styles = StyleSheet.create({
   progressBar: { width: 60, height: 4, backgroundColor: '#222', borderRadius: 2 },
   progressFill: { height: 4, backgroundColor: '#C0392B', borderRadius: 2 },
 
-  messages: { padding: 16, paddingBottom: 24 },
+  voiceModeBtn: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: '#1A0808', borderWidth: 1, borderColor: '#C0392B44',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  voiceModeBtnText: { fontSize: 20 },
+
+  messages: { padding: 16, paddingBottom: 100 },
   bubbleContainer: { flexDirection: 'row', marginBottom: 10, alignItems: 'flex-end' },
   bubbleContainerUser: { justifyContent: 'flex-end' },
   bubbleContainerBot: { justifyContent: 'flex-start' },
@@ -430,7 +590,6 @@ const styles = StyleSheet.create({
 
   inputRow: {
     flexDirection: 'row', alignItems: 'flex-end', padding: 12,
-    paddingBottom: Platform.OS === 'ios' ? 30 : 12,
     gap: 10, borderTopWidth: 1, borderTopColor: '#1A1A1A', backgroundColor: '#0A0A0A',
   },
   input: {
@@ -445,13 +604,6 @@ const styles = StyleSheet.create({
   },
   sendBtnDisabled: { backgroundColor: '#222' },
   sendBtnText: { color: '#FFF', fontSize: 22, fontWeight: '700' },
-  micBtn: {
-    width: 46, height: 46, borderRadius: 23, backgroundColor: '#1A1A1A',
-    alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, borderColor: '#333',
-  },
-  micBtnActive: { backgroundColor: '#7B0000', borderColor: '#C0392B' },
-  micBtnText: { fontSize: 20 },
   muteBtn: {
     width: 38, height: 38, borderRadius: 19, backgroundColor: '#1A1A1A',
     alignItems: 'center', justifyContent: 'center',

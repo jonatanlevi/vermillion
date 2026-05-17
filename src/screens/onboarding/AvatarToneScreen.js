@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage } from '../../context/LanguageContext';
 
 export default function AvatarToneScreen({ navigation, route }) {
   const { appearance } = route.params;
   const { t } = useLanguage();
+  const insets = useSafeAreaInsets();
   const QUESTIONS = t.toneQuestions;
 
   const [answers, setAnswers] = useState({});
@@ -30,7 +32,8 @@ export default function AvatarToneScreen({ navigation, route }) {
   const selectedOption = answers[current.key];
 
   return (
-    <View style={styles.container}>
+    <View style={styles.bg}>
+      <ScrollView contentContainerStyle={[styles.container, { paddingTop: insets.top + 16 }]} showsVerticalScrollIndicator={false}>
 
       {/* Progress */}
       <View style={styles.header}>
@@ -68,12 +71,14 @@ export default function AvatarToneScreen({ navigation, route }) {
         ))}
       </View>
 
+      </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0A0A0A', paddingTop: 56, paddingHorizontal: 24 },
+  bg: { flex: 1, backgroundColor: '#0A0A0A' },
+  container: { paddingHorizontal: 24, paddingBottom: 40 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 28 },
   back: { color: '#555', fontSize: 22 },
   progressWrap: { flex: 1, gap: 6 },

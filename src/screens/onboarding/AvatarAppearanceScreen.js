@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage } from '../../context/LanguageContext';
 
@@ -41,7 +41,8 @@ export default function AvatarAppearanceScreen({ navigation }) {
       }).join(' · ');
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top + 16 }]}>
+    <View style={styles.bg}>
+      <ScrollView contentContainerStyle={[styles.container, { paddingTop: insets.top + 16 }]} showsVerticalScrollIndicator={false}>
 
       {/* Progress */}
       <View style={styles.header}>
@@ -93,12 +94,14 @@ export default function AvatarAppearanceScreen({ navigation }) {
         ))}
       </View>
 
+      </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0A0A0A', paddingHorizontal: 24 },
+  bg: { flex: 1, backgroundColor: '#0A0A0A' },
+  container: { paddingHorizontal: 24, paddingBottom: 40 },
 
   header: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 24 },
   back: { color: '#555', fontSize: 22 },
