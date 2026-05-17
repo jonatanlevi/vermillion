@@ -414,6 +414,8 @@ export default function GamesScreen({ navigation }) {
   const [userRank, setUserRank]             = useState(null);
   const [leaderScore, setLeaderScore]       = useState(0);
   const [daysLeft, setDaysLeft]             = useState(0);
+  const [weeklyPool, setWeeklyPool]         = useState(0);
+  const [activeSubs, setActiveSubs]         = useState(0);
   const calendarDay = new Date().getDate();
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [pickedHour, setPickedHour]         = useState(8);
@@ -480,6 +482,9 @@ export default function GamesScreen({ navigation }) {
           setLeaderScore(entry?.total_score ?? 0);
         }).catch(() => {});
       }
+      fetch('/api/prize-pool').then(r => r.json()).then(d => {
+        if (d?.weeklyPrizePool != null) { setWeeklyPool(d.weeklyPrizePool); setActiveSubs(d.activeSubscribers); }
+      }).catch(() => {});
       const tick = setInterval(refreshSchedule, 30_000);
       return () => clearInterval(tick);
     }, [user?.id])
@@ -1021,9 +1026,13 @@ export default function GamesScreen({ navigation }) {
 
         {/* ── Prize card ── */}
         <View style={styles.prizeCard}>
-          <Text style={styles.prizeTitle}>🏆 פרס חודשי</Text>
-          <Text style={styles.prizeAmount}>₪45,000</Text>
-          <Text style={styles.prizeSub}>לשחקן עם הניקוד הגבוה ביותר בסוף החודש</Text>
+          <Text style={styles.prizeTitle}>🏆 קופת פרסים שבועית</Text>
+          <Text style={styles.prizeAmount}>
+            {weeklyPool > 0 ? `₪${weeklyPool.toLocaleString('he-IL')}` : '—'}
+          </Text>
+          <Text style={styles.prizeSub}>
+            {activeSubs > 0 ? `${activeSubs.toLocaleString('he-IL')} משתתפים פעילים` : 'טוען...'}
+          </Text>
         </View>
       </ScrollView>
 

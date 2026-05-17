@@ -9,11 +9,9 @@ import Avatar3D from '../../components/Avatar3D';
 
 const MEDALS = ['🥇','🥈','🥉','4️⃣','5️⃣'];
 
-// Weekly prize pool: ₪11,250/week (₪45,000/month ÷ 4)
-// Distributed: 35% / 25% / 20% / 12% / 8%
-const WEEKLY_PRIZES = [3940, 2810, 2250, 1350, 900];
-// Monthly prize pool — top 3
-const MONTHLY_PRIZES = [{ rank:1, amount:25000 }, { rank:2, amount:15000 }, { rank:3, amount:5000 }];
+// Prize distribution ratios (kept private — not shown in UI)
+const WEEKLY_RATIOS  = [0.35, 0.25, 0.20, 0.12, 0.08];
+const MONTHLY_RATIOS = [0.556, 0.333, 0.111]; // top 3
 
 function getWeekLabel() {
   const now = new Date();
@@ -33,16 +31,22 @@ export default function LeaderboardScreen() {
   const { t } = useLanguage();
   const { user } = useAuth();
 
-  const [tab, setTab]           = useState('weekly');
-  const [weekRows, setWeekRows] = useState([]);
-  const [monthRows, setMonthRows] = useState([]);
-  const [loading, setLoading]   = useState(true);
+  const [tab, setTab]               = useState('weekly');
+  const [weekRows, setWeekRows]     = useState([]);
+  const [monthRows, setMonthRows]   = useState([]);
+  const [loading, setLoading]       = useState(true);
+  const [prizeData, setPrizeData]   = useState({ weeklyPrizePool: 0, monthlyPrizePool: 0, activeSubscribers: 0 });
 
   const loadData = useCallback(async () => {
     setLoading(true);
-    const [weekly, monthly] = await Promise.all([getLeaderboardWeekly(), getLeaderboard()]);
+    const [weekly, monthly, prizeRes] = await Promise.all([
+      getLeaderboardWeekly(),
+      getLeaderboard(),
+      fetch('/api/prize-pool').then(r => r.json()).catch(() => ({})),
+    ]);
     setWeekRows(weekly);
     setMonthRows(monthly);
+    if (prizeRes?.weeklyPrizePool != null) setPrizeData(prizeRes);
     setLoading(false);
   }, []);
 
@@ -78,40 +82,20 @@ export default function LeaderboardScreen() {
       </View>
 
       {/* Prize bar */}
-      {tab === 'weekly' ? (
-        <>
-          <View style={styles.prizeRow}>
-            {WEEKLY_PRIZES.map((amount, i) => (
-              <View key={i} style={styles.prizeItem}>
-                <Text style={styles.prizeMedal}>{MEDALS[i]}</Text>
-                <Text style={[styles.prizeAmount,
-                  i === 0 && { color: '#F0C040' },
-                  i === 1 && { color: '#C0C0C0' },
-                  i === 2 && { color: '#CD7F32' },
-                ]}>
-                  ₪{amount.toLocaleString('he-IL')}
-                </Text>
-              </View>
-            ))}
-          </View>
-          <Text style={styles.prizeNote}>5 זוכים כל שבוע · מינימום 7 ימי השתתפות בחודש</Text>
-        </>
-      ) : (
-        <View style={styles.prizeRow}>
-          {MONTHLY_PRIZES.map((p, i) => (
-            <View key={p.rank} style={styles.prizeItem}>
-              <Text style={styles.prizeMedal}>{MEDALS[i]}</Text>
-              <Text style={[styles.prizeAmount,
-                i === 0 && { color: '#F0C040' },
-                i === 1 && { color: '#C0C0C0' },
-                i === 2 && { color: '#CD7F32' },
-              ]}>
-                ₪{(p.amount/1000).toFixed(0)}K
-              </Text>
-            </View>
-          ))}
-        </View>
-      )}
+      <View style={styles.prizePoolBanner}>
+        <Text style={styles.prizePoolSubs}>👥 {prizeData.activeSubscribers?.toLocaleString('he-IL') || '—'} משתתפים פעילים</Text>
+        <Text style={styles.prizePoolAmt}>
+          💰 קופה {tab === 'weekly' ? 'שבועית' : 'חודשית'}:{' '}
+          {tab === 'weekly'
+            ? `₪${(prizeData.weeklyPrizePool || 0).toLocaleString('he-IL')}`
+            : `₪${(prizeData.monthlyPrizePool || 0).toLocaleString('he-IL')}`}
+        </Text>
+        <Text style={styles.prizeNote}>
+          {tab === 'weekly'
+            ? '5 זוכים כל שבוע · מינימום 7 ימי השתתפות'
+            : '3 זוכים · הקופה גדלה עם כל מנוי חדש'}
+        </Text>
+      </View>
 
       {/* My rank card */}
       {myRow && (
@@ -218,11 +202,10 @@ const styles = StyleSheet.create({
   tabTextActive:  { color: '#FFF' },
   tabSub:         { color: '#333', fontSize: 10, marginTop: 2 },
   tabSubActive:   { color: 'rgba(255,255,255,0.7)' },
-  prizeRow:       { flexDirection: 'row', justifyContent: 'space-around', backgroundColor: '#111', marginHorizontal: 20, borderRadius: 16, padding: 12, marginBottom: 6, borderWidth: 1, borderColor: '#1E1E1E' },
-  prizeItem:      { alignItems: 'center', gap: 2 },
-  prizeMedal:     { fontSize: 22 },
-  prizeAmount:    { fontSize: 12, fontWeight: '700', color: '#888' },
-  prizeNote:      { color: '#333', fontSize: 11, textAlign: 'center', marginHorizontal: 20, marginBottom: 12 },
+  prizePoolBanner: { backgroundColor: '#0F0F0F', marginHorizontal: 20, borderRadius: 16, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: '#1E1E1E', alignItems: 'center', gap: 4 },
+  prizePoolSubs:   { color: '#888', fontSize: 12 },
+  prizePoolAmt:    { color: '#D4AF37', fontSize: 20, fontWeight: '900' },
+  prizeNote:       { color: '#333', fontSize: 11, textAlign: 'center', marginBottom: 2 },
   myRankCard:     { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1A0E0E', marginHorizontal: 20, borderRadius: 12, padding: 12, marginBottom: 16, borderWidth: 1, borderColor: '#C0392B', gap: 10 },
   myAvatarWrap:   { width: 44, height: 44, borderRadius: 22, overflow: 'hidden', backgroundColor: '#111' },
   myRankLabel:    { color: '#C0392B', fontSize: 12, flex: 1 },
