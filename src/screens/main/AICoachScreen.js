@@ -10,6 +10,7 @@ import { askTeam } from '../../services/agents';
 import {
   getOnboardingState, getFinancialData, isOnboardingComplete,
   getChatHistory, saveChatHistory, appendChatMessage, getGameSessions,
+  getProfile, saveAiMemory,
 } from '../../services/storage';
 import {
   getTodayOnboardingPrompt, processOnboardingAnswer,
@@ -123,7 +124,8 @@ export default function AICoachScreen({ navigation }) {
     const state = await getOnboardingState();
     const financialData = await getFinancialData();
     const gameSessions = await getGameSessions();
-    onboardingStateRef.current = { dailyAnswers: state, financialData, gameSessions };
+    const profile = await getProfile().catch(() => null);
+    onboardingStateRef.current = { dailyAnswers: state, financialData, gameSessions, profile };
     const day = getDayNumber(state.startDate);
     setCurrentDay(day);
 
@@ -211,6 +213,30 @@ export default function AICoachScreen({ navigation }) {
     setVoiceMode(false);
   }
 
+  async function extractAndSaveMemory(allMessages, profile) {
+    try {
+      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      const recent = allMessages
+        .filter(m => m.text?.trim() && !m.text.startsWith('🔍') && !m.text.startsWith('🧠'))
+        .slice(-8);
+      const existingInsights = profile?.ai_memory?.insights || [];
+      const res = await fetch(`${origin}/api/extract-memory`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: recent, existingInsights }),
+      });
+      if (!res.ok) return;
+      const { insights } = await res.json();
+      if (insights?.length > 0) {
+        await saveAiMemory(insights);
+        const updatedProfile = await getProfile().catch(() => null);
+        if (updatedProfile) {
+          onboardingStateRef.current = { ...onboardingStateRef.current, profile: updatedProfile };
+        }
+      }
+    } catch { /* non-critical */ }
+  }
+
   const send = async (text) => {
     if (!text.trim() || loading) return;
     voice.stopSpeaking();
@@ -251,6 +277,11 @@ export default function AICoachScreen({ navigation }) {
             setMessages(prev => {
               const updated = prev.map(m => m.id === partialId ? { ...m, text: finalText } : m);
               saveChatHistory(updated).catch(() => {});
+              // Every 5 user messages — background memory extraction (non-blocking)
+              const userCount = updated.filter(m => m.role === 'user').length;
+              if (userCount > 0 && userCount % 5 === 0) {
+                extractAndSaveMemory(updated, onboardingStateRef.current?.profile);
+              }
               return updated;
             });
             appendChatMessage({ id: partialId, role: 'assistant', text: finalText }).catch(() => {});

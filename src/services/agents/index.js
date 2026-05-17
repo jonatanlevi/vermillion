@@ -4,7 +4,9 @@ import { buildSystemPrompt, generatePersonalizedGreeting, buildDynamicContext } 
 
 // ─── Groq streaming call (via Vercel edge function) ──────────────
 async function callGroq(userMessage, userData, chatHistory, onToken) {
-  const systemPrompt = buildSystemPrompt(userData) + buildDynamicContext(userMessage, userData, chatHistory);
+  const context = buildContext(userData);
+  const memorySection = context.memoryText ? `\n\n---\n${context.memoryText}\n---` : '';
+  const systemPrompt = buildSystemPrompt(userData) + buildDynamicContext(userMessage, userData, chatHistory) + memorySection;
 
   const STAGE_RE_LOCAL = /^[🔍🧠✓✨⏳]/;
   const filteredHistory = (chatHistory || [])
@@ -148,7 +150,12 @@ function buildContext(userData) {
     gameText = `משחקים אחרונים: ${parts.join(', ')}`;
   }
 
-  return { metrics, metricsText, lifestyleText, tier: tier.label, completion, gameText };
+  const memoryInsights = userData?.profile?.ai_memory?.insights;
+  const memoryText = memoryInsights?.length > 0
+    ? `זיכרון מצטבר על המשתמש:\n${memoryInsights.slice(-10).join('\n')}`
+    : '';
+
+  return { metrics, metricsText, lifestyleText, tier: tier.label, completion, gameText, memoryText };
 }
 
 // ─── Post-synthesis validator ────────────────────────────────────

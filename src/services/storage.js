@@ -231,6 +231,7 @@ const PROFILE_DB_COLUMNS = [
   'avatar_style', 'subscription', 'lang',
   'onboarding_complete', 'profile_intake_complete',
   'terms_accepted_at', 'terms_version',
+  'ai_memory',
 ];
 
 export async function saveProfile(data) {
@@ -258,6 +259,27 @@ export async function getProfile() {
   }
   const { data } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
   return data || null;
+}
+
+export async function saveAiMemory(newInsights) {
+  if (!newInsights?.length) return;
+  const userId = await uid();
+  try {
+    if (isLocalUserId(userId)) {
+      const prev = (await localGet(L.PROF, null)) || {};
+      const existing = prev.ai_memory?.insights || [];
+      const merged = [...existing, ...newInsights].slice(-20);
+      await localSet(L.PROF, { ...prev, ai_memory: { insights: merged, sessionCount: (prev.ai_memory?.sessionCount || 0) + 1 } });
+      return;
+    }
+    const { data } = await supabase.from('profiles').select('ai_memory').eq('id', userId).maybeSingle();
+    const existing = data?.ai_memory?.insights || [];
+    const merged = [...existing, ...newInsights].slice(-20);
+    await supabase.from('profiles').update({
+      ai_memory: { insights: merged, sessionCount: (data?.ai_memory?.sessionCount || 0) + 1 },
+      updated_at: new Date().toISOString(),
+    }).eq('id', userId);
+  } catch { /* non-critical — memory update is best-effort */ }
 }
 
 // ─── Financial data ─────────────────────────────────────────
