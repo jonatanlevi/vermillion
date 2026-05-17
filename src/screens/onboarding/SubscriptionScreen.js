@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
   Animated, Platform,
@@ -18,7 +18,6 @@ const FEATURES = [
 
 export default function SubscriptionScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const [selected, setSelected] = useState('monthly');
   const glow = useRef(new Animated.Value(0)).current;
   const fade = useRef(new Animated.Value(0)).current;
 
@@ -56,29 +55,14 @@ export default function SubscriptionScreen({ navigation }) {
           </Text>
         </View>
 
-        {/* Plans */}
+        {/* Plan */}
         <View style={styles.plansRow}>
-          <TouchableOpacity
-            style={[styles.planCard, selected === 'monthly' && styles.planCardSelected]}
-            onPress={() => setSelected('monthly')}
-            activeOpacity={0.85}
-          >
-            {selected === 'monthly' && <View style={styles.planBadge}><Text style={styles.planBadgeText}>פופולרי</Text></View>}
+          <View style={[styles.planCard, styles.planCardSelected]}>
+            <View style={styles.planBadge}><Text style={styles.planBadgeText}>פופולרי</Text></View>
             <Text style={styles.planPeriod}>חודשי</Text>
             <Text style={styles.planPrice}>₪99</Text>
             <Text style={styles.planPeriodSub}>לחודש</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.planCard, selected === 'annual' && styles.planCardSelected]}
-            onPress={() => setSelected('annual')}
-            activeOpacity={0.85}
-          >
-            <View style={styles.planSaveBadge}><Text style={styles.planSaveText}>חוסך ₪439</Text></View>
-            <Text style={styles.planPeriod}>שנתי</Text>
-            <Text style={styles.planPrice}>₪749</Text>
-            <Text style={styles.planPeriodSub}>₪62.40/חודש</Text>
-          </TouchableOpacity>
+          </View>
         </View>
 
         {/* Feature list */}
@@ -98,9 +82,7 @@ export default function SubscriptionScreen({ navigation }) {
 
         {/* CTA */}
         <TouchableOpacity style={styles.ctaBtn} onPress={handleSubscribe} activeOpacity={0.88}>
-          <Text style={styles.ctaBtnText}>
-            {selected === 'monthly' ? 'התחל 7 ימים חינם · ₪99/חודש' : 'התחל 7 ימים חינם · ₪749/שנה'}
-          </Text>
+          <Text style={styles.ctaBtnText}>התחל 7 ימים חינם · ₪99/חודש</Text>
         </TouchableOpacity>
 
         <Text style={styles.legalNote}>
@@ -137,8 +119,6 @@ const styles = StyleSheet.create({
   planCardSelected: { borderColor: '#C0392B', backgroundColor: '#1A0808' },
   planBadge: { position: 'absolute', top: -10, backgroundColor: '#C0392B', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 3 },
   planBadgeText: { color: '#FFF', fontSize: 11, fontWeight: '700' },
-  planSaveBadge: { position: 'absolute', top: -10, backgroundColor: '#27AE60', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 3 },
-  planSaveText: { color: '#FFF', fontSize: 11, fontWeight: '700' },
   planPeriod: { color: '#888', fontSize: 13, marginTop: 8, marginBottom: 4 },
   planPrice: { color: '#FFF', fontSize: 36, fontWeight: '900' },
   planPeriodSub: { color: '#555', fontSize: 12, marginTop: 2 },

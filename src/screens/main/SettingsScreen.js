@@ -200,7 +200,7 @@ export default function SettingsScreen({ navigation }) {
           <Text style={s.deleteText}>מחק חשבון לצמיתות</Text>
         </TouchableOpacity>
 
-        <Text style={s.footer}>₪99/חודש · ₪749/שנה</Text>
+        <Text style={s.footer}>₪99/חודש</Text>
 
       </ScrollView>
     </View>

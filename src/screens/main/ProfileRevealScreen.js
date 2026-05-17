@@ -92,9 +92,36 @@ export default function ProfileRevealScreen({ navigation }) {
     setAiFailed(false);
     setProfileText('');
     fadeAnim.setValue(0);
-    const userObj = { registrationDate: onboardingState?.startDate || new Date().toISOString(), dailyAnswers: onboardingState || {} };
+
+    const userData = {
+      name: onboardingState?.name || '',
+      dailyAnswers: onboardingState || {},
+      dob: onboardingState?.dob || null,
+    };
+
+    try {
+      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      const res = await fetch(`${origin}/api/profile-reveal`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userData, tier: tier.tier }),
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        if (mountedRef.current && json.reveal) {
+          setProfileText(json.reveal);
+          setGenerating(false);
+          Animated.timing(fadeAnim, { toValue: 1, duration: 700, useNativeDriver: true }).start();
+          return;
+        }
+      }
+    } catch { /* fall through to Groq fallback */ }
+
+    // Fallback: Groq via chatWithAI
     try {
       resetConversation();
+      const userObj = { registrationDate: onboardingState?.startDate || new Date().toISOString(), dailyAnswers: onboardingState || {} };
       const prompt = PROFILE_PROMPT(userObj, metrics, tier);
       const result = await chatWithAI(prompt, userObj, (partial) => {
         if (mountedRef.current) setProfileText(partial);
@@ -111,6 +138,7 @@ export default function ProfileRevealScreen({ navigation }) {
         setAiFailed(true);
       }
     }
+
     if (mountedRef.current) {
       setGenerating(false);
       Animated.timing(fadeAnim, { toValue: 1, duration: 700, useNativeDriver: true }).start();

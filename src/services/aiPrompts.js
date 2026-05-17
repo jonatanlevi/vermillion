@@ -190,7 +190,135 @@ const FEW_SHOTS = `
 `;
 
 /* ──────────────────────────────────────────────────────────────
- * 4. USER CONTEXT — נתוני המשתמש + Blind Spots
+ * 4a. USER NARRATIVE — פורטרט אנושי (חדש — Layer 1 improvement)
+ *     מסנתז את כל התשובות לסיפור של אדם, לא רשימת נתונים.
+ *     הוזרק לתחילת system prompt לפני raw context.
+ * ──────────────────────────────────────────────────────────── */
+export function buildUserNarrative(userData) {
+  if (!userData?.dailyAnswers) return '';
+  const completion = calcCompletion(userData.dailyAnswers);
+  if (completion < 20) return '';
+
+  const a = {};
+  Object.values(userData.dailyAnswers).forEach(day => Object.assign(a, day));
+
+  const name = userData?.name?.split(' ')[0] || '';
+  const lines = [];
+
+  // ── Identity ──────────────────────────────────────────────
+  const EMPLOY = {
+    employee: 'שכיר',    self_employed: 'עצמאי',   business: 'בעל עסק',
+    freelance: 'פרילנסר', student: 'סטודנט',         unemployed: 'לא עובד כרגע',
+  };
+  const FAMILY = {
+    single: 'רווק/ה',
+    partner: 'בזוגיות',
+    married: Number(a.children_count) > 0 ? `נשוי/ה עם ${a.children_count} ילד${Number(a.children_count) > 1 ? 'ים' : ''}` : 'נשוי/ה',
+    divorced: Number(a.children_count) > 0 ? `גרוש/ה עם ${a.children_count} ילד${Number(a.children_count) > 1 ? 'ים' : ''}` : 'גרוש/ה',
+    widowed: 'אלמן/ה',
+  };
+  const CITY = { center: 'מרכז', north: 'צפון', south: 'דרום', jerusalem: 'ירושלים', abroad: 'חו"ל' };
+  const HOUSING = { renting: 'שוכר', owner: 'בעלים', parents: 'גר אצל הורים', other: 'מגורים אחרים' };
+
+  const employ = EMPLOY[a.employment_type] || '';
+  const family = FAMILY[a.family_status] || '';
+  const city   = CITY[a.city_type] || '';
+  const housing = HOUSING[a.housing_type] || '';
+
+  if (employ || family) {
+    const identityParts = [
+      name ? `${name}` : null,
+      employ,
+      family,
+      city ? `מ${city}` : null,
+      housing === 'שוכר' ? '(שוכר דירה)' : housing === 'בעלים' ? '(בעלים)' : housing === 'גר אצל הורים' ? '(גר אצל הורים)' : null,
+    ].filter(Boolean);
+    lines.push(identityParts.join(', ') + '.');
+  }
+
+  // ── Financial reality ─────────────────────────────────────
+  let computedAge = 0;
+  if (userData?.dob) {
+    const { dobD, dobM, dobY } = userData.dob;
+    if (dobD && dobM && dobY) {
+      const birth = new Date(Number(dobY), Number(dobM) - 1, Number(dobD));
+      const today = new Date();
+      computedAge = today.getFullYear() - birth.getFullYear();
+      if (today < new Date(today.getFullYear(), birth.getMonth(), birth.getDate())) computedAge--;
+    }
+  }
+  const metrics = computeFinancialMetrics({ ...a, _age: { _computed_age: computedAge } });
+
+  if (metrics.totalIncome > 0) {
+    const fmt = n => `₪${Math.round(Math.abs(n)).toLocaleString('he-IL')}`;
+    const surplus = metrics.monthlySurplus;
+    if (surplus < -500) {
+      lines.push(`הכנסה ${fmt(metrics.totalIncome)}, אבל יוצא ${fmt(Math.abs(surplus))} יותר בכל חודש — מדרון שמחמיר.`);
+    } else if (surplus < metrics.totalIncome * 0.05) {
+      lines.push(`מרוויח ${fmt(metrics.totalIncome)}, כמעט כולו יוצא — כמעט לא נשאר בסוף החודש.`);
+    } else if (metrics.savingsRate < 20) {
+      lines.push(`הכנסה ${fmt(metrics.totalIncome)}, חוסך ${metrics.savingsRate}% — פוטנציאל להגיע ל-20%.`);
+    } else {
+      lines.push(`מרוויח ${fmt(metrics.totalIncome)}, חוסך ${metrics.savingsRate}% — הבסיס יציב.`);
+    }
+    if (metrics.totalDebt > metrics.totalIncome * 2) {
+      lines.push(`חוב של ${fmt(metrics.totalDebt)} — זה מה שמכביד הכי הרבה.`);
+    }
+  }
+
+  // ── Fear + goal — המרכיב הכי אנושי ──────────────────────
+  const FEARS = {
+    job_loss: 'הפחד מפיטורים',
+    debt_spiral: 'החשש שהחובות יחמירו',
+    retirement_poverty: 'הדאגה לפנסיה',
+    no_savings: 'תחושה שהכסף תמיד נגמר',
+    inflation: 'הפחד מאינפלציה',
+    no_control: 'תחושת חוסר שליטה על הכסף',
+  };
+  const GOALS = {
+    financial_freedom: 'חופש כלכלי',
+    buy_apartment: 'קניית דירה',
+    emergency_fund: 'קרן חירום',
+    retire_early: 'פרישה מוקדמת',
+    debt_free: 'לצאת מחובות',
+    grow_income: 'להגדיל הכנסה',
+  };
+  const fear = FEARS[a.money_fear] || a.money_fear || '';
+  const goal = GOALS[a.money_goal] || a.money_goal || '';
+  if (fear && goal) {
+    lines.push(`${fear} הוא מה שמאחורי הפנייה לכאן. המטרה: ${goal}.`);
+  } else if (fear) {
+    lines.push(`${fear} הוא הכוח שמניע אותו לכאן.`);
+  } else if (goal) {
+    lines.push(`המטרה שהביאה אותו לכאן: ${goal}.`);
+  }
+
+  // ── Obstacle ──────────────────────────────────────────────
+  const OBSTACLES = {
+    no_discipline: '"מתחיל ומוותר" — הבעיה היא לא ידע, היא עקביות',
+    too_complex: 'הנושא נראה מורכב מדי — צריך פישוט',
+    no_money: '"לא נשאר כלום לחסוך" — הבעיה תזרימית',
+    no_knowledge: 'לא יודע מאיפה להתחיל — צריך מפה',
+    partner_conflict: 'חוסר הסכמה עם בן/בת הזוג — החלטות מורכבות',
+    fear_of_loss: 'פחד לאבד כסף מונע פעולה',
+  };
+  if (a.saving_obstacle) {
+    const obs = OBSTACLES[a.saving_obstacle] || a.saving_obstacle;
+    lines.push(`הבלוק: ${obs}.`);
+  }
+
+  if (lines.length === 0) return '';
+
+  return `
+═══════════════════════════════════════
+🧬 פורטרט — קרא לפני הכל
+═══════════════════════════════════════
+${lines.join('\n')}
+═══════════════════════════════════════`;
+}
+
+/* ──────────────────────────────────────────────────────────────
+ * 4b. USER CONTEXT — נתוני המשתמש + Blind Spots (raw Q&A)
  * ──────────────────────────────────────────────────────────── */
 export function generateUserContext(userData) {
   if (!userData || !userData.dailyAnswers) {
@@ -362,6 +490,7 @@ export function buildSystemPrompt(userData) {
   const isProfileComplete = completion >= 90;
   const toneKey = userData?.vermillion?.tone?.advice_style || 'strategist';
   const persona = getPersona(toneKey);
+  const userNarrative = buildUserNarrative(userData);
   const userContext = generateUserContext(userData);
 
   // Tier context — prevents giving investment advice to someone in debt crisis
@@ -400,6 +529,7 @@ ${getKnowledgeBlock()}
 
 ${FEW_SHOTS}
 
+${userNarrative}
 ═══════════════════════════════════════
 👤 פרופיל המשתמש הנוכחי
 ═══════════════════════════════════════
