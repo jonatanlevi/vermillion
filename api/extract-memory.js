@@ -1,5 +1,10 @@
 export const config = { runtime: 'edge' };
 
+import { trackGroqCost } from './_shared/trackCost.js';
+
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.EXPO_PUBLIC_SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+
 export default async function handler(req) {
   if (req.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
 
@@ -45,6 +50,8 @@ export default async function handler(req) {
 
     if (!res.ok) return new Response(JSON.stringify({ insights: [] }), { status: 200 });
     const json = await res.json();
+    // Track cost (non-blocking)
+    if (json.usage) trackGroqCost(SUPABASE_URL, SUPABASE_KEY, 'llama-3.1-8b-instant', json.usage, 'memory_extract');
     const text = json.choices?.[0]?.message?.content?.trim() || '';
     const newInsights = text
       .split('\n')
