@@ -5,7 +5,7 @@ if ($LASTEXITCODE -ne 0) {
   exit $LASTEXITCODE
 }
 
-# Patch dist/index.html — viewport lock, dark bg, no scroll
+# Patch dist/index.html — viewport lock, dark bg, static spinner, no scroll
 $htmlPath = "dist\index.html"
 $styleInject = @"
 <style>
@@ -25,15 +25,29 @@ $styleInject = @"
   }
   #root {
     height: 100vh; height: 100dvh;
-    overflow: hidden;
     display: flex; flex-direction: column;
     padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  @keyframes vm-spin { to { transform: rotate(360deg); } }
+  #vm-loader {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: #0A0A0A; display: flex; align-items: center;
+    justify-content: center; z-index: 9999; pointer-events: none;
+  }
+  #vm-loader-ring {
+    width: 44px; height: 44px;
+    border: 3px solid rgba(192,57,43,0.25);
+    border-top-color: #C0392B;
+    border-radius: 50%;
+    animation: vm-spin 0.9s linear infinite;
   }
 </style>
 </head>
 "@
-(Get-Content $htmlPath -Raw) -replace '</head>', $styleInject | Set-Content $htmlPath -NoNewline
-Write-Host "Patched index.html — viewport lock + dark bg" -ForegroundColor DarkGray
+$html = (Get-Content $htmlPath -Raw) -replace '</head>', $styleInject
+$html = $html -replace '<div id="root"></div>', '<div id="root"><div id="vm-loader"><div id="vm-loader-ring"></div></div></div>'
+$html | Set-Content $htmlPath -NoNewline
+Write-Host "Patched index.html — viewport lock + dark bg + static spinner" -ForegroundColor DarkGray
 
 Write-Host "Configuring Vercel project..." -ForegroundColor Cyan
 New-Item -ItemType Directory -Force -Path "dist\.vercel" | Out-Null
