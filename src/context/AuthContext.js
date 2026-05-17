@@ -12,9 +12,19 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let settled = false;
+
+    // Safety net: if getSession() hangs (e.g. Brave Android after account deletion),
+    // force setLoading(false) after 5 s so the app never stays on a black screen.
+    const bail = setTimeout(() => {
+      if (!settled) { settled = true; setLoading(false); }
+    }, 5000);
+
     supabase.auth
       .getSession()
       .then(async ({ data: { session } }) => {
+        clearTimeout(bail);
+        settled = true;
         if (session?.user) {
           setUser(session.user);
           loadProfile(session.user.id);
@@ -28,7 +38,7 @@ export function AuthProvider({ children }) {
         }
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch(() => { clearTimeout(bail); settled = true; setLoading(false); });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       const u = session?.user ?? null;
@@ -37,7 +47,7 @@ export function AuthProvider({ children }) {
       else { setProfile(null); setLoading(false); }
     });
 
-    return () => subscription.unsubscribe();
+    return () => { clearTimeout(bail); subscription.unsubscribe(); };
   }, []);
 
   async function loadProfile(userId) {
@@ -131,7 +141,17 @@ export function AuthProvider({ children }) {
     } finally {
       setUser(null);
       setProfile(null);
-      if (Platform.OS === 'web') window.location.reload();
+      if (Platform.OS === 'web') {
+        // Strip any stale OAuth params (code, token) from the URL before reload
+        // to prevent Supabase PKCE exchange from hanging on the next page load.
+        try {
+          const clean = new URL(window.location.href);
+          ['code', 'access_token', 'refresh_token', 'token_type', 'expires_in'].forEach(p => clean.searchParams.delete(p));
+          clean.hash = '';
+          window.history.replaceState({}, '', clean.toString());
+        } catch (_) {}
+        window.location.reload();
+      }
     }
   }
 
