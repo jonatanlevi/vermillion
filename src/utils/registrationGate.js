@@ -53,8 +53,7 @@ export function getAuthLandingRoute(profile) {
 
   if (!isTermsAccepted(profile)) return 'RegulationsConsent';
 
-  // ModelDownload removed — AI runs on Groq cloud, no local model needed
-  return hasSavedAvatar(profile) ? 'MainTabs' : 'AvatarAppearance';
+  return hasSavedAvatar(profile) ? 'ModelDownload' : 'AvatarAppearance';
 }
 
 // ─── localStorage helpers (web-only; graceful no-op on native) ───
