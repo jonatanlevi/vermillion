@@ -17,7 +17,7 @@ import { useAuth } from '../../context/AuthContext';
 import { getUnlockedEquipment, getEffectiveOverrides } from '../../utils/registrationGate';
 import { getDayScheduleView } from '../../utils/dayScheduleDisplay';
 
-const DEV_BYPASS_TIMER = true; // TODO: set false before launch
+const DEV_BYPASS_TIMER = false;
 
 const nextId = () => `msg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
 const QUESTIONS_PER_DAY = 3;
@@ -220,10 +220,6 @@ export default function VerMillionScreen({ navigation }) {
   const sendRef         = useRef(null);
   const lastSavedFieldRef    = useRef(null);
   const currentQuestionRef   = useRef('');
-  // TODO: remove before launch — dev pause button
-  const [devPaused, setDevPaused]       = useState(false);
-  const [devShowPause, setDevShowPause] = useState(false);
-  const devNavTimerRef                  = useRef(null);
   const voice = useVoice();
 
   useFocusEffect(
@@ -533,11 +529,8 @@ export default function VerMillionScreen({ navigation }) {
       } else {
         setAvatarMood('happy');
         addMsg('assistant', DAY_COMPLETIONS[day] || `יום ${day} ✅\n\nעובר אותך למשחקים...`);
-        setDevPaused(false);
-        setDevShowPause(true);
-        devNavTimerRef.current = setTimeout(() => {
+        setTimeout(() => {
           if (!mountedRef.current) return;
-          setDevShowPause(false);
           navigation.navigate('Games');
         }, 2200);
       }
@@ -869,23 +862,6 @@ export default function VerMillionScreen({ navigation }) {
           ))}
         </View>
       )}
-
-      {/* TODO: remove before launch — dev pause button */}
-      {devPaused ? (
-        <TouchableOpacity
-          style={devStyles.resumeBtn}
-          onPress={() => { setDevPaused(false); setDevShowPause(false); navigation.navigate('Games'); }}
-        >
-          <Text style={devStyles.resumeText}>▶ המשך למשחקים</Text>
-        </TouchableOpacity>
-      ) : devShowPause ? (
-        <TouchableOpacity
-          style={devStyles.pauseBtn}
-          onPress={() => { clearTimeout(devNavTimerRef.current); devNavTimerRef.current = null; setDevPaused(true); setDevShowPause(false); }}
-        >
-          <Text style={devStyles.pauseText}>⏸ השהה</Text>
-        </TouchableOpacity>
-      ) : null}
 
       <View style={[styles.inputRow, { paddingBottom: Math.max(insets.bottom + 12, 20) }]}>
         <TextInput
@@ -1316,10 +1292,3 @@ const dna = StyleSheet.create({
   note: { color: '#333', fontSize: 13, textAlign: 'center' },
 });
 
-// TODO: remove before launch
-const devStyles = StyleSheet.create({
-  pauseBtn:   { alignSelf: 'center', backgroundColor: '#1A1A1A', borderWidth: 1, borderColor: '#333', borderRadius: 20, paddingVertical: 8, paddingHorizontal: 20, marginBottom: 8 },
-  pauseText:  { color: '#888', fontSize: 13, fontWeight: '700' },
-  resumeBtn:  { alignSelf: 'center', backgroundColor: '#1A1A1A', borderWidth: 1, borderColor: '#4CAF50', borderRadius: 20, paddingVertical: 8, paddingHorizontal: 20, marginBottom: 8 },
-  resumeText: { color: '#4CAF50', fontSize: 13, fontWeight: '700' },
-});

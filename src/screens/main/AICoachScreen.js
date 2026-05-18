@@ -10,7 +10,7 @@ import { askTeam } from '../../services/agents';
 import {
   getOnboardingState, getFinancialData, isOnboardingComplete,
   getChatHistory, saveChatHistory, appendChatMessage, getGameSessions,
-  getProfile, saveAiMemory,
+  getProfile, saveAiMemory, getVoiceUnlocked,
 } from '../../services/storage';
 import {
   getTodayOnboardingPrompt, processOnboardingAnswer,
@@ -18,7 +18,6 @@ import {
 } from '../../services/onboardingAI';
 
 const USE_AGENT_TEAM = true;
-const VOICE_ENABLED = false; // re-enable after OpenAI TTS + Whisper are wired up
 const nextId = () => `msg_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
 
 function getDayNumber(startDate) {
@@ -37,7 +36,8 @@ export default function AICoachScreen({ navigation }) {
   const [currentDay, setCurrentDay] = useState(1);
   const [dayProgress, setDayProgress] = useState({ total: 0, done: 0, complete: false });
   const [pendingField, setPendingField] = useState(null);
-  const [voiceMode, setVoiceMode] = useState(false);
+  const [voiceMode, setVoiceMode]       = useState(false);
+  const [voiceEnabled, setVoiceEnabled] = useState(false);
   const flatListRef = useRef(null);
   const mountedRef = useRef(true);
   const onboardingStateRef = useRef({});
@@ -120,6 +120,7 @@ export default function AICoachScreen({ navigation }) {
   }, [voiceMode, voice.isSpeaking, loading, voice.isListening]);
 
   async function init() {
+    getVoiceUnlocked().then(u => { if (mountedRef.current) setVoiceEnabled(u); });
     const complete = await isOnboardingComplete();
     const state = await getOnboardingState();
     const financialData = await getFinancialData();
@@ -158,7 +159,7 @@ export default function AICoachScreen({ navigation }) {
   function addMsg(role, text) {
     const msg = { id: nextId(), role, text };
     setMessages(prev => [...prev, msg]);
-    if (role === 'assistant' && VOICE_ENABLED) voice.speak(text);
+    if (role === 'assistant' && voiceEnabled) voice.speak(text);
     return msg.id;
   }
 
@@ -285,7 +286,7 @@ export default function AICoachScreen({ navigation }) {
               return updated;
             });
             appendChatMessage({ id: partialId, role: 'assistant', text: finalText }).catch(() => {});
-            if (VOICE_ENABLED) voice.speak(finalText);
+            if (voiceEnabled) voice.speak(finalText);
           }
         } else {
           await chatWithAI(text, onboardingStateRef.current, (partial) => {
@@ -304,7 +305,7 @@ export default function AICoachScreen({ navigation }) {
   };
 
   // ── Voice Mode Screen ──────────────────────────────────────────
-  if (voiceMode && VOICE_ENABLED) {
+  if (voiceMode && voiceEnabled) {
     const rings = [ring1, ring2, ring3].map(r => ({
       scale:   r.interpolate({ inputRange: [0, 1], outputRange: [1, 3.2] }),
       opacity: r.interpolate({ inputRange: [0, 0.15, 0.7, 1], outputRange: [0, 0.55, 0.4, 0] }),
@@ -385,7 +386,7 @@ export default function AICoachScreen({ navigation }) {
             </View>
           </View>
         )}
-        {VOICE_ENABLED && (
+        {voiceEnabled && (
           <TouchableOpacity
             style={[styles.voiceModeBtn, !voice.ttsSupported && { opacity: 0.35 }]}
             onPress={() => {
@@ -411,7 +412,7 @@ export default function AICoachScreen({ navigation }) {
         showsVerticalScrollIndicator={false}
       />
 
-      {VOICE_ENABLED && voice.isSpeaking && (
+      {voiceEnabled && voice.isSpeaking && (
         <View style={styles.speakingBar}>
           <Text style={styles.speakingIcon}>🔊</Text>
           <Text style={styles.speakingText} numberOfLines={2}>{voice.speakingText}</Text>
@@ -431,7 +432,7 @@ export default function AICoachScreen({ navigation }) {
           multiline
           textAlign="right"
         />
-        {VOICE_ENABLED && (
+        {voiceEnabled && (
           <TouchableOpacity style={styles.muteBtn} onPress={voice.toggleMute}>
             <Text style={styles.muteBtnText}>{voice.muted ? '🔇' : '🔊'}</Text>
           </TouchableOpacity>

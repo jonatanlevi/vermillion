@@ -13,6 +13,7 @@ const L = {
   GAME:     '@vermillion/local/gamelog',
   SESSIONS: '@vermillion/local/gamesessions',
   PROF:     '@vermillion/local/profile',
+  VOICE:    '@vermillion/local/voice_unlocked',
 };
 
 async function localGet(key, fallback) {
@@ -637,6 +638,15 @@ export async function saveGameSession(gameKey, category, score) {
 
 export async function getGameSessions() {
   return (await localGet(L.SESSIONS, [])) || [];
+}
+
+// ─── Voice unlock ─────────────────────────────────────────────
+export async function getVoiceUnlocked() {
+  return localGet(L.VOICE, false);
+}
+
+export async function setVoiceUnlocked() {
+  await localSet(L.VOICE, true);
 }
 
 // ─── Avatar style (localStorage backup — web only) ────────────

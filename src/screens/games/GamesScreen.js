@@ -39,6 +39,7 @@ import DiceAddGame     from '../../components/DiceAddGame';
 import {
   saveCommitmentTime, saveChallengeTarget, getCommitmentTime,
   completeGame, saveGameStamp, getGameLog, getLeaderboard, saveGameSession, syncProfileTimezone,
+  getVoiceUnlocked, setVoiceUnlocked,
 } from '../../services/storage';
 import { getDeviceTimezone, getLocalTimeParts, getStampWindowStatus, getWindowWarning, stampErrorMessage } from '../../utils/stampWindow';
 import {
@@ -395,6 +396,135 @@ function RealWeekIntroModal({ visible, onDismiss }) {
   );
 }
 
+// ─── Helpers ───────────────────────────────────────────────────
+function countStreak(log, today) {
+  const now = new Date();
+  let streak = 0;
+  for (let d = today; d >= 1; d--) {
+    const entry = log[d];
+    if (!entry?.stampedAt) break;
+    const expected = new Date(now.getFullYear(), now.getMonth(), d).toDateString();
+    if (new Date(entry.stampedAt).toDateString() !== expected) break;
+    streak++;
+  }
+  return streak;
+}
+
+// ─── Voice Unlock Modal ────────────────────────────────────────
+function VoiceUnlockModal({ visible, onDismiss }) {
+  const overlayOpacity = useRef(new Animated.Value(0)).current;
+  const circleScale    = useRef(new Animated.Value(0)).current;
+  const micScale       = useRef(new Animated.Value(0)).current;
+  const textOpacity    = useRef(new Animated.Value(0)).current;
+  const textTranslate  = useRef(new Animated.Value(24)).current;
+  const btnOpacity     = useRef(new Animated.Value(0)).current;
+  const glowPulse      = useRef(new Animated.Value(0.15)).current;
+  const ring1          = useRef(new Animated.Value(0)).current;
+  const ring2          = useRef(new Animated.Value(0)).current;
+  const ring3          = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (!visible) return;
+    overlayOpacity.setValue(0);
+    circleScale.setValue(0);
+    micScale.setValue(0);
+    textOpacity.setValue(0);
+    textTranslate.setValue(24);
+    btnOpacity.setValue(0);
+    glowPulse.setValue(0.15);
+    ring1.setValue(0); ring2.setValue(0); ring3.setValue(0);
+
+    Animated.timing(overlayOpacity, { toValue: 1, duration: 350, useNativeDriver: true }).start();
+
+    setTimeout(() => {
+      Animated.spring(circleScale, { toValue: 1, friction: 5, tension: 80, useNativeDriver: true }).start();
+    }, 150);
+
+    setTimeout(() => {
+      Animated.spring(micScale, { toValue: 1, friction: 4, tension: 60, useNativeDriver: true }).start();
+      const ripple = (anim, delay) => {
+        anim.setValue(0);
+        Animated.loop(Animated.sequence([
+          Animated.delay(delay),
+          Animated.timing(anim, { toValue: 1, duration: 2000, easing: Easing.out(Easing.ease), useNativeDriver: true }),
+        ])).start();
+      };
+      ripple(ring1, 0);
+      ripple(ring2, 650);
+      ripple(ring3, 1300);
+      Animated.loop(Animated.sequence([
+        Animated.timing(glowPulse, { toValue: 0.75, duration: 1000, useNativeDriver: true }),
+        Animated.timing(glowPulse, { toValue: 0.15, duration: 1000, useNativeDriver: true }),
+      ])).start();
+    }, 450);
+
+    setTimeout(() => {
+      Animated.parallel([
+        Animated.timing(textOpacity,   { toValue: 1, duration: 450, useNativeDriver: true }),
+        Animated.timing(textTranslate, { toValue: 0, duration: 450, useNativeDriver: true }),
+      ]).start();
+    }, 800);
+
+    setTimeout(() => {
+      Animated.timing(btnOpacity, { toValue: 1, duration: 350, useNativeDriver: true }).start();
+    }, 1400);
+  }, [visible]);
+
+  if (!visible) return null;
+
+  const ringStyle = (anim) => ({
+    position: 'absolute',
+    width: 120, height: 120, borderRadius: 60,
+    top: 20, left: 20,
+    borderWidth: 1.5,
+    borderColor: '#D4AF37',
+    opacity: anim.interpolate({ inputRange: [0, 0.2, 1], outputRange: [0, 0.8, 0] }),
+    transform: [{ scale: anim.interpolate({ inputRange: [0, 1], outputRange: [1, 3.2] }) }],
+  });
+
+  return (
+    <Modal transparent visible animationType="none" statusBarTranslucent>
+      <Animated.View style={[vu.overlay, { opacity: overlayOpacity }]}>
+        <Animated.View style={[vu.circleWrap, { transform: [{ scale: circleScale }] }]}>
+          <Animated.View style={ringStyle(ring1)} />
+          <Animated.View style={ringStyle(ring2)} />
+          <Animated.View style={ringStyle(ring3)} />
+          <Animated.View style={[vu.glow, { opacity: glowPulse }]} />
+          <View style={vu.circle}>
+            <Animated.Text style={[vu.micEmoji, { transform: [{ scale: micScale }] }]}>🎙</Animated.Text>
+          </View>
+        </Animated.View>
+
+        <Animated.View style={[vu.textBlock, { opacity: textOpacity, transform: [{ translateY: textTranslate }] }]}>
+          <Text style={vu.headline}>יכולת הדיבור נפתחה!</Text>
+          <Text style={vu.sub1}>7 ימים רצופים — הגעת לרמה חדשה</Text>
+          <Text style={vu.sub2}>VerMillion ידבר איתך. אתה תדבר אליו.</Text>
+        </Animated.View>
+
+        <Animated.View style={{ opacity: btnOpacity }}>
+          <TouchableOpacity style={vu.btn} onPress={onDismiss} activeOpacity={0.85}>
+            <Text style={vu.btnText}>בוא נדבר! 🎙</Text>
+          </TouchableOpacity>
+        </Animated.View>
+      </Animated.View>
+    </Modal>
+  );
+}
+
+const vu = StyleSheet.create({
+  overlay:    { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', alignItems: 'center', justifyContent: 'center', gap: 32 },
+  circleWrap: { width: 160, height: 160, alignItems: 'center', justifyContent: 'center' },
+  glow:       { position: 'absolute', top: 5, left: 5, width: 150, height: 150, borderRadius: 75, backgroundColor: '#D4AF37' },
+  circle:     { width: 110, height: 110, borderRadius: 55, backgroundColor: '#080808', borderWidth: 2, borderColor: '#D4AF37', alignItems: 'center', justifyContent: 'center', zIndex: 1 },
+  micEmoji:   { fontSize: 52 },
+  textBlock:  { alignItems: 'center', paddingHorizontal: 28, gap: 8 },
+  headline:   { color: '#D4AF37', fontSize: 28, fontWeight: '900', textAlign: 'center' },
+  sub1:       { color: '#FFF', fontSize: 16, fontWeight: '700', textAlign: 'center' },
+  sub2:       { color: '#888', fontSize: 14, textAlign: 'center', lineHeight: 20 },
+  btn:        { backgroundColor: '#D4AF37', borderRadius: 24, paddingVertical: 16, paddingHorizontal: 52 },
+  btnText:    { color: '#0A0A0A', fontSize: 18, fontWeight: '900', textAlign: 'center' },
+});
+
 // ─── Main screen ───────────────────────────────────────────────
 export default function GamesScreen({ navigation }) {
   const insets = useSafeAreaInsets();
@@ -427,6 +557,8 @@ export default function GamesScreen({ navigation }) {
   const [stampError, setStampError]         = useState(null);
   const [windowWarning, setWindowWarning]       = useState(null);
   const [showRealWeekIntro, setShowRealWeekIntro] = useState(false);
+  const [showVoiceUnlock, setShowVoiceUnlock]     = useState(false);
+  const [voiceJustUnlocked, setVoiceJustUnlocked] = useState(false);
   const fadeAnim  = useRef(new Animated.Value(1)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
@@ -604,6 +736,16 @@ export default function GamesScreen({ navigation }) {
       setStampError(stampErrorMessage(result.error, result.message));
       return;
     }
+
+    const updatedLog = { ...gameLog, [calendarDay]: { msDiff: result.ms_diff ?? 0, score: result.score || 1, stampedAt: new Date().toISOString() } };
+    setGameLog(updatedLog);
+
+    const alreadyUnlocked = await getVoiceUnlocked();
+    if (!alreadyUnlocked && countStreak(updatedLog, calendarDay) >= 7) {
+      await setVoiceUnlocked();
+      setVoiceJustUnlocked(true);
+    }
+
     setStampAccuracy(result.ms_diff ?? 0);
   }
 
@@ -611,6 +753,11 @@ export default function GamesScreen({ navigation }) {
     setShowDailyStamp(false);
     setStampAccuracy(null);
     setTodayStamped(true);
+    if (voiceJustUnlocked) {
+      setVoiceJustUnlocked(false);
+      setShowVoiceUnlock(true);
+      return;
+    }
     navigation.navigate('VerMillion');
   }
 
@@ -936,7 +1083,7 @@ export default function GamesScreen({ navigation }) {
               const isToday  = day === today;
               const isPast   = day && day < today;
               const isFuture = day && day > today;
-              const isActive = !!day;
+              const isActive = isToday || isPast;
 
               return (
                 <TouchableOpacity
@@ -1050,6 +1197,10 @@ export default function GamesScreen({ navigation }) {
           } catch {}
           setShowRealWeekIntro(false);
         }}
+      />
+      <VoiceUnlockModal
+        visible={showVoiceUnlock}
+        onDismiss={() => { setShowVoiceUnlock(false); navigation.navigate('VerMillion'); }}
       />
     </>
   );

@@ -11,7 +11,7 @@ import {
 } from '../../services/onboardingAI';
 import { getFinancialData, saveProfile } from '../../services/storage';
 
-const DEV_NO_QUESTION_LIMIT = true;
+const DEV_NO_QUESTION_LIMIT = false;
 
 const QUICK_ACK_SYSTEM = `אתה VerMillion — מאמן פיננסי.
 ענה בעברית ב-1-2 משפטים קצרים בלבד: הכר בתשובה, תן תגובה אנושית קצרה, אל תשאל שאלה חוזרת.`;
