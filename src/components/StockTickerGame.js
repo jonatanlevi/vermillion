@@ -98,7 +98,7 @@ export default function StockTickerGame({ onFinish }) {
 
   const pnl = held && boughtAt ? +(price - boughtAt).toFixed(2) : null;
   const pnlColor = pnl === null ? '#888' : pnl >= 0 ? '#2ECC71' : '#E74C3C';
-  const totalProfit = +(cashRef.current - 1000 + (held ? price : 0)).toFixed(0);
+  const totalProfit = +(cash - 1000 + (held ? price : 0)).toFixed(0);
   const borderColor = flash === 'hit' ? '#2ECC71' : flash === 'miss' ? '#E74C3C' : '#1A1A2A';
 
   return (

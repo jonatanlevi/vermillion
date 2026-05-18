@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback } from 'react';
+import React, { useRef, useState, useCallback, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 
 const { width: SW } = Dimensions.get('window');
@@ -9,36 +9,21 @@ const STEPS  = 4;
 
 function genChain(round) {
   const mult = Math.min(1 + Math.floor(round / 2), 5);
-  let val = (Math.floor(Math.random() * 10) + 1) * 100 * mult;
+  let start = (Math.floor(Math.random() * 10) + 1) * 100 * mult;
+  let correct = start;
   const ops = [];
   for (let i = 0; i < STEPS; i++) {
     const add = Math.random() > 0.4;
-    const delta = (Math.floor(Math.random() * 5) + 1) * 100 * mult;
-    if (add) {
-      ops.push({ op: '+', delta });
-      val += delta;
-    } else {
-      const safe = Math.min(delta, val - 100);
-      ops.push({ op: '-', delta: safe > 0 ? safe : delta });
-      val = add ? val + delta : Math.max(100, val - delta);
-    }
-  }
-  // recalc correctly
-  let start = (Math.floor(Math.random() * 10) + 1) * 100 * mult;
-  let correct = start;
-  const cleanOps = [];
-  for (let i = 0; i < STEPS; i++) {
-    const add = Math.random() > 0.4;
     const d   = (Math.floor(Math.random() * 5) + 1) * 100 * mult;
-    if (add) { cleanOps.push({ op: '+', delta: d }); correct += d; }
-    else      { cleanOps.push({ op: '-', delta: d }); correct = Math.max(100, correct - d); }
+    if (add) { ops.push({ op: '+', delta: d }); correct += d; }
+    else      { ops.push({ op: '-', delta: d }); correct = Math.max(100, correct - d); }
   }
   const err = (Math.floor(Math.random() * 3) + 1) * 100 * mult;
   const sign = Math.random() > 0.5 ? 1 : -1;
   const choices = [correct, correct + err * sign, correct - err * sign]
     .map(v => Math.max(100, v))
     .sort(() => Math.random() - 0.5);
-  return { start, ops: cleanOps, correct, choices };
+  return { start, ops, correct, choices };
 }
 
 export default function MathChainGame({ onFinish }) {
@@ -100,6 +85,8 @@ export default function MathChainGame({ onFinish }) {
       startRoundRef.current(nr);
     }, 700);
   }, [chain, step, win]);
+
+  useEffect(() => () => clearTimeout(timerRef.current), []);
 
   const startGame = () => {
     clearTimeout(timerRef.current);

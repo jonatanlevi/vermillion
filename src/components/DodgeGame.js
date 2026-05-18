@@ -67,12 +67,14 @@ export default function DodgeGame({ onFinish }) {
 
       obsRef.current = obsRef.current.map(o => ({ ...o, y: o.y + o.speed }));
 
-      obsRef.current.forEach(o => {
+      let gameOver = false;
+      for (const o of obsRef.current) {
+        if (gameOver) break;
         if (!o.passed && o.y > PLAYER_Y + PLAYER_R) {
           o.passed = true;
           dodgesRef.current += 1;
           setDodges(dodgesRef.current);
-          if (dodgesRef.current >= WIN_DODGES) { win(); return; }
+          if (dodgesRef.current >= WIN_DODGES) { win(); gameOver = true; break; }
         }
         const dx = Math.abs(px.current - o.x);
         const dy = Math.abs(PLAYER_Y - o.y);
@@ -80,9 +82,10 @@ export default function DodgeGame({ onFinish }) {
           o.hit = true;
           hitsRef.current += 1;
           setHits(hitsRef.current);
-          if (hitsRef.current >= MAX_HITS) { die(); return; }
+          if (hitsRef.current >= MAX_HITS) { die(); gameOver = true; break; }
         }
-      });
+      }
+      if (gameOver) return;
 
       obsRef.current = obsRef.current.filter(o => o.y - OBS_R < H + 10);
       setSnap({ px: px.current, obs: [...obsRef.current] });
@@ -173,14 +176,16 @@ export default function DodgeGame({ onFinish }) {
         <View style={s.controls}>
           <TouchableOpacity
             onPressIn={() => { movingDir.current = -1; }}
-            onPressOut={() => { if (movingDir.current === -1) movingDir.current = 0; }}
+            onPressOut={() => { movingDir.current = 0; }}
+            onMouseLeave={() => { movingDir.current = 0; }}
             style={s.ctrlBtn} activeOpacity={0.7}
           >
             <Text style={s.ctrlLabel}>←</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPressIn={() => { movingDir.current = 1; }}
-            onPressOut={() => { if (movingDir.current === 1) movingDir.current = 0; }}
+            onPressOut={() => { movingDir.current = 0; }}
+            onMouseLeave={() => { movingDir.current = 0; }}
             style={s.ctrlBtn} activeOpacity={0.7}
           >
             <Text style={s.ctrlLabel}>→</Text>

@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback } from 'react';
+import React, { useRef, useState, useCallback, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 
 const { width: SW } = Dimensions.get('window');
@@ -74,6 +74,8 @@ export default function FlashCountGame({ onFinish }) {
       startRoundRef.current(nr);
     }, 600);
   }, [coins, win]);
+
+  useEffect(() => () => clearTimeout(timerRef.current), []);
 
   const startGame = () => {
     clearTimeout(timerRef.current);

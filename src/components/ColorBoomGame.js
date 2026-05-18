@@ -78,20 +78,21 @@ export default function ColorBoomGame({ onFinish }) {
       setScore(scoreRef.current);
       setFlash('hit');
       setTimeout(() => setFlash(null), 220);
-      setCircles(prev => prev.filter(c => c.id !== id));
       if (scoreRef.current >= WIN_COUNT) {
         statusRef.current = 'done';
         setStatus('done');
+        setCircles(prev => prev.filter(c => c.id !== id));
         setTimeout(() => onFinish(scoreRef.current), 800);
         return;
       }
-      // Check if no more targets remain
+      // Remove tapped circle and check if no more targets remain
       setCircles(prev => {
-        const remaining = prev.filter(c => c.key === targetRef.current.key && !tappedIds.current.has(c.id));
+        const next = prev.filter(c => c.id !== id);
+        const remaining = next.filter(c => c.key === targetRef.current.key && !tappedIds.current.has(c.id));
         if (remaining.length === 0) {
           setTimeout(() => pickNewTarget(), 200);
         }
-        return prev.filter(c => c.id !== id);
+        return next;
       });
     } else {
       missRef.current += 1;

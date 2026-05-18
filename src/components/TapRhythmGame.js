@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableWithoutFeedback, Dimensions, Animated } from 'react-native';
+import { View, Text, StyleSheet, TouchableWithoutFeedback, Dimensions } from 'react-native';
 
 const { width: SW } = Dimensions.get('window');
 const W          = SW - 48;

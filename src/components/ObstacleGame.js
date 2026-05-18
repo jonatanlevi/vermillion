@@ -102,6 +102,7 @@ export default function ObstacleGame({ onFinish }) {
   }, []);
 
   const startGame = () => {
+    clearInterval(loopRef.current);
     birdY.current = H / 2;
     vel.current = 0;
     scoreRef.current = 0;

@@ -53,8 +53,10 @@ export default function BullseyeGame({ onFinish }) {
 
   const shoot = useCallback(() => {
     if (statusRef.current !== 'running') return;
-    const dx   = dotPos.x - CX;
-    const dy   = dotPos.y - CY;
+    const x    = CX + Math.cos(angle.current) * orbit.current;
+    const y    = CY + Math.sin(angle.current * 1.3) * orbit.current * 0.6;
+    const dx   = x - CX;
+    const dy   = y - CY;
     const dist = Math.sqrt(dx * dx + dy * dy);
 
     let pts = 0;
@@ -77,7 +79,7 @@ export default function BullseyeGame({ onFinish }) {
       setTimeout(() => setFlash(null), 300);
       if (scoreRef.current >= WIN_SCORE) win();
     }
-  }, [dotPos, die, win]);
+  }, [die, win]);
 
   const handlePress = () => {
     if (status === 'idle' || status === 'dead') { startGame(); return; }

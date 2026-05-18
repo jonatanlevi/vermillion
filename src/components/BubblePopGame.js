@@ -128,7 +128,7 @@ export default function BubblePopGame({ onFinish }) {
       )}
 
       <View style={s.game}>
-        <View style={[StyleSheet.absoluteFill, { backgroundColor: '#080818', borderRadius: 18, overflow: 'hidden' }]} />
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: '#080818' }]} />
         {[...Array(16)].map((_, i) => (
           <View key={i} style={[s.star, { left: (i * 53 + 17) % (W - 4), top: (i * 37 + 11) % (H - 4) }]} />
         ))}
@@ -207,7 +207,7 @@ const s = StyleSheet.create({
 
   game: {
     width: W, height: H,
-    borderRadius: 18, overflow: 'visible',
+    borderRadius: 18, overflow: 'hidden',
     borderWidth: 2, borderColor: '#1A1A3A',
     position: 'relative',
   },

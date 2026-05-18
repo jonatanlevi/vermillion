@@ -281,7 +281,7 @@ export default function BreakoutGame({ onFinish }) {
           style={styles.ctrlBtn}
           onPressIn={() => { movingLeft.current = true; }}
           onPressOut={() => { movingLeft.current = false; }}
-          onPress={() => { paddleX.current = Math.max(0, paddleX.current - PADDLE_SPEED * 3); }}
+          onMouseLeave={() => { movingLeft.current = false; }}
           activeOpacity={0.7}
         >
           <Text style={styles.ctrlBtnText}>◀</Text>
@@ -290,7 +290,7 @@ export default function BreakoutGame({ onFinish }) {
           style={styles.ctrlBtn}
           onPressIn={() => { movingRight.current = true; }}
           onPressOut={() => { movingRight.current = false; }}
-          onPress={() => { paddleX.current = Math.min(W - PADDLE_W, paddleX.current + PADDLE_SPEED * 3); }}
+          onMouseLeave={() => { movingRight.current = false; }}
           activeOpacity={0.7}
         >
           <Text style={styles.ctrlBtnText}>▶</Text>

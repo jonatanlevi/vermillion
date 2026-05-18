@@ -137,7 +137,7 @@ export default function SpeedTapGame({ onFinish }) {
       )}
 
       <View style={s.game}>
-        <View style={[StyleSheet.absoluteFill, { backgroundColor: '#060A10', borderRadius: 18, overflow: 'hidden' }]} />
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: '#060A10' }]} />
 
         {/* Lane lines */}
         {[1, 2, 3].map(i => (
@@ -223,7 +223,7 @@ const s = StyleSheet.create({
 
   game: {
     width: W, height: H,
-    borderRadius: 18, overflow: 'visible',
+    borderRadius: 18, overflow: 'hidden',
     borderWidth: 2, borderColor: '#1A2A1A',
     position: 'relative',
   },

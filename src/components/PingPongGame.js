@@ -171,6 +171,7 @@ export default function PingPongGame({ onFinish }) {
           <TouchableOpacity
             onPressIn={() => { movingDir.current = -1; }}
             onPressOut={() => { movingDir.current = 0; }}
+            onMouseLeave={() => { movingDir.current = 0; }}
             style={s.ctrlBtn} activeOpacity={0.7}
           >
             <Text style={s.ctrlLabel}>←</Text>
@@ -178,6 +179,7 @@ export default function PingPongGame({ onFinish }) {
           <TouchableOpacity
             onPressIn={() => { movingDir.current = 1; }}
             onPressOut={() => { movingDir.current = 0; }}
+            onMouseLeave={() => { movingDir.current = 0; }}
             style={s.ctrlBtn} activeOpacity={0.7}
           >
             <Text style={s.ctrlLabel}>→</Text>

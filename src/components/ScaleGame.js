@@ -54,8 +54,9 @@ export default function ScaleGame({ onFinish }) {
 
     timerRef.current = setTimeout(() => {
       if (statusRef.current !== 'running') return;
+      clearInterval(tickRef.current);
       setFlash('miss');
-      setTimeout(() => {
+      timerRef.current = setTimeout(() => {
         const nr = roundRef.current + 1;
         if (nr >= ROUNDS) { win(); return; }
         startRoundRef.current(nr);
