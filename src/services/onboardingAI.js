@@ -333,4 +333,32 @@ export function generateCoachingOpener(profile = {}) {
   };
 }
 
+// ─── Archetype engine ────────────────────────────────────────────
+export const ARCHETYPES = {
+  warrior: { label: 'הלוחם',    emoji: '⚔️',  desc: 'בונה עצמאות בכוח ובנייה עצמית.',          color: '#C0392B', hoodie: 'c0392b', extras: { beard: 'beardMedium' } },
+  sage:    { label: 'החכם',     emoji: '📚',  desc: 'מקבל החלטות מתוך ידע ואסטרטגיה.',         color: '#8E44AD', hoodie: null,     extras: { glasses: 'prescription01' } },
+  royal:   { label: 'הרויאל',   emoji: '👑',  desc: 'מייעל נכסים וצומח לרמה הבאה.',             color: '#D4AF37', hoodie: 'f5c518', extras: { sunglasses: 'sunglasses' } },
+  grinder: { label: 'הגריינדר', emoji: '💪',  desc: 'עובד קשה ולוחם לשנות את המצב.',           color: '#E67E22', hoodie: '1a1a1a', extras: {} },
+  builder: { label: 'הבונה',    emoji: '🏗️', desc: 'בונה עתיד יציב — צעד אחרי צעד.',          color: '#27AE60', hoodie: '2c3e50', extras: { hat: 'hat' } },
+};
+
+export function computeArchetype(financial) {
+  const income     = financial.netIncome || 0;
+  const totalDebt  = (financial.creditDebt || 0) + (financial.loans || 0) + (financial.overdraft || 0);
+  const surplus    = income
+    - (financial.housingCost || 0)
+    - (financial.fixedExpenses || 0)
+    - (financial.variableExpenses || 0);
+  const savingsRate = income > 0 ? surplus / income : 0;
+  const employ     = (financial.employmentType || '').toLowerCase();
+  const goal       = (financial.moneyGoal || '').toLowerCase();
+
+  if (/עצמאי|עסק|יזם|פרילנס/.test(employ)) return 'warrior';
+  if (income > 20000 || (financial.assets || 0) > 300000) return 'royal';
+  if (surplus < -300 || totalDebt > income * 4) return 'grinder';
+  if (/שכיר/.test(employ) && savingsRate >= 0.1 && /פנסי|השקע|חופש|retire/.test(goal)) return 'sage';
+  if (savingsRate >= 0.05 && goal) return 'builder';
+  return 'grinder';
+}
+
 export { DAY_PLAN, QUESTIONS };

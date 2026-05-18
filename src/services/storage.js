@@ -367,9 +367,9 @@ export async function getOnboardingState() {
   } catch (e) {
     console.warn('[storage] onboarding_state read threw:', e?.message || e);
   }
-  const raw = await localGet(L.ONB, null);
-  if (!raw) return { startDate: null, daysCompleted: [], profileGenerated: false, profileText: '' };
-  return raw;
+  // Real Supabase users: never fall back to localStorage — stale local data from a
+  // previous account would show wrong day progress for a freshly registered user.
+  return { startDate: null, daysCompleted: [], profileGenerated: false, profileText: '' };
 }
 
 export async function markDayComplete(day) {

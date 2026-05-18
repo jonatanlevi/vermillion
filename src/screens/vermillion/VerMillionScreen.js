@@ -220,6 +220,10 @@ export default function VerMillionScreen({ navigation }) {
   const sendRef         = useRef(null);
   const lastSavedFieldRef    = useRef(null);
   const currentQuestionRef   = useRef('');
+  // TODO: remove before launch — dev pause button
+  const [devPaused, setDevPaused]       = useState(false);
+  const [devShowPause, setDevShowPause] = useState(false);
+  const devNavTimerRef                  = useRef(null);
   const voice = useVoice();
 
   useFocusEffect(
@@ -338,13 +342,25 @@ export default function VerMillionScreen({ navigation }) {
   }
 
   async function init() {
+    let contentReady = false;
+    const showFallback = () => {
+      if (!mountedRef.current || contentReady) return;
+      contentReady = true;
+      setPhase('onboarding');
+      addMsg('assistant', 'שלום! אני VerMillion — היועץ הפיננסי האישי שלך.\n\nיש לך ילדים? כמה?');
+      setPendingField('kids');
+    };
+    const bailTimer = setTimeout(showFallback, 5000);
+    const markReady = () => { contentReady = true; clearTimeout(bailTimer); };
+
     try {
       const complete    = await isOnboardingComplete();
       const state       = await getOnboardingState();
       const commitment  = await getCommitmentTime();
-      if (!mountedRef.current) return;
+      if (!mountedRef.current) { markReady(); return; }
 
       if (complete) {
+        markReady();
         setPhase('coaching');
         const history = await getChatHistory();
         if (history.length > 0) {
@@ -366,19 +382,17 @@ export default function VerMillionScreen({ navigation }) {
         return;
       }
 
-      setPhase('onboarding');
-
       if (!commitment) {
         // ── שלב 1: כניסה ראשונה — VerMillion קודם, משחק+טיימר בלחיצת CTA.
         setCurrentDay(1);
         const progress = await getDayProgress(1);
-        if (!mountedRef.current) return;
+        if (!mountedRef.current) { markReady(); return; }
         setQuestionsToday(progress.done);
+        markReady();
+        setPhase('onboarding');
         if (progress.done === 0) {
           setNeedsFirstGame(true);
         } else if (progress.complete) {
-          // שאלות יום 1 נגמרו — עבר למשחקים כדי לקבוע commitment
-          if (!mountedRef.current) return;
           navigation.navigate('Games');
         } else {
           await askNextOnboardingQuestion(1, progress.done);
@@ -388,15 +402,20 @@ export default function VerMillionScreen({ navigation }) {
         const day = getActiveDay(state.daysCompleted);
         setCurrentDay(day);
         const progress = await getDayProgress(day);
-        if (!mountedRef.current) return;
+        if (!mountedRef.current) { markReady(); return; }
         setQuestionsToday(progress.done);
 
-        // אם כבר חתם stamp היום — הצג DNA timer בכל מקרה
         const todayLog = await getGameLog();
+        if (!mountedRef.current) { markReady(); return; }
+
         const calDay   = new Date().getDate();
         const todayEntry = todayLog[calDay];
         const stampedToday = !!todayEntry &&
           new Date(todayEntry.stampedAt).toDateString() === new Date().toDateString();
+
+        markReady();
+        setPhase('onboarding');
+
         if (!DEV_BYPASS_TIMER && stampedToday) {
           setDayDone(true);
           return;
@@ -404,49 +423,66 @@ export default function VerMillionScreen({ navigation }) {
 
         if (progress.complete) {
           if (day < 7) {
-            // שאלות יום הושלמו — שלח למשחקים (commitment/stamp)
             navigation.navigate('Games');
           } else {
             setDayDone(true);
           }
         } else if (day > 1) {
-          // לפני שאלות — בדוק אם הגיע זמן ה-commitment
           const now  = new Date();
           const gate = new Date(now);
           gate.setHours(commitment.hour, commitment.minute, 0, 0);
           if (!DEV_BYPASS_TIMER && now < gate) {
-            setDayDone(true); // עוד לא הגיע הזמן → DNA timer
+            setDayDone(true);
           } else {
-            // הזמן הגיע — בדוק אם המשתמש כבר שיחק ביום הזה
             if (DEV_BYPASS_TIMER || todayLog[calDay]) {
               await askNextOnboardingQuestion(day, progress.done);
             } else {
-              // לא שיחק עדיין — שלח למשחקים
               if (!mountedRef.current) return;
               navigation.navigate('Games');
             }
           }
         } else {
-          // יום 1 עם commitment — שאל שאלות
           await askNextOnboardingQuestion(day, progress.done);
         }
       }
     } catch (e) {
+      showFallback();
       console.error('[VM] init failed:', e?.message || e);
-      if (mountedRef.current) {
-        setPhase('onboarding');
-        addMsg('assistant', 'שלום! אני VerMillion — היועץ הפיננסי האישי שלך.\n\nיש לך ילדים? כמה?');
-        setPendingField('kids');
-      }
     }
   }
 
   function addMsg(role, text) {
-    const msg = { id: nextId(), role, text };
-    setMessages(prev => [...prev, msg]);
+    const id = nextId();
+    if (role !== 'assistant') {
+      setMessages(prev => [...prev, { id, role, text }]);
+      setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+      return id;
+    }
+
+    // Thinking delay then typewriter
+    const thinkDelay = text.length < 50 ? 600 : text.length < 150 ? 700 : 800;
+    const charDelay  = text.length < 50 ? 28  : text.length < 150 ? 18  : 10;
+
+    setMessages(prev => [...prev, { id, role, text: '…' }]);
     setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
-    if (role === 'assistant' && voiceModeRef.current) voice.speak(text);
-    return msg.id;
+
+    setTimeout(() => {
+      if (!mountedRef.current) return;
+      let i = 0;
+      setMessages(prev => prev.map(m => m.id === id ? { ...m, text: '' } : m));
+      const iv = setInterval(() => {
+        if (!mountedRef.current) { clearInterval(iv); return; }
+        i++;
+        setMessages(prev => prev.map(m => m.id === id ? { ...m, text: text.slice(0, i) } : m));
+        flatListRef.current?.scrollToEnd({ animated: false });
+        if (i >= text.length) {
+          clearInterval(iv);
+          if (voiceModeRef.current) voice.speak(text);
+        }
+      }, charDelay);
+    }, thinkDelay);
+
+    return id;
   }
 
   const DAY_INTROS = {
@@ -497,8 +533,11 @@ export default function VerMillionScreen({ navigation }) {
       } else {
         setAvatarMood('happy');
         addMsg('assistant', DAY_COMPLETIONS[day] || `יום ${day} ✅\n\nעובר אותך למשחקים...`);
-        setTimeout(() => {
+        setDevPaused(false);
+        setDevShowPause(true);
+        devNavTimerRef.current = setTimeout(() => {
           if (!mountedRef.current) return;
+          setDevShowPause(false);
           navigation.navigate('Games');
         }, 2200);
       }
@@ -572,7 +611,7 @@ export default function VerMillionScreen({ navigation }) {
         // ── ולידציה: שדות מספריים חייבים מספר ───────────────
         const NUMERIC_FIELDS = new Set(['netIncome','housingCost','fixedExpenses','variableExpenses',
           'creditDebt','loans','overdraft','savings','assets','spouseIncome','retirementSavings','kids']);
-        const ZERO_WORDS = /^(אין|לא|אפס|כלום|שום|0|null|none|לא יודע|לא בטוח)$/i;
+        const ZERO_WORDS = /^(אין|לא\b|אפס|כלום|שום|0|null|none|לא יודע|לא בטוח)/i;
         if (NUMERIC_FIELDS.has(pendingField) && !ZERO_WORDS.test(text.trim()) && !/\d/.test(text) && !/אלף|מאה|מיליון|אלפיים|אחד|שניים|שלוש|ארבע|חמש|שש|שבע|שמונה|תשע|עשר/.test(text)) {
           setLoading(false);
           const retryMsg = `לא קלטתי מספר. ${currentQuestionRef.current}`;
@@ -830,6 +869,23 @@ export default function VerMillionScreen({ navigation }) {
           ))}
         </View>
       )}
+
+      {/* TODO: remove before launch — dev pause button */}
+      {devPaused ? (
+        <TouchableOpacity
+          style={devStyles.resumeBtn}
+          onPress={() => { setDevPaused(false); setDevShowPause(false); navigation.navigate('Games'); }}
+        >
+          <Text style={devStyles.resumeText}>▶ המשך למשחקים</Text>
+        </TouchableOpacity>
+      ) : devShowPause ? (
+        <TouchableOpacity
+          style={devStyles.pauseBtn}
+          onPress={() => { clearTimeout(devNavTimerRef.current); devNavTimerRef.current = null; setDevPaused(true); setDevShowPause(false); }}
+        >
+          <Text style={devStyles.pauseText}>⏸ השהה</Text>
+        </TouchableOpacity>
+      ) : null}
 
       <View style={[styles.inputRow, { paddingBottom: Math.max(insets.bottom + 12, 20) }]}>
         <TextInput
@@ -1258,4 +1314,12 @@ const dna = StyleSheet.create({
   gamesBtnText: { color: '#FFF', fontSize: 16, fontWeight: '900' },
 
   note: { color: '#333', fontSize: 13, textAlign: 'center' },
+});
+
+// TODO: remove before launch
+const devStyles = StyleSheet.create({
+  pauseBtn:   { alignSelf: 'center', backgroundColor: '#1A1A1A', borderWidth: 1, borderColor: '#333', borderRadius: 20, paddingVertical: 8, paddingHorizontal: 20, marginBottom: 8 },
+  pauseText:  { color: '#888', fontSize: 13, fontWeight: '700' },
+  resumeBtn:  { alignSelf: 'center', backgroundColor: '#1A1A1A', borderWidth: 1, borderColor: '#4CAF50', borderRadius: 20, paddingVertical: 8, paddingHorizontal: 20, marginBottom: 8 },
+  resumeText: { color: '#4CAF50', fontSize: 13, fontWeight: '700' },
 });

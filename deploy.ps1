@@ -5,7 +5,7 @@ if ($LASTEXITCODE -ne 0) {
   exit $LASTEXITCODE
 }
 
-# Patch dist/index.html — viewport lock, dark bg, static spinner, no scroll
+# Patch dist/index.html - viewport lock, dark bg, static spinner, no scroll
 $htmlPath = "dist\index.html"
 $styleInject = @"
 <style>
@@ -47,7 +47,7 @@ $styleInject = @"
 $html = (Get-Content $htmlPath -Raw) -replace '</head>', $styleInject
 $html = $html -replace '<div id="root"></div>', '<div id="root"><div id="vm-loader"><div id="vm-loader-ring"></div></div></div>'
 $html | Set-Content $htmlPath -NoNewline
-Write-Host "Patched index.html — viewport lock + dark bg + static spinner" -ForegroundColor DarkGray
+Write-Host "Patched index.html - viewport lock + dark bg + static spinner" -ForegroundColor DarkGray
 
 Write-Host "Configuring Vercel project..." -ForegroundColor Cyan
 New-Item -ItemType Directory -Force -Path "dist\.vercel" | Out-Null
@@ -68,7 +68,7 @@ if ($vercelExit -ne 0) {
 }
 
 if ($deployUrl) {
-    Write-Host "Aliasing $deployUrl → vermillion-ashen.vercel.app" -ForegroundColor Yellow
+    Write-Host "Aliasing $deployUrl -> vermillion-ashen.vercel.app" -ForegroundColor Yellow
     Push-Location dist
     vercel alias set $deployUrl vermillion-ashen.vercel.app
     Pop-Location

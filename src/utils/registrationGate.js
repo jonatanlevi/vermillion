@@ -38,15 +38,17 @@ function hasSavedAvatar(profile) {
 }
 
 export function getAuthLandingRoute(profile) {
+  if (!profile) return 'CompleteProfile';
+
   const intakeDone =
-    profile?.profile_intake_complete === true ||
-    (profile?.profile_intake_complete == null && readLocalIntakeCompletion(profile?.id) === true);
+    profile.profile_intake_complete === true ||
+    (profile.profile_intake_complete == null && readLocalIntakeCompletion(profile.id) === true);
 
   if (!intakeDone) return 'CompleteProfile';
 
   const onboardingDone =
-    profile?.onboarding_complete === true ||
-    (profile?.onboarding_complete == null && readLocalOnboardingComplete(profile?.id) === true);
+    profile.onboarding_complete === true ||
+    (profile.onboarding_complete == null && readLocalOnboardingComplete(profile.id) === true);
 
   // Users who completed onboarding before RegulationsConsent was added go directly to MainTabs.
   if (onboardingDone) return 'MainTabs';

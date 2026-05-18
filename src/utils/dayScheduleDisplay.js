@@ -31,7 +31,7 @@ function getActiveTarget(commitTime, mode) {
 
 /** תצוגה מלאה לפי היום עכשיו על השעון המקומי */
 export function getDayScheduleView(commitTime, now = new Date(), timezone = getDeviceTimezone()) {
-  const { day, hour, minute } = getLocalTimeParts(now, timezone);
+  const { day, hour, minute, mins } = getLocalTimeParts(now, timezone);
   const stampWindow = getStampWindowStatus(timezone);
   const nowStr = formatHM(hour, minute);
   const dayName = DAY_NAMES_HE[day];
