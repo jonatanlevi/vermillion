@@ -76,3 +76,8 @@ if ($deployUrl) {
 
 Write-Host ""
 Write-Host "Done! https://vermillion-ashen.vercel.app" -ForegroundColor Green
+
+# ─── Daily work log ──────────────────────────────────────────────
+Write-Host ""
+Write-Host "Generating daily work log..." -ForegroundColor DarkGray
+node scripts/daily-log.js

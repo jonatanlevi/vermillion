@@ -64,15 +64,34 @@ VerMillion — 30 יום אתגר פיננסי עם פרס שבועי.
 
 ## לפני השקה ❌ (TODO קריטי)
 
-| נושא | קובץ | פירוט |
-|------|------|--------|
-| הסר dev pause button | `VerMillionScreen.js` | מחק `devPaused`, `devShowPause`, `devNavTimerRef`, JSX, `devStyles` |
-| `DEV_BYPASS_TIMER = false` | `VerMillionScreen.js` שורה 18 | |
-| `DEV_NO_QUESTION_LIMIT = false` | `OnboardingChatScreen.js` | |
-| תיקון isActive | `GamesScreen.js` | `isActive = isToday \|\| isPast` (לא `!!day`) |
-| `terms_accepted_at` | `storage.js` → `PROFILE_DB_COLUMNS` | |
-| ANTHROPIC_API_KEY | `.env` + Vercel | לסוכן Claude עתידי |
-| ניירת משפטית | `million/docs/` | תנאי שימוש, תקנון תחרות |
+| נושא | קובץ | פירוט | מצב |
+|------|------|--------|-----|
+| הסר dev pause button | `VerMillionScreen.js` | מחק `devPaused`, `devShowPause`, `devNavTimerRef`, JSX, `devStyles` | ✅ הושלם 2026-05-18 |
+| `DEV_BYPASS_TIMER = false` | `VerMillionScreen.js` שורה 18 | | ✅ הושלם 2026-05-18 |
+| `DEV_NO_QUESTION_LIMIT = false` | `OnboardingChatScreen.js` | | ✅ הושלם 2026-05-18 |
+| תיקון isActive | `GamesScreen.js` | `isActive = isToday \|\| isPast` | ✅ הושלם 2026-05-18 |
+| `terms_accepted_at` | `storage.js` → `PROFILE_DB_COLUMNS` | | TODO |
+| ANTHROPIC_API_KEY | `.env` + Vercel | לסוכן Claude עתידי | TODO |
+| ניירת משפטית | `million/docs/` | תנאי שימוש, תקנון תחרות | TODO |
+
+---
+
+## מערכת יומן עבודה (אוטומטית)
+
+כל `.\deploy.ps1` מריץ אוטומטית `node scripts/daily-log.js` בסיום.
+
+| מה נוצר | איפה |
+|---------|------|
+| קובץ JSON יומי | `docs/sessions/YYYY-MM-DD.json` |
+| נשלח ל-CRM | `localhost:3001/vermillion/dev-log` |
+
+**מה נשלח (metadata בלבד — ללא קוד):**
+- commit messages של היום
+- שמות קבצים שהשתנו (לא תוכן)
+- רשימת TODOs מה-WORK_PLAN
+- מה הושלם לאחרונה
+
+**secret:** `DEV_LOG_SECRET=vermillion-devlog-2026` (בשני ה-.env)
 
 ---
 
@@ -80,7 +99,10 @@ VerMillion — 30 יום אתגר פיננסי עם פרס שבועי.
 
 ```powershell
 # האפליקציה
-.\deploy.ps1              # build + deploy ל-Vercel
+.\deploy.ps1              # build + deploy ל-Vercel + יומן עבודה אוטומטי
+
+# יומן עבודה ידני (ללא deploy)
+node scripts/daily-log.js
 
 # ה-CRM (חלון נפרד)
 cd c:\Users\97254\Desktop\vermillioncrm
