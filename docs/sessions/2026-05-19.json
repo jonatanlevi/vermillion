@@ -1,0 +1,34 @@
+{
+  "date": "2026-05-19",
+  "generatedAt": "2026-05-19T05:07:44.406Z",
+  "project": "VerMillion",
+  "version": "1.0.0",
+  "deployUrl": "https://vermillion-ashen.vercel.app",
+  "commits": [
+    {
+      "hash": "79af8bee",
+      "message": "feat: automatic daily work log — scripts/daily-log.js"
+    }
+  ],
+  "filesChanged": [
+    "deploy.ps1",
+    "docs/WORK_PLAN.md",
+    "scripts/daily-log.js"
+  ],
+  "todosRemaining": [
+    "לפני השקה ❌ (TODO קריטי)",
+    "`terms_accepted_at`",
+    "_API_KEY",
+    "ניירת משפטית"
+  ],
+  "recentDone": [
+    "פרופיל + Avatar",
+    "מסכי שישי/שבת",
+    "Deploy Vercel",
+    "**CRM לניהול העסק**",
+    "הסר dev pause button",
+    "`DEV_BYPASS_TIMER = false`",
+    "`DEV_NO_QUESTION_LIMIT = false`",
+    "תיקון isActive"
+  ]
+}
