@@ -1,6 +1,18 @@
 import React from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
+
+const AppTheme = {
+  dark: true,
+  colors: {
+    primary:      '#C0392B',
+    background:   '#0A0A0A',
+    card:         '#0F0F0F',
+    text:         '#FFFFFF',
+    border:       'transparent',
+    notification: '#C0392B',
+  },
+};
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useAuth } from '../context/AuthContext';
@@ -108,7 +120,7 @@ export default function AppNavigator() {
   const authInitial = getAuthLandingRoute(profile);
 
   return (
-    <NavigationContainer>
+    <NavigationContainer theme={AppTheme}>
       <Stack.Navigator
         key={user ? 'auth' : 'guest'}
         initialRouteName={user ? authInitial : 'Splash'}
@@ -158,8 +170,7 @@ const styles = StyleSheet.create({
   },
   tabBar: {
     backgroundColor: '#0F0F0F',
-    borderTopColor: '#1A1A1A',
-    borderTopWidth: 1,
+    borderTopWidth: 0,
     height: 76,
     paddingBottom: 14,
     paddingTop: 6,
