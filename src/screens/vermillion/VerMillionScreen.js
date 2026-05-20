@@ -412,7 +412,7 @@ export default function VerMillionScreen({ navigation }) {
         markReady();
         setPhase('onboarding');
 
-        if (!DEV_BYPASS_TIMER && stampedToday) {
+        if (!DEV_BYPASS_TIMER && stampedToday && progress.complete) {
           setDayDone(true);
           return;
         }
@@ -427,7 +427,7 @@ export default function VerMillionScreen({ navigation }) {
           const now  = new Date();
           const gate = new Date(now);
           gate.setHours(commitment.hour, commitment.minute, 0, 0);
-          if (!DEV_BYPASS_TIMER && now < gate) {
+          if (!DEV_BYPASS_TIMER && now < gate && !stampedToday) {
             setDayDone(true);
           } else {
             if (DEV_BYPASS_TIMER || todayLog[calDay]) {
