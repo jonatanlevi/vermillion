@@ -526,11 +526,54 @@ const vu = StyleSheet.create({
   btnText:    { color: '#0A0A0A', fontSize: 18, fontWeight: '900', textAlign: 'center' },
 });
 
+// ─── Electric Category Card ────────────────────────────────────
+function ElectricCatCard({ cat, isActive, onPress }) {
+  const glowOpacity = useRef(new Animated.Value(0)).current;
+  const animRef = useRef(null);
+
+  useEffect(() => {
+    if (!isActive) {
+      if (animRef.current) { animRef.current.stop(); animRef.current = null; }
+      Animated.timing(glowOpacity, { toValue: 0, duration: 300, useNativeDriver: true }).start();
+    }
+  }, [isActive]);
+
+  function handlePress() {
+    onPress(cat.id);
+    if (animRef.current) { animRef.current.stop(); animRef.current = null; }
+    const pulses = [];
+    for (let i = 0; i < 10; i++) {
+      pulses.push(Animated.timing(glowOpacity, { toValue: 1,   duration: 70, useNativeDriver: true }));
+      pulses.push(Animated.timing(glowOpacity, { toValue: 0.1, duration: 70, useNativeDriver: true }));
+    }
+    pulses.push(Animated.timing(glowOpacity, { toValue: 1,    duration: 100, useNativeDriver: true }));
+    pulses.push(Animated.timing(glowOpacity, { toValue: 0.55, duration: 600, useNativeDriver: true }));
+    const seq = Animated.sequence(pulses);
+    animRef.current = seq;
+    seq.start(() => { animRef.current = null; });
+  }
+
+  return (
+    <TouchableOpacity style={lob.catCard} onPress={handlePress} activeOpacity={0.8}>
+      <Animated.View
+        style={[
+          StyleSheet.absoluteFillObject,
+          { borderRadius: 14, borderWidth: 1.5, borderColor: cat.color, opacity: glowOpacity },
+        ]}
+        pointerEvents="none"
+      />
+      <Text style={lob.catEmoji}>{cat.emoji}</Text>
+      <Text style={[lob.catLabel, { color: cat.color }]}>{cat.label}</Text>
+    </TouchableOpacity>
+  );
+}
+
 // ─── Main screen ───────────────────────────────────────────────
 export default function GamesScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { user, profile, reloadProfile } = useAuth();
   const [activeGame, setActiveGame]         = useState(null);
+  const [activeCategory, setActiveCategory] = useState(null);
   const [sessionScore, setSessionScore]     = useState(0);
   const [showCommitBtn, setShowCommitBtn]   = useState(false);
   const [commitTime, setCommitTime]         = useState(null);
@@ -1058,16 +1101,16 @@ export default function GamesScreen({ navigation }) {
           <Text style={lob.categoriesTitle}>שחק חופשי לפי קטגוריה</Text>
           <View style={lob.categoriesRow}>
             {CATEGORIES.map(cat => (
-              <TouchableOpacity
+              <ElectricCatCard
                 key={cat.id}
-                style={[lob.catCard, { borderColor: cat.color + '55' }]}
-                onPress={() => playCategory(cat)}
-                activeOpacity={0.8}
-              >
-                <Text style={lob.catEmoji}>{cat.emoji}</Text>
-                <Text style={[lob.catLabel, { color: cat.color }]}>{cat.label}</Text>
-              </TouchableOpacity>
-            )            )}
+                cat={cat}
+                isActive={activeCategory === cat.id}
+                onPress={(catId) => {
+                  setActiveCategory(catId);
+                  playCategory(cat);
+                }}
+              />
+            ))}
           </View>
         </View>
 
@@ -1232,7 +1275,8 @@ const lob = StyleSheet.create({
   categoriesRow: { flexDirection: 'row', gap: 8 },
   catCard: {
     flex: 1, backgroundColor: '#0F0F0F', borderRadius: 14, borderWidth: 1,
-    paddingVertical: 10, alignItems: 'center', gap: 4,
+    borderColor: '#222', paddingVertical: 10, alignItems: 'center', gap: 4,
+    overflow: 'hidden',
   },
   catEmoji: { fontSize: 20 },
   catLabel: { fontSize: 11, fontWeight: '800' },
