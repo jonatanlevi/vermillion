@@ -1,18 +1,6 @@
 import React, { useEffect, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, Animated, Easing } from 'react-native'; // Easing kept for future use
+import { View, Text, StyleSheet, ActivityIndicator, Animated, Easing } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
-
-const AppTheme = {
-  dark: true,
-  colors: {
-    primary:      '#C0392B',
-    background:   '#0A0A0A',
-    card:         '#0F0F0F',
-    text:         '#FFFFFF',
-    border:       'transparent',
-    notification: '#C0392B',
-  },
-};
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -50,6 +38,18 @@ import GhostPlayScreen         from '../screens/dev/GhostPlayScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab   = createBottomTabNavigator();
+
+const AppTheme = {
+  dark: true,
+  colors: {
+    primary:      '#C0392B',
+    background:   '#0A0A0A',
+    card:         '#0F0F0F',
+    text:         '#FFFFFF',
+    border:       'transparent',
+    notification: '#C0392B',
+  },
+};
 
 const TABS = [
   { name: 'Games',      label: 'משחקים',     icon: '🎮' },
