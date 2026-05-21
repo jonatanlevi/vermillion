@@ -155,7 +155,7 @@ export default function WordSnapGame({ onFinish }) {
             <View style={s.timerTrack}>
               <View style={[s.timerBar, { width: `${timeLeft}%`, backgroundColor: barColor }]} />
             </View>
-            <Text style={s.wordText}>{word.word}</Text>
+            <Text style={s.wordText} adjustsFontSizeToFit numberOfLines={1}>{word.word}</Text>
             <View style={s.btnRow}>
               <TouchableOpacity onPress={() => answer(false)} style={[s.snapBtn, s.negBtn]} activeOpacity={0.7}>
                 <Text style={s.snapIcon}>❌</Text>
@@ -205,7 +205,7 @@ const s = StyleSheet.create({
   inner:     { flex: 1, alignItems: 'center', justifyContent: 'space-around', padding: 20 },
   timerTrack: { width: '100%', height: 6, backgroundColor: '#1A1A2A', borderRadius: 3, overflow: 'hidden' },
   timerBar:   { height: '100%', borderRadius: 3 },
-  wordText:   { color: '#FFF', fontSize: 36, fontWeight: '900', textAlign: 'center', letterSpacing: 2 },
+  wordText:   { color: '#FFF', fontSize: Math.min(36, W * 0.09), fontWeight: '900', textAlign: 'center', width: '100%' },
   btnRow:     { flexDirection: 'row', gap: 20, width: '100%' },
   snapBtn:    { flex: 1, borderRadius: 16, paddingVertical: 18, alignItems: 'center', gap: 4 },
   negBtn:     { backgroundColor: 'rgba(231,76,60,0.2)', borderWidth: 2, borderColor: '#E74C3C' },

@@ -21,7 +21,7 @@ export default async function handler(req) {
   // coaching       → llama-3.3-70b-versatile (Groq)
   const isQuickAck = taskType === 'quick_ack';
   const groqModel  = isQuickAck ? 'llama-3.1-8b-instant' : 'llama-3.3-70b-versatile';
-  const maxTokens  = isQuickAck ? 120 : 600;
+  const maxTokens  = isQuickAck ? 120 : 900;
 
   const GROQ_API_KEY = process.env.GROQ_API_KEY;
   if (!GROQ_API_KEY) return new Response(JSON.stringify({ error: 'GROQ_API_KEY not configured' }), { status: 500 });
@@ -30,18 +30,24 @@ export default async function handler(req) {
     ? [{ role: 'system', content: systemPrompt }, ...messages]
     : messages;
 
-  const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${GROQ_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: groqModel,
-      messages: groqMessages,
-      max_tokens: maxTokens,
-      temperature: 0.4,
-      stream: true,
-      stream_options: { include_usage: true },
-    }),
-  });
+  let groqRes;
+  try {
+    groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${GROQ_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: groqModel,
+        messages: groqMessages,
+        max_tokens: maxTokens,
+        temperature: 0.4,
+        stream: true,
+        stream_options: { include_usage: true },
+      }),
+    });
+  } catch (e) {
+    console.error('[groq] network error:', e.message);
+    return new Response(JSON.stringify({ error: 'groq_network_error' }), { status: 502 });
+  }
 
   if (!groqRes.ok) {
     const err = await groqRes.text();

@@ -7,6 +7,7 @@ import { useVoice } from '../../hooks/useVoice';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { chatWithAI, getAIStatus } from '../../services/aiService';
 import { askTeam } from '../../services/agents';
+import { telemetry } from '../../services/activityTelemetry';
 import {
   getOnboardingState, getFinancialData, isOnboardingComplete,
   getChatHistory, saveChatHistory, appendChatMessage, getGameSessions,
@@ -19,6 +20,7 @@ import {
 
 const USE_AGENT_TEAM = true;
 const nextId = () => `msg_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+const now = () => Date.now();
 
 function getDayNumber(startDate) {
   if (!startDate) return 1;
@@ -44,6 +46,7 @@ export default function AICoachScreen({ navigation }) {
   const lastVoiceRef = useRef(false);
   const voiceReadyRef = useRef(false);
   const sendRef = useRef(null);
+  const typingStartRef = useRef(null);
   const voice = useVoice();
 
   // Voice mode animations
@@ -156,8 +159,8 @@ export default function AICoachScreen({ navigation }) {
     }
   }
 
-  function addMsg(role, text) {
-    const msg = { id: nextId(), role, text };
+  function addMsg(role, text, extra = {}) {
+    const msg = { id: nextId(), role, text, sentAt: now(), ...extra };
     setMessages(prev => [...prev, msg]);
     if (role === 'assistant' && voiceEnabled) voice.speak(text);
     return msg.id;
@@ -241,10 +244,15 @@ export default function AICoachScreen({ navigation }) {
   const send = async (text) => {
     if (!text.trim() || loading) return;
     voice.stopSpeaking();
+    const sendStart = now();
+    const typingMs = typingStartRef.current ? (sendStart - typingStartRef.current) : null;
+    typingStartRef.current = null;
     setInput('');
     setLoading(true);
 
-    const userMsgId = addMsg('user', text);
+    const charsPerSec = typingMs ? Math.round((text.length / typingMs) * 1000) : null;
+    const userMsgId = addMsg('user', text, { typingMs, charCount: text.length, charsPerSec });
+    telemetry.chatUserMessage(text, typingMs, charsPerSec, 'AICoach');
     setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
 
     try {
@@ -261,6 +269,7 @@ export default function AICoachScreen({ navigation }) {
         appendChatMessage({ id: userMsgId, role: 'user', text }).catch(() => {});
         const partialId = nextId();
         setMessages(prev => [...prev, { id: partialId, role: 'assistant', text: '' }]);
+        telemetry.chatAiStart(partialId, 'AICoach');
 
         if (USE_AGENT_TEAM) {
           const recentHistory = messages.filter(m => m.text && !m.text.startsWith('🔍') && !m.text.startsWith('🧠') && !m.text.startsWith('✓') && !m.text.startsWith('✨')).slice(-8);
@@ -272,28 +281,45 @@ export default function AICoachScreen({ navigation }) {
             if (progress.stage === 'agent_done')   stageText = `✓ ${progress.agent} סיים`;
             if (progress.stage === 'synthesizing') stageText = '✨ מאחד תובנות...';
             setMessages(prev => prev.map(m => m.id === partialId ? { ...m, text: stageText } : m));
+            telemetry.chatAiChunk(partialId, stageText.length, 'AICoach');
           }, recentHistory);
           if (mountedRef.current) {
             const finalText = response || 'לא הגיעה תשובה — נסה שוב.';
+            const responseMs = now() - sendStart;
+            telemetry.chatAiDone(finalText, responseMs, 'AICoach');
             setMessages(prev => {
-              const updated = prev.map(m => m.id === partialId ? { ...m, text: finalText } : m);
+              const updated = prev.map(m => m.id === partialId
+                ? { ...m, text: finalText, responseMs, sentAt: now() }
+                : m);
               saveChatHistory(updated).catch(() => {});
-              // Every 5 user messages — background memory extraction (non-blocking)
               const userCount = updated.filter(m => m.role === 'user').length;
               if (userCount > 0 && userCount % 5 === 0) {
                 extractAndSaveMemory(updated, onboardingStateRef.current?.profile);
               }
               return updated;
             });
-            appendChatMessage({ id: partialId, role: 'assistant', text: finalText }).catch(() => {});
+            appendChatMessage({ id: partialId, role: 'assistant', text: finalText, responseMs, sentAt: now() }).catch(() => {});
             if (voiceEnabled) voice.speak(finalText);
           }
         } else {
-          await chatWithAI(text, onboardingStateRef.current, (partial) => {
+          const finalText = await chatWithAI(text, onboardingStateRef.current, (partial) => {
             if (!mountedRef.current) return;
             setMessages(prev => prev.map(m => m.id === partialId ? { ...m, text: partial } : m));
+            telemetry.chatAiChunk(partialId, partial.length, 'AICoach');
             flatListRef.current?.scrollToEnd({ animated: false });
           });
+          if (mountedRef.current) {
+            const responseMs = now() - sendStart;
+            telemetry.chatAiDone(finalText, responseMs, 'AICoach');
+            setMessages(prev => {
+              const updated = prev.map(m => m.id === partialId
+                ? { ...m, responseMs, sentAt: now() }
+                : m);
+              saveChatHistory(updated).catch(() => {});
+              return updated;
+            });
+            if (voiceEnabled) voice.speak(finalText || '');
+          }
         }
       }
     } catch {
@@ -428,7 +454,7 @@ export default function AICoachScreen({ navigation }) {
           placeholder="כתוב כאן..."
           placeholderTextColor="#444"
           value={input}
-          onChangeText={setInput}
+          onChangeText={t => { if (!typingStartRef.current && t.length > 0) typingStartRef.current = now(); setInput(t); }}
           multiline
           textAlign="right"
         />
@@ -469,14 +495,14 @@ function getAck(field, answer) {
   }
   const acks = {
     age:              `${answer} — מבין.`,
-    familyStatus:     `${answer} — נרשם.`,
-    kids:             answer === 0 ? 'ללא ילדים — מבין.' : `${answer} ילדים — נרשם.`,
-    employmentType:   `${answer} — ברור.`,
+    familyStatus:     /אלמן|אלמנה/.test(String(answer)) ? 'אני מכיר את הכובד שבזה. נמשיך בקצב שנוח לך.' : /גרוש|גרושה/.test(String(answer)) ? 'מבין. שינוי גדול בחיים — נתחשב בזה בכל ההמלצות.' : /נשוי|נשואה/.test(String(answer)) ? 'תכנון פיננסי עם בן/בת זוג זה אחרת לגמרי — יש כאן שני ראשים, ולפעמים שתי דעות. נבנה תמונה מלאה.' : /זוגיות|פרטנר/.test(String(answer)) ? 'מגניב — בזוגיות יש לפעמים שאלות משותפות. נתחשב בזה.' : `${answer} — נרשם.`,
+    kids:             answer === 0 ? 'ללא ילדים תלויים — פותח גמישות רבה יותר בתכנון.' : answer === 1 ? 'ילד אחד — אחריות ממשית. כל ההמלצות שלי יתחשבו בזה.' : `${answer} ילדים — זה אומר הרבה על סדרי העדיפויות שלך. נבנה תכנית בהתאם.`,
+    employmentType:   /לא עובד|מובטל/.test(String(answer)) ? 'בסדר — נעבוד עם מה שנכנס. גם בלי עבודה יש מה לעשות עם הכסף.' : /עצמאי|עסק|יזם/.test(String(answer)) ? 'עצמאי — הכנסה גמישה דורשת תכנון אחר. נתאים.' : `${answer} — רשמתי.`,
     netIncome:        n !== null ? `₪${n.toLocaleString('he-IL')} לחודש — רשמתי.` : 'רשמתי.',
     housingType:      `${answer} — מבין.`,
     housingCost:      n !== null ? `₪${n.toLocaleString('he-IL')} — רשמתי.` : 'רשמתי.',
     fixedExpenses:    n === 0 ? 'ללא הוצאות קבועות נוספות — מבין.' : 'רשמתי.',
-    variableExpenses: n !== null ? `₪${n.toLocaleString('he-IL')} — מבין.` : 'רשמתי.',
+    variableExpenses: n === 0 ? 'כלול בהוצאות הקבועות — מבין, רשמתי אפס.' : n !== null ? `₪${n.toLocaleString('he-IL')} — מבין.` : 'רשמתי.',
     creditDebt:       n === 0 ? 'ללא חוב כרטיס — טוב.' : `₪${(n || 0).toLocaleString('he-IL')} — רשמתי.`,
     loans:            n === 0 ? 'ללא הלוואות — טוב.' : 'רשמתי.',
     overdraft:        n === 0 ? 'ללא מינוס — מצוין.' : `₪${(n || 0).toLocaleString('he-IL')} מינוס — רשמתי.`,

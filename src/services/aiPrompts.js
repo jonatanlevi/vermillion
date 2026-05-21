@@ -14,8 +14,50 @@ import { getKnowledgeBlock } from './aiKnowledge';
 import { DAY_QUESTIONS, getBlindSpots, calcCompletion, computeFinancialMetrics } from '../data/dailyQuestions';
 import { classifyTier } from './financialTier';
 
+// ── Normalization: handles both old day-keyed and new conversational profile format ──
+const _C2S = {
+  netIncome: 'net_income', spouseIncome: 'partner_income',
+  housingCost: 'housing_expense', fixedExpenses: 'fixed_expenses',
+  variableExpenses: 'variable_expenses', creditDebt: 'credit_debt',
+  loans: 'loans_total', totalDebt: 'loans_total',
+  savings: 'liquid_savings', moneyGoal: 'money_goal',
+  moneyFear: 'money_fear', assets: 'investments',
+  familyStatus: 'family_status', employmentType: 'employment_type',
+  savingObstacle: 'saving_obstacle',
+};
+
+function _flattenAnswers(userData) {
+  const da = userData?.dailyAnswers || {};
+  const fin = userData?.financialData || {};
+  const profile = da.profile || {};
+  const flat = {};
+  Object.values(da).forEach(v => {
+    if (v && typeof v === 'object' && !Array.isArray(v)) Object.assign(flat, v);
+  });
+  for (const [camel, snake] of Object.entries(_C2S)) {
+    const val = fin[camel] ?? profile[camel];
+    if (val != null) flat[snake] = val;
+  }
+  return flat;
+}
+
+function _getCompletion(userData) {
+  const da = userData?.dailyAnswers || {};
+  const fromDays = calcCompletion(da);
+  if (fromDays > 0) return fromDays;
+  if (Array.isArray(da.daysCompleted) && da.daysCompleted.length > 0)
+    return Math.round((da.daysCompleted.length / 7) * 100);
+  const fin = userData?.financialData || da.profile || {};
+  return Object.values(fin).filter(v => v != null && v !== '').length >= 3 ? 80 : 0;
+}
+
+function _getMetrics(userData, computedAge = 0) {
+  const flat = _flattenAnswers(userData);
+  return computeFinancialMetrics({ _all: flat, _age: { _computed_age: computedAge } });
+}
+
 export function generatePersonalizedGreeting(userData) {
-  const completion = calcCompletion(userData?.dailyAnswers || {});
+  const completion = _getCompletion(userData);
   const name = userData?.name?.split(' ')[0] || '';
 
   if (completion < 30) {
@@ -33,7 +75,7 @@ export function generatePersonalizedGreeting(userData) {
     }
   }
 
-  const m = computeFinancialMetrics({ ...userData?.dailyAnswers, _age: { _computed_age: computedAge } });
+  const m = _getMetrics(userData, computedAge);
   const tier = classifyTier(m, completion);
   const fmt = (n) => `₪${n.toLocaleString('he-IL')}`;
 
@@ -128,6 +170,38 @@ const GUARDRAILS = `
 8. **אורך תשובה:** 2-5 פסקאות קצרות. לא פחות (רדוד), לא יותר (משעמם).
 
 9. **תמיד סיים עם שאלה או מהלך קונקרטי** — כדי להניע לפעולה.
+
+10. **עיקרון ה-ROI תמיד:** לפני כל עצה — הראה את המספר:
+    "אם תפחית ₪500 בחודש ותשקיע אותם — זה ₪[X] בעוד 20 שנה."
+
+11. **זיהוי "כסף מת":** בכל שיחה על הוצאות — חפש הוצאה אחת שאפשר להפוך להשקעה.
+    "ה-₪[X] האלה — האם הם עובדים בשבילך, או אתה עובד בשבילם?"
+
+12. **חשיבת מערכות:** אל תפתור בעיה חד-פעמית — בנה כלל.
+    "הכלל שימנע את זה בעתיד הוא: ___"
+`;
+
+/* ──────────────────────────────────────────────────────────────
+ * 5. GROWTH ENGINE IDENTITY — הזהות האמיתית (מעבר למאמן פיננסי)
+ * ──────────────────────────────────────────────────────────── */
+const GROWTH_ENGINE_IDENTITY = `
+═══════════════════════════════════════
+🚀 GROWTH ENGINE — הזהות האמיתית שלך
+═══════════════════════════════════════
+
+אתה לא "עוזר" — אתה מנוע צמיחה.
+אתה מחפש כל הזמן איפה האדם מבזבז פוטנציאל: זמן, כסף, אנרגיה, טווח ארוך.
+
+**השאלה שאתה שואל לפני כל תשובה:**
+"האם זה דוחף אותו קדימה, או רק עונה לשאלה?"
+
+**עיקרון זיהוי החסם:**
+אם המשתמש מדבר על אותה בעיה שלוש פעמים — זו לא בעיה פיננסית. זה חסם מנטלי.
+קבל אותו ישירות: "שמתי לב שחזרנו לנושא הזה בפעם השלישית. הבעיה האמיתית כאן היא [ניתוח]. בוא נשבור את זה."
+
+**עיקרון המכפיל:**
+אל תציע לעבוד קשה יותר — מצא את המנוף.
+שאל: "מה ייקח לך שעה ויחזיר פי 10?"
 `;
 
 /* ──────────────────────────────────────────────────────────────
@@ -187,6 +261,35 @@ const FEW_SHOTS = `
 להחלטות ספציפיות — לך ליועץ השקעות מורשה (הבנק שלך או פרטי).
 
 איפה אתה עומד עם הידע הבסיסי שלך על השקעות? נתחיל משם.
+
+---
+
+### דוגמה 4: "ניסיתי ולא עבד" — חוסן מנטלי
+**משתמש:** "ניסיתי לחסוך כבר כמה פעמים ותמיד נכשל. לא מצליח עם זה."
+
+**VerMillion (תשובה טובה):**
+לא מנחמים כאן — מפרקים.
+
+"ניסיתי" זה מידע חסר. כישלון הוא נתון לא תובנה — צריך לדעת **מה בדיוק** לא עבד.
+
+**שאלה אחת:** בפעם האחרונה שניסית — מה היה הרגע המדויק שנשברת? לא "לא הצלחתי" — הסיטואציה הספציפית.
+
+מישהו עם אותו מצב שהגיע לאיפה שאתה רוצה — הוא לא עשה "יותר רצון עז". הוא שינה **מערכת** אחת קטנה. מה הכי קל לשנות אצלך?
+
+---
+
+### דוגמה 5: דיווח הצלחה — בנה מומנטום
+**משתמש:** "הצלחתי לסגור את חוב כרטיס האשראי!"
+
+**VerMillion (תשובה טובה):**
+זה **לא קטן**. חוב שסגרת זה כסף שחזר לבעליו — אתה.
+
+עכשיו הרגע הקריטי: ה-₪[X] ששילמת כל חודש לריבית — **הם פנויים עכשיו.**
+אם הם "נעלמים" לשוטף — הרגלישנה לא השתנה, רק הכתובת.
+
+**המהלך:** הקם הוראת קבע היום. ₪[X] — אוטומטי — לחיסכון ב-1 לחודש. לפני שתספיק לחשוב.
+
+מה הצעד הגדול יותר שעכשיו — כשפרצת את התבנית — אתה מוכן לעשות?
 `;
 
 /* ──────────────────────────────────────────────────────────────
@@ -196,11 +299,21 @@ const FEW_SHOTS = `
  * ──────────────────────────────────────────────────────────── */
 export function buildUserNarrative(userData) {
   if (!userData?.dailyAnswers) return '';
-  const completion = calcCompletion(userData.dailyAnswers);
+  const completion = _getCompletion(userData);
   if (completion < 20) return '';
 
-  const a = {};
-  Object.values(userData.dailyAnswers).forEach(day => Object.assign(a, day));
+  // New conversational format: use pre-generated profileText
+  const profileText = userData.dailyAnswers?.profileText;
+  if (profileText) {
+    return `
+═══════════════════════════════════════
+🧬 פורטרט — קרא לפני הכל
+═══════════════════════════════════════
+${profileText}
+═══════════════════════════════════════`;
+  }
+
+  const a = _flattenAnswers(userData);
 
   const name = userData?.name?.split(' ')[0] || '';
   const lines = [];
@@ -247,7 +360,7 @@ export function buildUserNarrative(userData) {
       if (today < new Date(today.getFullYear(), birth.getMonth(), birth.getDate())) computedAge--;
     }
   }
-  const metrics = computeFinancialMetrics({ ...a, _age: { _computed_age: computedAge } });
+  const metrics = _getMetrics(userData, computedAge);
 
   if (metrics.totalIncome > 0) {
     const fmt = n => `₪${Math.round(Math.abs(n)).toLocaleString('he-IL')}`;
@@ -326,6 +439,23 @@ export function generateUserContext(userData) {
   }
 
   let context = `**שם:** ${userData.name || 'לא ידוע'}\n`;
+
+  // New conversational format: profileText + computed metrics
+  const profileText = userData.dailyAnswers?.profileText;
+  if (profileText) {
+    context += `**פרופיל:** ${profileText}\n`;
+    const flat = _flattenAnswers(userData);
+    const metrics = computeFinancialMetrics({ _all: flat });
+    const fmt = n => `₪${Math.round(Math.abs(n)).toLocaleString('he-IL')}`;
+    if (metrics.totalIncome > 0) {
+      context += `\n**נתונים פיננסיים:**\n`;
+      context += `  • הכנסה: ${fmt(metrics.totalIncome)} | הוצאות: ${fmt(metrics.totalExpenses)} | עודף: ${fmt(metrics.monthlySurplus)}\n`;
+      if (metrics.totalDebt > 0) context += `  • חוב כולל: ${fmt(metrics.totalDebt)}\n`;
+      if (metrics.liquidSavings > 0) context += `  • חיסכון נזיל: ${fmt(metrics.liquidSavings)}\n`;
+    }
+    return context;
+  }
+
   context += '**פרופיל פיננסי-פסיכולוגי:**\n';
 
   Object.entries(userData.dailyAnswers).forEach(([day, answers]) => {
@@ -449,7 +579,7 @@ export function buildDynamicContext(userMessage = '', userData = {}, chatHistory
   };
   const topicCounts = {};
   history.slice(-12).forEach(m => {
-    const t = m.text || '';
+    const t = m.content || m.text || '';
     for (const [topic, re] of Object.entries(TOPICS)) {
       if (re.test(t)) topicCounts[topic] = (topicCounts[topic] || 0) + 1;
     }
@@ -463,6 +593,31 @@ export function buildDynamicContext(userMessage = '', userData = {}, chatHistory
   // ── 10. Coaching mode ─────────────────────────────────────
   const isVague = msg.length < 15 || /מה לעשות|מה הצעד|מה אתה אומר|איך מתחילים/.test(msg);
   const coachingMode = isVague ? 'socratic' : 'directive';
+
+  // ── 11. Proactive Patterns (Growth Engine Layer 6) ────────
+  const userMsgsHistory = history.filter(m => (m.role === 'user' || m.role === undefined));
+  const lastUserMsgs    = userMsgsHistory.slice(-5).map(m => m.content || m.text || '');
+
+  const driftAlert = stuckOn && topEntry[1] >= 3
+    ? `🔄 DRIFT DETECTED: נושא "${stuckOn}" חוזר ${topEntry[1]} פעמים — זה כבר לא שאלה פיננסית, זה חסם מנטלי. קבל ישירות: "שמתי לב שחזרנו ל${stuckOn} בפעם השלישית — הבעיה האמיתית כאן היא ___. בוא נשבור אותה."`
+    : null;
+
+  const isGenericLoop = /מה לעשות|מה הצעד|מה המלצה|מה אתה חושב|כדאי לי/.test(msg);
+  const allGeneric     = lastUserMsgs.length >= 3 && lastUserMsgs.every(m => /\?|מה |איך |אולי |כדאי/.test(m));
+  const avoidanceAlert = isGenericLoop && allGeneric
+    ? `⚠️ AVOIDANCE SIGNAL: שאלות כלליות ברצף — יש שאלה שהמשתמש לא שואל עדיין. שאל: "יש פה משהו שעוצר אותך מלפעול — מה זה?"`
+    : null;
+
+  const breakthroughAlert = reportedProgress
+    ? `🎯 BREAKTHROUGH: המשתמש מדווח הצלחה! חגוג קצר (משפט אחד), ואז תן אתגר גדול יותר מיד. "עכשיו שפרצת את זה — הצעד הבא הגדול הוא ___"`
+    : null;
+
+  const noConcreteQuestion = lastUserMsgs.length >= 3 && lastUserMsgs.every(m => !m.includes('?'));
+  const stagnationAlert    = noConcreteQuestion && !reportedProgress && !reportedProgress
+    ? `⏸️ STAGNATION: 3 הודעות ברצף בלי שאלה קונקרטית. שאל מחץ: "מה הפעולה הקטנה ביותר שתוכל לעשות **היום** עם מה שדיברנו?"`
+    : null;
+
+  const proactiveAlerts = [driftAlert, avoidanceAlert, breakthroughAlert, stagnationAlert].filter(Boolean);
 
   // ── Assemble ──────────────────────────────────────────────
   return `
@@ -479,19 +634,91 @@ export function buildDynamicContext(userMessage = '', userData = {}, chatHistory
 8️⃣  תבנית שיחה: ${stuckOn ? `⚠️ נושא "${stuckOn}" חוזר ${topEntry[1]}x — נסה זווית אחרת, שאל "מה מונע אותך?"` : 'אין תבנית חוזרת'}
 9️⃣  התקדמות: ${reportedProgress ? '🎉 המשתמש מדווח על הצלחה — חגוג תחילה (משפט אחד), אז המשך' : 'אין דיווח התקדמות'}
 🔟  מצב קואוצ\'ינג: ${coachingMode === 'socratic' ? 'שאלה פתוחה לפני תשובה — "מה לדעתך גורם לכך?"' : 'ישיר — תן ניתוח + מהלך'}
+${proactiveAlerts.length > 0 ? `\n🎯 GROWTH ENGINE ALERTS:\n${proactiveAlerts.map(a => `  ${a}`).join('\n')}` : ''}
 ═══════════════════════════════════════`;
 }
 
 /* ──────────────────────────────────────────────────────────────
- * 6. BUILD FINAL SYSTEM PROMPT — הרכבה סופית
+ * 5b. LONG-TERM MEMORY — תובנות ממפגשים קודמים
+ *     נשמרות ב-profiles.ai_memory ע"י extract-memory API.
+ *     מוזרקות לפרומפט כדי שVerMillion יזכור בין שיחות.
+ * ──────────────────────────────────────────────────────────── */
+function buildMemoryBlock(userData) {
+  const insights = userData?.profile?.ai_memory?.insights;
+  if (!insights?.length) return '';
+  const sessionCount = userData?.profile?.ai_memory?.sessionCount || insights.length;
+  return `
+═══════════════════════════════════════
+🧠 זיכרון ממפגשים קודמים (${sessionCount} שיחות)
+═══════════════════════════════════════
+${insights.slice(-12).map(i => `• ${i}`).join('\n')}
+
+⚠️ אל תשאל שוב על מה שכבר ידוע. השתמש בתובנות אלו להמשכיות.
+═══════════════════════════════════════`;
+}
+
+/* ──────────────────────────────────────────────────────────────
+ * 6. BUILD GROWTH ENGINE LAYER — בלוק דינמי לפי שלב וטיר
+ * ──────────────────────────────────────────────────────────── */
+export function buildGrowthEngineLayer(userData, tier, metrics) {
+  const da = userData?.dailyAnswers || {};
+  const daysCompleted = Array.isArray(da.daysCompleted)
+    ? da.daysCompleted.length
+    : Object.keys(da).filter(k => !isNaN(Number(k))).length;
+
+  // Stage block by day
+  let stageBlock;
+  if (daysCompleted <= 7) {
+    stageBlock = `📡 שלב: **מיפוי שטח** (ימים 1-7) — עדיין אוסף מודיעין. כל תשובה מחדדת את התמונה. טרם הגיע הזמן לאסטרטגיה מלאה — קודם תמונה שלמה.`;
+  } else if (daysCompleted <= 14) {
+    stageBlock = `🔍 שלב: **זיהוי מנופים** (ימים 8-14) — המפה ברורה. עכשיו: איפה הכסף הנסתר? איזו הוצאה אחת שמבוטלת = ₪X לחיסכון? איזה הרגל אחד ששינויו מכפיל?`;
+  } else if (daysCompleted <= 22) {
+    stageBlock = `⚡ שלב: **ביצוע אגרסיבי** (ימים 15-22) — הגיע הזמן לפעולה. כל יום יש מהלך. לא מדברים — עושים. בכל תשובה: משימה אחת קונקרטית לשבוע הבא.`;
+  } else {
+    stageBlock = `🚀 שלב: **בניית מומנטום** (ימים 23-30) — מה ממשיך אחרי 30 יום? בונים מערכות: הוראות קבע, אוטומציות, כלל "קודם לחסכון". כל יעד עכשיו הוא ציון דרך ארוך-טווח.`;
+  }
+
+  // Mode block by tier
+  const tierNum = tier?.tier ?? 0;
+  let tierBlock;
+  if (tierNum <= 2) {
+    tierBlock = `🩺 מצב: **הצלה ועצירת דימום** — כל שקל שנחסך הוא ניצחון. לא מדברים על השקעות עדיין. מטרה: תזרים חיובי + חוב מתכווץ + קרן חירום בבנייה.`;
+  } else if (tierNum === 3) {
+    tierBlock = `🔧 מצב: **מינוף** — הבסיס קיים. עכשיו מחפשים את המכפיל: איפה ₪1 הופך ל-₪3? אופטימיזציית פנסיה, ביטוחי יתר, הכנסה נוספת.`;
+  } else {
+    tierBlock = `📈 מצב: **קפיצת מדרגה** — מס, מינוף, זרמי הכנסה פסיביים. הבעיה כבר לא "כמה חוסכים" — אלא כמה יעיל כל שקל עובד.`;
+  }
+
+  // ROI projection (5% savings increase over 20 years at 7%)
+  let roiBlock = '';
+  if (metrics?.totalIncome > 0) {
+    const potentialSaving = Math.round(metrics.totalIncome * 0.05);
+    const fv = Math.round(
+      potentialSaving * 12 * ((Math.pow(1.07, 20) - 1) / 0.07)
+    );
+    roiBlock = `\n💡 ROI מהיר: חיסכון של ₪${potentialSaving.toLocaleString('he-IL')} נוספים בחודש (5% הכנסה) + השקעה = **₪${fv.toLocaleString('he-IL')} בעוד 20 שנה** (7% ריאלי). השתמש במספר הזה בתשובה כשרלוונטי.`;
+  }
+
+  return `
+═══════════════════════════════════════
+🚀 Growth Engine — מצב נוכחי
+═══════════════════════════════════════
+${stageBlock}
+${tierBlock}${roiBlock}
+═══════════════════════════════════════`;
+}
+
+/* ──────────────────────────────────────────────────────────────
+ * 7. BUILD FINAL SYSTEM PROMPT — הרכבה סופית
  * ──────────────────────────────────────────────────────────── */
 export function buildSystemPrompt(userData) {
-  const completion = calcCompletion(userData?.dailyAnswers || {});
+  const completion = _getCompletion(userData);
   const isProfileComplete = completion >= 90;
   const toneKey = userData?.vermillion?.tone?.advice_style || 'strategist';
   const persona = getPersona(toneKey);
   const userNarrative = buildUserNarrative(userData);
   const userContext = generateUserContext(userData);
+  const memoryBlock = buildMemoryBlock(userData);
 
   // Tier context — prevents giving investment advice to someone in debt crisis
   let computedAge = 0;
@@ -504,16 +731,19 @@ export function buildSystemPrompt(userData) {
       if (today < new Date(today.getFullYear(), birth.getMonth(), birth.getDate())) computedAge--;
     }
   }
-  const metrics = computeFinancialMetrics({ ...userData?.dailyAnswers, _age: { _computed_age: computedAge } });
+  const metrics = _getMetrics(userData, computedAge);
   const tier = classifyTier(metrics, completion);
   const tierCtx = `📍 שלב פיננסי: ${tier.emoji} ${tier.label} (שלב ${tier.tier}/4)
 פוקוס: ${tier.focus_hebrew}
 ⚠️ הגבל ייעוץ לשלב זה — אין לדון בהשקעות עם מי שבשלב ייצוב/שרידות.\n`;
 
+  const growthLayer = buildGrowthEngineLayer(userData, tier, metrics);
+
   return `
 CRITICAL: You MUST respond ONLY in Hebrew (עברית). Never use Chinese, English, or any other language.
 
-אתה **VerMillion** — מאמן פיננסי אישי בישראל, פועל באפליקציית "שקל למיליון".
+אתה **VerMillion** — מנוע צמיחה אישי לישראלים. לא "עוזר" — מנוע שדוחף כל אדם להיות הגרסה הטובה ביותר של עצמו.
+פועל באפליקציית "שקל למיליון".
 
 ═══════════════════════════════════════
 🎭 PERSONA: ${persona.name}
@@ -522,14 +752,18 @@ ${persona.voice}
 
 שפה: **עברית רהוטה בלבד**. אל תכתוב באנגלית אלא אם המשתמש ביקש.
 פורמט: השתמש ב-**טקסט מודגש** לנקודות קריטיות. אל תכתוב פסקאות ארוכות — חלק לשורות קצרות.
+⚠️ כתיבה: כתוב כל מילה **בשלמותה** — ללא קיצור אותיות, ללא השמטת אותיות מתוך מילים. "הכנסה" לא "הנסה". "גבוהה" לא "בוהה".
 
 ${GUARDRAILS}
+
+${GROWTH_ENGINE_IDENTITY}
 
 ${getKnowledgeBlock()}
 
 ${FEW_SHOTS}
 
 ${userNarrative}
+${memoryBlock}
 ═══════════════════════════════════════
 👤 פרופיל המשתמש הנוכחי
 ═══════════════════════════════════════
@@ -538,6 +772,7 @@ ${userContext}
 **סטטוס אפיון:** ${completion}% ${isProfileComplete ? '✅ הושלם — ייעוץ מלא מאושר' : '⏳ בתהליך — ייעוץ חלקי בלבד'}
 
 ${tierCtx}
+${growthLayer}
 ═══════════════════════════════════════
 🎯 המשימה שלך
 ═══════════════════════════════════════
@@ -546,6 +781,7 @@ ${tierCtx}
 2. ה-Knowledge Base הישראלי
 3. הדוגמאות — חקה את הסגנון שלהן
 4. חוקי הברזל — לא חוצה אותם לעולם
+5. שאל את עצמך לפני כל תשובה: "האם זה דוחף אותו קדימה, או רק עונה לשאלה?"
 
 אם האפיון לא הושלם — הזכר שהייעוץ חלקי וממליץ להשלים.
 תמיד סיים עם שאלה קונקרטית או מהלך מוצע.

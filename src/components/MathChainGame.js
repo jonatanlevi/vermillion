@@ -56,12 +56,13 @@ export default function MathChainGame({ onFinish }) {
     // Auto-advance through steps
     let s = 0;
     function tick() {
+      if (statusRef.current !== 'running') return;
       s += 1;
       if (s < STEPS) {
         setStep(s);
         timerRef.current = setTimeout(tick, 800);
       } else {
-        setStep(STEPS); // show answer choices
+        setStep(STEPS);
       }
     }
     timerRef.current = setTimeout(tick, 900);
@@ -79,6 +80,7 @@ export default function MathChainGame({ onFinish }) {
       setFlash('miss');
     }
     timerRef.current = setTimeout(() => {
+      if (statusRef.current !== 'running') return;
       setFlash(null);
       const nr = roundRef.current + 1;
       if (nr >= ROUNDS) { win(); return; }

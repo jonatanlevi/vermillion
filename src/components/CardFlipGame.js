@@ -3,8 +3,15 @@ import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-nati
 
 const { width: SW } = Dimensions.get('window');
 const W = SW - 48;
-const H = 340;
 const PAIRS = ['💰', '💳', '📈', '🏦', '🪙', '🏠'];
+const COLS = 4;
+const ROWS = 3;
+const GAME_BORDER = 2;
+const GRID_PAD = 12;
+const CARD_GAP = 8;
+const cardW = Math.floor((W - GAME_BORDER * 2 - GRID_PAD * 2 - (COLS - 1) * CARD_GAP) / COLS);
+const cardH = Math.round(cardW * 1.15);
+const H = ROWS * cardH + (ROWS - 1) * CARD_GAP + GRID_PAD * 2 + GAME_BORDER * 2;
 
 function makeCards() {
   return [...PAIRS, ...PAIRS]
@@ -90,11 +97,6 @@ export default function CardFlipGame({ onFinish }) {
     setStatus('running');
   };
 
-  const COLS = 4;
-  const ROWS = 3;
-  const cardW = Math.floor((W - 24 - (COLS - 1) * 8) / COLS);
-  const cardH = Math.floor((H - 24 - (ROWS - 1) * 8) / ROWS);
-
   return (
     <View style={s.wrapper}>
       {status === 'running' && (
@@ -164,7 +166,7 @@ const s = StyleSheet.create({
   card:        { borderRadius: 10, backgroundColor: '#111830', borderWidth: 1, borderColor: '#2A2A4A', alignItems: 'center', justifyContent: 'center' },
   cardFlipped: { backgroundColor: '#1A2A4A', borderColor: '#3498DB' },
   cardMatched: { backgroundColor: '#0A1A0A', borderColor: '#2ECC71' },
-  cardIcon:    { fontSize: 26 },
+  cardIcon:    { fontSize: Math.round(cardW * 0.38) },
   overlay:     { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,15,0.88)', alignItems: 'center', justifyContent: 'center', gap: 10 },
   overlayEmoji: { fontSize: 48 },
   overlayTitle: { color: '#FFF', fontSize: 26, fontWeight: '900' },

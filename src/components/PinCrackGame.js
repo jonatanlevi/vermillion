@@ -41,6 +41,7 @@ export default function PinCrackGame({ onFinish }) {
     setRound(r); setPin(p); setPhase('show'); setEntered([]); setFlash(null);
 
     timerRef.current = setTimeout(() => {
+      if (statusRef.current !== 'running') return;
       setPhase('enter');
     }, FLASH_MS);
   }
@@ -60,6 +61,7 @@ export default function PinCrackGame({ onFinish }) {
           setFlash('miss');
         }
         timerRef.current = setTimeout(() => {
+          if (statusRef.current !== 'running') return;
           setFlash(null);
           const nr = roundRef.current + 1;
           if (nr >= ROUNDS) { win(); return; }

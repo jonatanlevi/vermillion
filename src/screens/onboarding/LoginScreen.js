@@ -83,7 +83,7 @@ export default function LoginScreen({ navigation }) {
               value={otp}
               onChangeText={setOtp}
               keyboardType="number-pad"
-              maxLength={8}
+              maxLength={6}
               textAlign="center"
             />
           </>

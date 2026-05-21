@@ -53,6 +53,7 @@ import Avatar3D from '../../components/Avatar3D';
 import DayScheduleBanner from '../../components/DayScheduleBanner';
 import { getDayScheduleView } from '../../utils/dayScheduleDisplay';
 import { getUnlockedEquipment, getEffectiveOverrides } from '../../utils/registrationGate';
+import { telemetry } from '../../services/activityTelemetry';
 
 const MONTH_HE = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
 
@@ -625,6 +626,7 @@ export default function GamesScreen({ navigation }) {
   function selectGame(key) {
     gameStartedAt.current = new Date().toISOString();
     setGameToken(null);
+    telemetry.gameStarted(key, activeDay, 'Games');
     Animated.timing(fadeAnim, { toValue: 0, duration: 150, useNativeDriver: true }).start(() => {
       setActiveGame(key);
       setShowCommitBtn(false);
@@ -641,6 +643,7 @@ export default function GamesScreen({ navigation }) {
     const playedGame  = activeGame;
     const startedAt   = gameStartedAt.current || new Date().toISOString();
     const durationMs  = new Date().getTime() - new Date(startedAt).getTime();
+    telemetry.gameFinished(playedGame, score, durationMs, 'Games');
     setSessionScore(score);
     setActiveGame(null);
 
@@ -733,10 +736,12 @@ export default function GamesScreen({ navigation }) {
     }
     const result = await saveGameStamp(calendarDay, gameToken);
     if (!result.ok) {
+      telemetry.stampAttempt(false, null, result.error, 'Games');
       setStampError(stampErrorMessage(result.error, result.message));
       return;
     }
 
+    telemetry.stampAttempt(true, result.ms_diff ?? null, null, 'Games');
     const updatedLog = { ...gameLog, [calendarDay]: { msDiff: result.ms_diff ?? 0, score: result.score || 1, stampedAt: new Date().toISOString() } };
     setGameLog(updatedLog);
 

@@ -6,7 +6,7 @@ const LanguageContext = createContext(null);
 export function LanguageProvider({ children }) {
   const [lang, setLang] = useState('he');
 
-  const t = translations[lang];
+  const t = translations[lang] ?? translations['he'];
   const isRTL = LANGUAGES.find(l => l.code === lang)?.rtl ?? true;
 
   return (

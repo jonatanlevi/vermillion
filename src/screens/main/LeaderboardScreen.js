@@ -141,7 +141,7 @@ export default function LeaderboardScreen() {
           data={rows}
           keyExtractor={item => item.user_id}
           renderItem={({ item }) => (
-            <UserRow item={item} isMe={item.user_id === user?.id} weekly={tab === 'weekly'} />
+            <UserRow item={item} isMe={item.user_id === user?.id} weekly={tab === 'weekly'} weeklyPool={prizeData.weeklyPrizePool} />
           )}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
@@ -151,9 +151,11 @@ export default function LeaderboardScreen() {
   );
 }
 
-function UserRow({ item, isMe, weekly }) {
+function UserRow({ item, isMe, weekly, weeklyPool }) {
   const archetype = item.avatar_style?.archetype || 'builder';
-  const prize = weekly ? WEEKLY_PRIZES[item.rank - 1] : null;
+  const prize = (weekly && item.rank >= 1 && item.rank <= WEEKLY_RATIOS.length)
+    ? Math.round((weeklyPool || 0) * WEEKLY_RATIOS[item.rank - 1])
+    : null;
 
   return (
     <View style={[styles.row, isMe && styles.rowMe]}>

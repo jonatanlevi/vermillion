@@ -226,7 +226,7 @@ export default function HomeScreen({ navigation }) {
           <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
             <TouchableOpacity
               style={styles.challengeHero}
-              onPress={() => navigation.navigate('Challenge')}
+              onPress={() => navigation.navigate('MainTabs', { screen: 'Games' })}
               activeOpacity={0.92}
             >
               <LinearGradient
@@ -310,7 +310,7 @@ export default function HomeScreen({ navigation }) {
         {/* AI Banner */}
         <TouchableOpacity
           style={styles.aiBanner}
-          onPress={() => navigation.navigate('AICoach')}
+          onPress={() => navigation.navigate('MainTabs', { screen: 'VerMillion' })}
           activeOpacity={0.88}
         >
           <View style={styles.aiLeft}>

@@ -38,7 +38,7 @@ function validate(values, t) {
   const y = parseInt(values.dobY, 10);
   if (!values.dobD || !values.dobM || !values.dobY || values.dobY.length < 4) {
     e.dob = t.cpDobErr1;
-  } else if (d < 1 || d > 31 || m < 1 || m > 12 || y < 1900 || y > new Date().getFullYear() - 10) {
+  } else if (d < 1 || d > 31 || m < 1 || m > 12 || y < 1900 || y > new Date().getFullYear() - 10 || new Date(y, m - 1, d).getDate() !== d) {
     e.dob = t.cpDobErr2;
   }
 

@@ -18,7 +18,7 @@ const QUICK_ACK_SYSTEM = `אתה VerMillion — מאמן פיננסי.
 
 async function getQuickAck(field, answer) {
   try {
-    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const origin = typeof window !== 'undefined' ? (window.location?.origin ?? '') : '';
     const res = await fetch(`${origin}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

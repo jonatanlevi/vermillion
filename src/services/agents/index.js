@@ -5,8 +5,7 @@ import { buildSystemPrompt, generatePersonalizedGreeting, buildDynamicContext } 
 // ─── Groq streaming call (via Vercel edge function) ──────────────
 async function callGroq(userMessage, userData, chatHistory, onToken) {
   const context = buildContext(userData);
-  const memorySection = context.memoryText ? `\n\n---\n${context.memoryText}\n---` : '';
-  const systemPrompt = buildSystemPrompt(userData) + buildDynamicContext(userMessage, userData, chatHistory) + memorySection;
+  const systemPrompt = buildSystemPrompt(userData) + buildDynamicContext(userMessage, userData, chatHistory);
 
   const STAGE_RE_LOCAL = /^[🔍🧠✓✨⏳]/;
   const filteredHistory = (chatHistory || [])
@@ -22,7 +21,7 @@ async function callGroq(userMessage, userData, chatHistory, onToken) {
   ];
 
   try {
-    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const origin = typeof window !== 'undefined' ? (window.location?.origin ?? '') : '';
     const res = await fetch(`${origin}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -30,6 +29,7 @@ async function callGroq(userMessage, userData, chatHistory, onToken) {
     });
     if (!res.ok) return '';
 
+    if (!res.body) return '';
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let fullText = '';
@@ -70,6 +70,7 @@ const CAMEL_TO_SNAKE = {
   variableExpenses: 'variable_expenses',
   creditDebt:       'credit_debt',
   loans:            'loans_total',
+  totalDebt:        'loans_total',
   savings:          'liquid_savings',
   moneyGoal:        'money_goal',
   moneyFear:        'money_fear',
@@ -118,9 +119,11 @@ function buildContext(userData) {
   const dailyAnswers = userData?.dailyAnswers || {};
   const finData      = userData?.financialData || {};
 
+  const profileData = dailyAnswers?.profile || {};
   const snakeFin = {};
   for (const [camel, snake] of Object.entries(CAMEL_TO_SNAKE)) {
-    if (finData[camel] != null) snakeFin[snake] = finData[camel];
+    const val = finData[camel] ?? profileData[camel];
+    if (val != null) snakeFin[snake] = val;
   }
   const mergedAnswers = Object.keys(snakeFin).length > 0
     ? { _fin: snakeFin, ...dailyAnswers }
@@ -128,7 +131,9 @@ function buildContext(userData) {
 
   const metrics    = computeFinancialMetrics(mergedAnswers);
   const completion = calcCompletion(dailyAnswers) ||
-    (Object.values(finData).filter(v => v != null && v !== '').length >= 10 ? 80 : 0);
+    (Array.isArray(dailyAnswers?.daysCompleted) && dailyAnswers.daysCompleted.length > 0
+      ? Math.round((dailyAnswers.daysCompleted.length / 7) * 100)
+      : Object.values(finData).filter(v => v != null && v !== '').length >= 3 ? 80 : 0);
   const tier       = classifyTier(metrics, completion);
 
   const metricsText   = `הכנסה: ₪${metrics.totalIncome} | הוצאות: ₪${metrics.totalExpenses} | עודף: ₪${metrics.monthlySurplus} | חוב: ₪${metrics.totalDebt} | חיסכון נזיל: ₪${metrics.liquidSavings}`;
@@ -150,8 +155,10 @@ function buildContext(userData) {
     gameText = `משחקים אחרונים: ${parts.join(', ')}`;
   }
 
-  const memoryInsights = userData?.profile?.ai_memory?.insights;
-  const memoryText = memoryInsights?.length > 0
+  const memoryInsights = Array.isArray(userData?.profile?.ai_memory?.insights)
+    ? userData.profile.ai_memory.insights
+    : [];
+  const memoryText = memoryInsights.length > 0
     ? `זיכרון מצטבר על המשתמש:\n${memoryInsights.slice(-10).join('\n')}`
     : '';
 

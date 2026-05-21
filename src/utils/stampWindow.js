@@ -37,7 +37,7 @@ export function getLocalTimeParts(now, timezone) {
 
 /** חלון חתימה לפי שעון המכשיר עכשיו — לא profile.timezone ישן/שגוי */
 export function getStampWindowStatus(timezone = getDeviceTimezone()) {
-  const { day, mins } = getLocalTimeParts(new Date(), timezone);
+  const { day, mins } = getLocalTimeParts(getAppNow(), timezone);
   const challenge = evaluateChallengeWindow(day, mins);
   if (challenge) return challenge;
   return { open: true, mode: 'weekday', message: null };
@@ -100,7 +100,7 @@ export function parseGameCompleteError(err, data) {
 
 /** אזהרה מראש על חלון שישי/שבת — מוצג יום לפני (ביום ה) ובשבת לפני 21:00 */
 export function getWindowWarning(timezone = getDeviceTimezone()) {
-  const { day, mins } = getLocalTimeParts(new Date(), timezone);
+  const { day, mins } = getLocalTimeParts(getAppNow(), timezone);
 
   if (day === 4 && mins >= 18 * 60) {
     return {

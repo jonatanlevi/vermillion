@@ -26,15 +26,15 @@ export function isRegistrationComplete(profile) {
  * איפה לשלוח משתמש מחובר שלא ב־MainTabs עדיין.
  */
 function hasSavedAvatar(profile) {
+  // Check Supabase-backed profile first
   const style = profile?.avatar_style;
-  if (!style) return false;
-  if (typeof style === 'object' && style.seed) return true;
+  if (style && typeof style === 'object' && style.seed) return true;
   try {
     const parsed = typeof style === 'string' ? JSON.parse(style) : style;
-    return !!parsed?.seed;
-  } catch {
-    return false;
-  }
+    if (parsed?.seed) return true;
+  } catch {}
+  // Fallback: localStorage backup written by AvatarRevealScreen before the network save
+  return readLocalAvatarSeed(profile?.id) === true;
 }
 
 export function getAuthLandingRoute(profile) {
@@ -42,7 +42,7 @@ export function getAuthLandingRoute(profile) {
 
   const intakeDone =
     profile.profile_intake_complete === true ||
-    (profile.profile_intake_complete == null && readLocalIntakeCompletion(profile.id) === true);
+    (profile.profile_intake_complete == null && hasSavedAvatar(profile) && readLocalIntakeCompletion(profile.id) === true);
 
   if (!intakeDone) return 'CompleteProfile';
 
@@ -50,8 +50,12 @@ export function getAuthLandingRoute(profile) {
     profile.onboarding_complete === true ||
     (profile.onboarding_complete == null && readLocalOnboardingComplete(profile.id) === true);
 
-  // Users who completed onboarding before RegulationsConsent was added go directly to MainTabs.
-  if (onboardingDone) return 'MainTabs';
+  // If Supabase says onboarding is done, trust it unconditionally.
+  // deleteAccount() already resets this flag before deletion, so stale state after re-registration is handled.
+  if (profile.onboarding_complete === true) return 'MainTabs';
+
+  // localStorage fallback — require avatar proof to guard against stale localStorage after account deletion.
+  if (onboardingDone && hasSavedAvatar(profile)) return 'MainTabs';
 
   if (!isTermsAccepted(profile)) return 'RegulationsConsent';
 
@@ -59,6 +63,27 @@ export function getAuthLandingRoute(profile) {
 }
 
 // ─── localStorage helpers (web-only; graceful no-op on native) ───
+
+const AVATAR_STYLE_KEY = '@vermillion/avatar_style';
+
+function readLocalAvatarSeed(userId) {
+  if (!userId || typeof localStorage === 'undefined') return false;
+  try {
+    const raw = localStorage.getItem(`${AVATAR_STYLE_KEY}/${userId}`);
+    if (!raw) return false;
+    const parsed = JSON.parse(raw);
+    return !!parsed?.seed;
+  } catch {
+    return false;
+  }
+}
+
+export function markLocalAvatarSaved(userId) {
+  // No-op here — the actual save is done by saveLocalAvatarStyle in storage.js.
+  // This export exists so callers can mark the avatar as saved without importing storage.
+  // The read side checks the same key written by storage.saveLocalAvatarStyle.
+  void userId;
+}
 
 function readLocalIntakeCompletion(userId) {
   if (!userId || typeof localStorage === 'undefined') return false;

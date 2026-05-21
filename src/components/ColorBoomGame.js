@@ -90,7 +90,7 @@ export default function ColorBoomGame({ onFinish }) {
         const next = prev.filter(c => c.id !== id);
         const remaining = next.filter(c => c.key === targetRef.current.key && !tappedIds.current.has(c.id));
         if (remaining.length === 0) {
-          setTimeout(() => pickNewTarget(), 200);
+          setTimeout(() => { if (statusRef.current !== 'running') return; pickNewTarget(); }, 200);
         }
         return next;
       });

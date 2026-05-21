@@ -10,7 +10,7 @@ export const config = { runtime: 'edge' };
 //     -d '{"secret":"vermillion-secret-2026","category":"vercel","amount_ils":150,"description":"Vercel Pro May 2026"}'
 
 const SUPABASE_URL  = process.env.SUPABASE_URL    || process.env.EXPO_PUBLIC_SUPABASE_URL;
-const SUPABASE_KEY  = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+const SUPABASE_KEY  = process.env.SUPABASE_SERVICE_KEY;
 const APP_SECRET    = process.env.APP_SECRET;
 
 function currentMonth() { return new Date().toISOString().slice(0, 7); }
@@ -23,6 +23,8 @@ export default async function handler(req) {
 
   const { secret, category, amount_ils, description, month } = body || {};
 
+  if (!APP_SECRET) return new Response('Server misconfigured', { status: 500 });
+  if (!SUPABASE_KEY) return new Response('Server misconfigured', { status: 500 });
   if (!secret || secret !== APP_SECRET) return new Response('Forbidden', { status: 403 });
   if (!category || !amount_ils) return new Response('missing category or amount_ils', { status: 400 });
 

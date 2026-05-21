@@ -68,6 +68,7 @@ export default function TapOrderGame({ onFinish }) {
         setScore(scoreRef.current);
         setFlash('hit');
         timerRef.current = setTimeout(() => {
+          if (statusRef.current !== 'running') return;
           setFlash(null);
           const next = roundRef.current + 1;
           if (next >= ROUNDS) { win(); return; }
@@ -77,6 +78,7 @@ export default function TapOrderGame({ onFinish }) {
     } else {
       setFlash('miss');
       timerRef.current = setTimeout(() => {
+        if (statusRef.current !== 'running') return;
         setFlash(null);
         startRoundRef.current(roundRef.current);
       }, 700);

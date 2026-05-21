@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, Easing 
 import { LinearGradient } from 'expo-linear-gradient';
 import VermillionAvatar from '../../components/VermillionAvatar';
 import { saveProfile, saveLocalAvatarStyle } from '../../services/storage';
+import { telemetry } from '../../services/activityTelemetry';
 import { useAuth } from '../../context/AuthContext';
 
 const STAT_MAPS = {
@@ -98,12 +99,22 @@ export default function AvatarRevealScreen({ navigation, route }) {
 
   async function handleSave() {
     setSaving(true);
-    const avatarStyle = { seed, equipment: [], overrides: personalityOverrides };
+    const avatarStyle = { seed, equipment: [], overrides: personalityOverrides, appearance, tone };
     saveLocalAvatarStyle(user?.id, avatarStyle);
     try {
       await saveProfile({ avatar_style: avatarStyle });
       await reloadProfile();
-    } catch (_) {}
+    } catch (e) {
+      console.error('[AvatarReveal] saveProfile failed — avatar may not persist:', e?.message || e);
+    }
+    telemetry.track('avatar_setup_complete', {
+      archetype: appearance?.style,
+      energy: appearance?.energy,
+      advice_style: tone?.advice_style,
+      personality: tone?.personality,
+      goal_focus: tone?.goal_focus,
+      seed,
+    });
     navigation.replace('RegulationsConsent');
   }
 

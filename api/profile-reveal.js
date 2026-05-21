@@ -55,7 +55,7 @@ export default async function handler(req) {
 
   // ── Build data summary for Claude ──────────────────────────────
   const a = {};
-  Object.values(userData.dailyAnswers || {}).forEach(day => Object.assign(a, day));
+  Object.values(userData.dailyAnswers || {}).forEach(day => { if (day && typeof day === 'object') Object.assign(a, day); });
   const name = userData?.name?.split(' ')[0] || 'המשתמש';
 
   const income       = Number(a.net_income || 0) + Number(a.side_income || 0) + Number(a.partner_income || 0);
@@ -69,7 +69,7 @@ export default async function handler(req) {
   const liquid       = Number(a.liquid_savings || 0);
   const investments  = Number(a.investments || 0);
   const realEstate   = Number(a.real_estate_equity || 0);
-  const netWorth     = liquid + investments + realEstate - Number(a.credit_debt || 0) - Number(a.loans_total || 0);
+  const netWorth     = liquid + investments + realEstate - Number(a.credit_debt || 0) - Number(a.loans_total || 0) - Number(a.mortgage_balance || 0);
 
   const fmt = n => n > 0 ? `₪${Math.round(n).toLocaleString('he-IL')}` : '—';
 

@@ -189,6 +189,7 @@ function parseAnswer(field, text) {
     'savings', 'assets', 'financialStress', 'spouseIncome',
     'retirementSavings', 'financialGoalYears'].includes(field)) {
     if (/אין|לא|אפס|0/.test(t) && !/\d{4,}/.test(t)) return 0;
+    if (/כלול|כבר ב|כבר נמצא|כבר חשבתי|נכנס לתוך|כולל|נכלל|חלק מ|בפנים|שם כבר|מחושב|ממה שאמרתי|כבר אמרתי|הוזכר/.test(t)) return 0;
     return extractNumber(text) ?? text;
   }
   return text;

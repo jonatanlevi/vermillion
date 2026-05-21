@@ -9,7 +9,7 @@ const CHAIN    = 6;
 const TIMEOUT_MS = 4000;
 
 const AREA_W = W - 48;
-const AREA_H = H - 100;
+const AREA_H = H - 48;
 
 function genDots() {
   const dots = [];
@@ -59,6 +59,7 @@ export default function ChainTapGame({ onFinish }) {
       if (statusRef.current !== 'running') return;
       setFlash('miss');
       timerRef.current = setTimeout(() => {
+        if (statusRef.current !== 'running') return;
         const nr = roundRef.current + 1;
         if (nr >= ROUNDS) { win(); return; }
         startRoundRef.current(nr);
@@ -74,6 +75,7 @@ export default function ChainTapGame({ onFinish }) {
       clearTimeout(timerRef.current);
       setFlash('miss');
       timerRef.current = setTimeout(() => {
+        if (statusRef.current !== 'running') return;
         const nr = roundRef.current + 1;
         if (nr >= ROUNDS) { win(); return; }
         startRoundRef.current(nr);
@@ -91,6 +93,7 @@ export default function ChainTapGame({ onFinish }) {
       setScore(scoreRef.current);
       setFlash('hit');
       timerRef.current = setTimeout(() => {
+        if (statusRef.current !== 'running') return;
         const nr = roundRef.current + 1;
         if (nr >= ROUNDS) { win(); return; }
         startRoundRef.current(nr);

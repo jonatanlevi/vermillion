@@ -100,8 +100,13 @@ export async function signOut() {
 }
 
 export async function getCurrentUser() {
-  const { data: { user } } = await supabase.auth.getUser();
-  return user;
+  try {
+    const { data, error } = await supabase.auth.getUser();
+    if (error) throw error;
+    return data?.user ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export async function getProfile(userId) {

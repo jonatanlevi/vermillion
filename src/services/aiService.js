@@ -1,5 +1,5 @@
 import { mockChatWithAI, resetMockConversation } from './mockAI';
-import { buildSystemPrompt } from './aiPrompts';
+import { buildSystemPrompt, buildDynamicContext } from './aiPrompts';
 import { buildPersonalizedCoachingContext } from './personalizationAgent';
 import { validateResponse, shouldFallback } from './validatorAgent';
 
@@ -18,13 +18,14 @@ export function resetConversation() {
 export async function chatWithAI(userMessage, userData, onPartial, coachingDay) {
   const basePrompt = buildSystemPrompt(userData);
   const personalization = coachingDay ? buildPersonalizedCoachingContext(userData, coachingDay) : '';
-  const systemPrompt = basePrompt + personalization;
+  const dynamicCtx = buildDynamicContext(userMessage, userData, chatHistory);
+  const systemPrompt = basePrompt + personalization + dynamicCtx;
 
   chatHistory.push({ role: 'user', content: userMessage });
   if (chatHistory.length > 16) chatHistory = chatHistory.slice(-16);
 
   try {
-    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const origin = typeof window !== 'undefined' ? (window.location?.origin ?? '') : '';
     const res = await fetch(`${origin}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

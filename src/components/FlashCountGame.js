@@ -53,6 +53,7 @@ export default function FlashCountGame({ onFinish }) {
     setRound(r); setCoins(c); setPhase('flash'); setFlash(null);
 
     timerRef.current = setTimeout(() => {
+      if (statusRef.current !== 'running') return;
       setPhase('answer');
     }, FLASH_MS);
   }
@@ -68,6 +69,7 @@ export default function FlashCountGame({ onFinish }) {
       setFlash('miss');
     }
     timerRef.current = setTimeout(() => {
+      if (statusRef.current !== 'running') return;
       setFlash(null);
       const nr = roundRef.current + 1;
       if (nr >= ROUNDS) { win(); return; }

@@ -1,25 +1,11 @@
 {
-  "date": "2026-05-19",
-  "generatedAt": "2026-05-19T17:15:07.974Z",
+  "date": "2026-05-20",
+  "generatedAt": "2026-05-20T15:41:12.548Z",
   "project": "VerMillion",
   "version": "1.0.0",
   "deployUrl": "https://vermillion-ashen.vercel.app",
-  "commits": [
-    {
-      "hash": "01078b43",
-      "message": "chore: add first daily session log 2026-05-19"
-    },
-    {
-      "hash": "79af8bee",
-      "message": "feat: automatic daily work log — scripts/daily-log.js"
-    }
-  ],
-  "filesChanged": [
-    "deploy.ps1",
-    "docs/WORK_PLAN.md",
-    "docs/sessions/2026-05-19.json",
-    "scripts/daily-log.js"
-  ],
+  "commits": [],
+  "filesChanged": [],
   "todosRemaining": [
     "לפני השקה ❌ (TODO קריטי)",
     "`terms_accepted_at`",

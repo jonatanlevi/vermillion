@@ -7,6 +7,7 @@ import { DAY_QUESTIONS, DAY_META, calcCompletion, detectCashFlowAlert } from '..
 import { useLanguage } from '../../context/LanguageContext';
 import { getUserTimeStatus } from '../../services/timeEngine';
 import { getOnboardingState, markDayComplete, saveOnboardingState } from '../../services/storage';
+import { telemetry } from '../../services/activityTelemetry';
 
 /* ─── Skip warning dialog ─── */
 function SkipDialog({ visible, blindSpot, onSkip, onStay, t }) {
@@ -355,7 +356,12 @@ export default function DailyQuestionsScreen({ navigation }) {
       : current.hint,
   } : null;
 
-  useEffect(() => { animateIn(); }, [step]);
+  useEffect(() => {
+    animateIn();
+    if (current) {
+      telemetry.questionShown(day, current.key, current.question || current.label, 'DailyQuestions');
+    }
+  }, [step]);
 
   const animateIn = () => {
     fadeAnim.setValue(0); slideAnim.setValue(30);
@@ -392,6 +398,7 @@ export default function DailyQuestionsScreen({ navigation }) {
   const advance = async (ans) => {
     const newAnswers = { ...answers, [current.key]: ans };
     setAnswers(newAnswers);
+    telemetry.questionAnswered(day, current.key, ans, ans === '__skipped__', 'DailyQuestions');
 
     // Life event recency — trigger ack only if NOT long_ago
     if (current.key === 'life_event_recency' && ans !== 'long_ago') {

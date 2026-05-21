@@ -67,10 +67,10 @@ export function classifyArchetype(appearance, tone, financial) {
 
   // Tertiary: financial data (if available)
   if (financial) {
-    const income    = financial.netIncome || 0;
-    const surplus   = income - (financial.housingCost || 0) - (financial.fixedExpenses || 0) - (financial.variableExpenses || 0);
-    const totalDebt = (financial.creditDebt || 0) + (financial.loans || 0) + (financial.overdraft || 0);
-    const savings   = income > 0 ? (surplus / income) * 100 : 0;
+    const income    = financial.totalIncome || 0;
+    const surplus   = financial.monthlySurplus ?? (income - (financial.totalExpenses || 0));
+    const totalDebt = (financial.creditDebt || 0) + (financial.loansTotal || 0) + (financial.overdraft || 0);
+    const savings   = financial.savingsRate ?? (income > 0 ? (surplus / income) * 100 : 0);
 
     if (totalDebt > income * 4 || (income > 0 && surplus < 0)) return 'warrior';
     if (income > 20000 && savings >= 25) return 'royal';

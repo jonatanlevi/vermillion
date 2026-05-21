@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import { supabase, isLocalUserId } from '../services/supabase';
 import { clearAllData, getProfile } from '../services/storage';
@@ -10,6 +10,7 @@ export function AuthProvider({ children }) {
   const [user, setUser]       = useState(null);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const loadingForRef         = useRef(null);
 
   useEffect(() => {
     let settled = false;
@@ -40,7 +41,8 @@ export function AuthProvider({ children }) {
       })
       .catch(() => { clearTimeout(bail); settled = true; setLoading(false); });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'INITIAL_SESSION' && settled) return;
       const u = session?.user ?? null;
       setUser(u);
       if (u) { setLoading(true); loadProfile(u.id); }
@@ -51,6 +53,8 @@ export function AuthProvider({ children }) {
   }, []);
 
   async function loadProfile(userId) {
+    if (loadingForRef.current === userId) return;
+    loadingForRef.current = userId;
     try {
       if (isLocalUserId(userId)) {
         const local = await getProfile();
@@ -72,6 +76,7 @@ export function AuthProvider({ children }) {
       console.warn('[auth] loadProfile threw:', e?.message || e);
       setProfile(null);
     } finally {
+      if (loadingForRef.current === userId) loadingForRef.current = null;
       setLoading(false);
     }
   }

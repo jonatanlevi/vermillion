@@ -62,6 +62,7 @@ export default function SafeCrackerGame({ onFinish }) {
     setFlash(f);
 
     timerRef.current = setTimeout(() => {
+      if (statusRef.current !== 'running') return;
       setFlash(null);
       const next = roundRef.current + 1;
       if (next >= ROUNDS) { win(); return; }

@@ -12,12 +12,13 @@ import {
   getDayProgress, completeDay, generateProfile, generateCoachingOpener,
 } from '../../services/onboardingAI';
 import { askTeam } from '../../services/agents';
+import { telemetry } from '../../services/activityTelemetry';
 import Avatar3D from '../../components/Avatar3D';
 import { useAuth } from '../../context/AuthContext';
 import { getUnlockedEquipment, getEffectiveOverrides } from '../../utils/registrationGate';
 import { getDayScheduleView } from '../../utils/dayScheduleDisplay';
 
-const DEV_BYPASS_TIMER = false;
+const DEV_BYPASS_TIMER = true; // TEMP: פתח לבדיקות — סגור ל-false לפני משתמשים אמיתיים
 
 const nextId = () => `msg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
 const QUESTIONS_PER_DAY = 3;
@@ -220,6 +221,7 @@ export default function VerMillionScreen({ navigation }) {
   const sendRef         = useRef(null);
   const lastSavedFieldRef    = useRef(null);
   const currentQuestionRef   = useRef('');
+  const typingStartRef       = useRef(null);
   const voice = useVoice();
 
   useFocusEffect(
@@ -568,11 +570,16 @@ export default function VerMillionScreen({ navigation }) {
   const send = async (text) => {
     if (!text.trim() || loading) return;
     voice.stopSpeaking();
+    const _sendStart = Date.now();
+    const _typingMs = typingStartRef.current ? (_sendStart - typingStartRef.current) : null;
+    typingStartRef.current = null;
     setInput('');
     setQuickTopics([]);
     setLoading(true);
     setAvatarMood('thinking');
     const userMsgId = addMsg('user', text);
+    const _charsPerSec = _typingMs ? Math.round((text.length / _typingMs) * 1000) : null;
+    telemetry.chatUserMessage(text, _typingMs, _charsPerSec, 'VerMillion');
 
     try {
       if (phase === 'onboarding' && pendingField) {
@@ -605,7 +612,8 @@ export default function VerMillionScreen({ navigation }) {
         const NUMERIC_FIELDS = new Set(['netIncome','housingCost','fixedExpenses','variableExpenses',
           'creditDebt','loans','overdraft','savings','assets','spouseIncome','retirementSavings','kids']);
         const ZERO_WORDS = /^(אין|לא\b|אפס|כלום|שום|0|null|none|לא יודע|לא בטוח)/i;
-        if (NUMERIC_FIELDS.has(pendingField) && !ZERO_WORDS.test(text.trim()) && !/\d/.test(text) && !/אלף|מאה|מיליון|אלפיים|אחד|שניים|שלוש|ארבע|חמש|שש|שבע|שמונה|תשע|עשר/.test(text)) {
+        const INCLUDED_IN_OTHER = /כלול|כבר ב|כבר נמצא|כבר חשבתי|נכנס לתוך|כולל|נכלל|חלק מ|בפנים|שם כבר|מחושב|ממה שאמרתי|כבר אמרתי|הוזכר/i;
+        if (NUMERIC_FIELDS.has(pendingField) && !ZERO_WORDS.test(text.trim()) && !INCLUDED_IN_OTHER.test(text) && !/\d/.test(text) && !/אלף|מאה|מיליון|אלפיים|אחד|שניים|שלוש|ארבע|חמש|שש|שבע|שמונה|תשע|עשר/.test(text)) {
           setLoading(false);
           const retryMsg = `לא קלטתי מספר. ${currentQuestionRef.current}`;
           addMsg('assistant', retryMsg);
@@ -629,6 +637,7 @@ export default function VerMillionScreen({ navigation }) {
         appendChatMessage({ id: userMsgId, role: 'user', text }).catch(() => {});
         const partialId = nextId();
         setMessages(prev => [...prev, { id: partialId, role: 'assistant', text: '...' }]);
+        telemetry.chatAiStart(partialId, 'VerMillion');
 
         const [onbState, financialData, gameSessions] = await Promise.all([getOnboardingState(), getFinancialData(), getGameSessions()]);
         const recentHistory = messages.filter(m => m.role !== undefined && m.text && !m.text.startsWith('✨')).slice(-8);
@@ -643,11 +652,14 @@ export default function VerMillionScreen({ navigation }) {
             if (!mountedRef.current) return;
             if (!streamStarted) { streamStarted = true; setLoading(false); }
             setMessages(prev => prev.map(m => m.id === partialId ? { ...m, text: fullTextSoFar, streaming: true } : m));
+            telemetry.chatAiChunk(partialId, fullTextSoFar.length, 'VerMillion');
           },
         );
 
         const finalText = response || 'לא קיבלתי תשובה. נסה שוב.';
+        const _responseMs = Date.now() - _sendStart;
         if (mountedRef.current) {
+          telemetry.chatAiDone(finalText, _responseMs, 'VerMillion');
           setMessages(prev => prev.map(m => m.id === partialId ? { ...m, text: finalText, streaming: false } : m));
           appendChatMessage({ id: partialId, role: 'assistant', text: finalText }).catch(() => {});
           if (isCrisis) setShowCrisisBar(true);
@@ -737,7 +749,7 @@ export default function VerMillionScreen({ navigation }) {
             placeholder="כתוב כאן..."
             placeholderTextColor="#333"
             value={input}
-            onChangeText={setInput}
+            onChangeText={(t) => { if (!typingStartRef.current) typingStartRef.current = Date.now(); setInput(t); }}
             multiline
             textAlign="right"
           />
@@ -869,7 +881,7 @@ export default function VerMillionScreen({ navigation }) {
           placeholder="כתוב כאן..."
           placeholderTextColor="#444"
           value={input}
-          onChangeText={setInput}
+          onChangeText={(t) => { if (!typingStartRef.current) typingStartRef.current = Date.now(); setInput(t); }}
           multiline
           textAlign="right"
         />
@@ -899,10 +911,26 @@ function getAck(field, answer) {
   const t = typeof answer === 'string' ? answer.toLowerCase() : '';
   const fmt = x => `₪${Number(x).toLocaleString('he-IL')}`;
 
+  if (field === 'familyStatus') {
+    if (/אלמן|אלמנה/.test(t)) return 'אני מכיר את הכובד שבזה. נמשיך בקצב שנוח לך.';
+    if (/גרוש|גרושה/.test(t)) return 'מבין. שינוי גדול בחיים — נתחשב בזה בכל ההמלצות.';
+    if (/נשוי|נשואה/.test(t)) return 'תכנון פיננסי עם בן/בת זוג זה אחרת לגמרי — יש כאן שני ראשים, ולפעמים שתי דעות. נבנה תמונה מלאה.';
+    if (/זוגיות|פרטנר/.test(t)) return 'בזוגיות — יש לפעמים שאלות משותפות. נתחשב בזה.';
+    return 'נרשם.';
+  }
+
+  if (field === 'employmentType') {
+    if (/לא עובד|מובטל|אין עבודה/.test(t)) return 'בסדר — נעבוד עם מה שנכנס. גם בלי עבודה יש מה לעשות עם הכסף.';
+    if (/עצמאי|עסק|יזם|פרילנס/.test(t)) return 'עצמאי — הכנסה גמישה דורשת תכנון אחר. נתאים את הגישה.';
+    if (/שכיר/.test(t)) return 'שכיר — יש לנו משכורת ברורה לעבוד ממנה. טוב.';
+    return 'רשמתי.';
+  }
+
   if (field === 'kids') {
-    if (answer === 0) return 'ללא ילדים תלויים — פותח גמישות רבה יותר בתכנון. 👍';
+    if (answer === 0) return 'ללא ילדים תלויים — פותח גמישות רבה יותר בתכנון.';
     const num = typeof answer === 'number' ? answer : parseInt(answer) || answer;
-    return `${num} ילד${num > 1 ? 'ים' : ''} — מציין. נתחשב בזה בכל ההמלצות שניתן.`;
+    if (num === 1) return 'ילד אחד — אחריות ממשית. כל ההמלצות שלי יתחשבו בזה.';
+    return `${num} ילדים — זה אומר הרבה על סדרי העדיפויות שלך. נבנה תכנית בהתאם.`;
   }
 
   if (field === 'netIncome') {
@@ -933,6 +961,7 @@ function getAck(field, answer) {
   }
 
   if (field === 'variableExpenses') {
+    if (n === 0) return 'הבנתי — כלול בקבועים. רשמתי אפס להוצאות המשתנות.';
     return n ? `${fmt(n)} משתנות — כאן לרוב יש הכי הרבה מרחב לשיפור. רשמתי.` : 'הבנתי — רשמתי.';
   }
 

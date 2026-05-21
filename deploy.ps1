@@ -26,7 +26,6 @@ $styleInject = @"
   #root {
     height: 100vh; height: 100dvh;
     display: flex; flex-direction: column;
-    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
   @keyframes vm-spin { to { transform: rotate(360deg); } }
   #vm-loader {
@@ -45,6 +44,7 @@ $styleInject = @"
 </head>
 "@
 $html = (Get-Content $htmlPath -Raw) -replace '</head>', $styleInject
+$html = $html -replace 'content="width=device-width', 'content="width=device-width, viewport-fit=cover'
 $html = $html -replace '<div id="root"></div>', '<div id="root"><div id="vm-loader"><div id="vm-loader-ring"></div></div></div>'
 $html | Set-Content $htmlPath -NoNewline
 Write-Host "Patched index.html - viewport lock + dark bg + static spinner" -ForegroundColor DarkGray
@@ -55,12 +55,10 @@ Copy-Item "vercel.json" "dist\vercel.json" -Force
 Copy-Item ".vercel-project.json" "dist\.vercel\project.json" -Force
 
 Write-Host "Deploying to Vercel..." -ForegroundColor Cyan
-Push-Location dist
 $raw = vercel --prod --yes 2>&1 | Tee-Object -Variable _
 $vercelExit = $LASTEXITCODE
 $prodLine = ($raw | Where-Object { $_ -match "Production:" } | Select-Object -Last 1)
 $deployUrl = ($prodLine -split '\s+' | Where-Object { $_ -like "https://*" } | Select-Object -First 1)
-Pop-Location
 
 if ($vercelExit -ne 0) {
   Write-Host "vercel deploy failed (exit $vercelExit)." -ForegroundColor Red
@@ -69,9 +67,7 @@ if ($vercelExit -ne 0) {
 
 if ($deployUrl) {
     Write-Host "Aliasing $deployUrl -> vermillion-ashen.vercel.app" -ForegroundColor Yellow
-    Push-Location dist
     vercel alias set $deployUrl vermillion-ashen.vercel.app
-    Pop-Location
 }
 
 Write-Host ""

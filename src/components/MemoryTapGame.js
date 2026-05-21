@@ -47,6 +47,7 @@ export default function MemoryTapGame({ onFinish }) {
     const next = () => {
       if (i >= seq.length) {
         timerRef.current = setTimeout(() => {
+          if (statusRef.current === 'dead' || statusRef.current === 'done') return;
           statusRef.current = 'input';
           setStatus('input');
           inputRef.current = 0;
@@ -55,8 +56,10 @@ export default function MemoryTapGame({ onFinish }) {
         return;
       }
       timerRef.current = setTimeout(() => {
+        if (statusRef.current === 'dead' || statusRef.current === 'done') return;
         setFlashCell(seq[i]);
         timerRef.current = setTimeout(() => {
+          if (statusRef.current === 'dead' || statusRef.current === 'done') return;
           setFlashCell(null);
           i++;
           timerRef.current = setTimeout(next, GAP_MS);
@@ -96,6 +99,7 @@ export default function MemoryTapGame({ onFinish }) {
       if (mistakesRef.current >= 3) { die(); return; }
       // Show sequence again
       timerRef.current = setTimeout(() => {
+        if (statusRef.current === 'dead' || statusRef.current === 'done') return;
         inputRef.current = 0;
         setInputIdx(0);
         showSequence(seqRef.current);

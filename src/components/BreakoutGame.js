@@ -18,7 +18,7 @@ const COLS = 4;
 const ROWS = 3;
 const BLOCK_MARGIN = 4;
 const BLOCK_START_Y = 40;
-const BLOCK_H = 22;
+const BLOCK_H = 28;
 
 const ROW_COLORS = ['#C0392B', '#E67E22', '#D4AF37'];
 const ROW_LABELS = ['חוב', 'ריבית', 'הוצאה'];
@@ -313,7 +313,7 @@ const styles = StyleSheet.create({
   game: { width: W, height: H, borderRadius: 16, overflow: 'hidden', borderWidth: 2, borderColor: '#1E1E1E', position: 'relative' },
 
   block: { position: 'absolute', borderRadius: 4, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(0,0,0,0.3)' },
-  blockLabel: { color: '#FFF', fontSize: 9, fontWeight: '800' },
+  blockLabel: { color: '#FFF', fontSize: 11, fontWeight: '800' },
 
   ball: { position: 'absolute', width: BALL_R * 2, height: BALL_R * 2, borderRadius: BALL_R, backgroundColor: '#D4AF37', shadowColor: '#D4AF37', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.9, shadowRadius: 8, elevation: 6 },
 

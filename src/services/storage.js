@@ -405,7 +405,10 @@ export async function saveChatHistory(messages) {
     await localSet(L.CHAT, messages);
     return;
   }
-  const { error } = await dbUpsert('chat_history', userId, { messages });
+  const { error } = await supabase.from('chat_history').upsert(
+    { user_id: userId, messages, updated_at: new Date().toISOString() },
+    { onConflict: 'user_id' }
+  );
   if (error) {
     console.warn('[storage] chat_history remote failed — device cache', error?.message || error);
     await localSet(L.CHAT, messages);
@@ -672,6 +675,7 @@ export async function clearAllData(knownUserId) {
   const { data: { session } } = await supabase.auth.getSession();
   const remoteId = knownUserId || session?.user?.id;
 
+  _finCache = null;
   await localRemoveAll();
 
   // Clear ALL user-specific registration flags — iterate keys so we don't depend on remoteId

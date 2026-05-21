@@ -33,7 +33,7 @@ function computeFinancialScore(userData) {
   }
 
   // No credit card debt: 0–10 pts
-  const creditDebt = parseFloat(userData.dailyAnswers['6']?.credit_debt || 0);
+  const creditDebt = parseFloat(userData.dailyAnswers?.['6']?.credit_debt ?? 0) || 0;
   score += creditDebt === 0 ? 10 : Math.max(0, 10 - (creditDebt / 5000) * 10);
 
   // Profile completion bonus: 0–10 pts

@@ -67,6 +67,7 @@ export default function TapRhythmGame({ onFinish }) {
         setCombo(0);
         setFlash('miss');
         setTimeout(() => {
+          if (statusRef.current !== 'running') return;
           setFlash(null);
           if (missRef.current >= MAX_MISS) { die(); return; }
           nextRound();
@@ -91,6 +92,7 @@ export default function TapRhythmGame({ onFinish }) {
       setCombo(0);
       setFlash('miss');
       setTimeout(() => {
+        if (statusRef.current !== 'running') return;
         setFlash(null);
         if (missRef.current >= MAX_MISS) { die(); return; }
         nextRound();
@@ -103,6 +105,7 @@ export default function TapRhythmGame({ onFinish }) {
       setCombo(comboRef.current);
       setFlash(zone);
       setTimeout(() => {
+        if (statusRef.current !== 'running') return;
         setFlash(null);
         if (scoreRef.current >= WIN_COUNT) { win(); return; }
         nextRound();

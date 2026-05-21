@@ -59,6 +59,6 @@ export async function route(userMessage) {
   const validAgents = ['ANALYST', 'STRATEGIST', 'PSYCHOLOGIST', 'COACH'];
   const matched = validAgents.filter(name => raw.toUpperCase().includes(name));
 
-  if (matched.length === 0) return ['ANALYST', 'STRATEGIST'];
+  if (matched.length === 0) return ['ANALYST'];
   return matched;
 }
