@@ -45,8 +45,16 @@ export function AuthProvider({ children }) {
       if (event === 'INITIAL_SESSION' && settled) return;
       const u = session?.user ?? null;
       setUser(u);
-      if (u) { setLoading(true); loadProfile(u.id); }
-      else { setProfile(null); setLoading(false); }
+      if (u) {
+        // Only set loading=true if a profile fetch isn't already in progress.
+        // If loadingForRef already holds this userId, loadProfile will return early
+        // without calling setLoading(false) — leaving the app stuck on the spinner.
+        if (loadingForRef.current !== u.id) setLoading(true);
+        loadProfile(u.id);
+      } else {
+        setProfile(null);
+        setLoading(false);
+      }
     });
 
     return () => { clearTimeout(bail); subscription.unsubscribe(); };

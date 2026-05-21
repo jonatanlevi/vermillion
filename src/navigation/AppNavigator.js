@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, Animated, Easing } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -40,8 +40,10 @@ const Stack = createNativeStackNavigator();
 const Tab   = createBottomTabNavigator();
 
 const AppTheme = {
+  ...DefaultTheme,
   dark: true,
   colors: {
+    ...DefaultTheme.colors,
     primary:      '#C0392B',
     background:   '#0A0A0A',
     card:         '#0F0F0F',
