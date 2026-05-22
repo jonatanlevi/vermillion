@@ -54,6 +54,7 @@ import DayScheduleBanner from '../../components/DayScheduleBanner';
 import { getDayScheduleView } from '../../utils/dayScheduleDisplay';
 import { getUnlockedEquipment, getEffectiveOverrides } from '../../utils/registrationGate';
 import { telemetry } from '../../services/activityTelemetry';
+import { CONFIG } from '../../config';
 
 const MONTH_HE = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
 
@@ -1131,7 +1132,7 @@ export default function GamesScreen({ navigation }) {
               const isToday  = day === today;
               const isPast   = day && day < today;
               const isFuture = day && day > today;
-              const isActive = isToday || isPast;
+              const isActive = CONFIG.DEV_MODE || isToday || isPast;
 
               return (
                 <TouchableOpacity

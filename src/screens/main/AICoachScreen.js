@@ -10,13 +10,14 @@ import { askTeam } from '../../services/agents';
 import { telemetry } from '../../services/activityTelemetry';
 import {
   getOnboardingState, getFinancialData, isOnboardingComplete,
-  getChatHistory, saveChatHistory, appendChatMessage, getGameSessions,
+  getChatHistory, saveChatHistory, appendChatMessage, getGameSessions, getGameLog,
   getProfile, saveAiMemory, getVoiceUnlocked,
 } from '../../services/storage';
 import {
   getTodayOnboardingPrompt, processOnboardingAnswer,
   getDayProgress, completeDay, generateProfile, DAY_PLAN,
 } from '../../services/onboardingAI';
+import { CONFIG } from '../../config';
 
 const USE_AGENT_TEAM = true;
 const nextId = () => `msg_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
@@ -40,6 +41,7 @@ export default function AICoachScreen({ navigation }) {
   const [pendingField, setPendingField] = useState(null);
   const [voiceMode, setVoiceMode]       = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(false);
+  const [chatBlocked, setChatBlocked] = useState(null);
   const flatListRef = useRef(null);
   const mountedRef = useRef(true);
   const onboardingStateRef = useRef({});
@@ -126,6 +128,22 @@ export default function AICoachScreen({ navigation }) {
     getVoiceUnlocked().then(u => { if (mountedRef.current) setVoiceEnabled(u); });
     const complete = await isOnboardingComplete();
     const state = await getOnboardingState();
+
+    if (!complete && !CONFIG.DEV_MODE) {
+      const log = await getGameLog();
+      const calDay = new Date().getDate();
+      const entry = log?.[calDay];
+      const stampedToday = !!entry &&
+        new Date(entry.stampedAt).toDateString() === new Date().toDateString();
+      if (!stampedToday) {
+        setChatBlocked({
+          title: 'כדי לדבר עם VerMillion',
+          sub: 'לחץ בזמן ה-DNA שלך קודם — חתימה מדויקת פותחת את השיחה היומית',
+        });
+        return;
+      }
+    }
+
     const financialData = await getFinancialData();
     const gameSessions = await getGameSessions();
     const profile = await getProfile().catch(() => null);
@@ -371,6 +389,19 @@ export default function AICoachScreen({ navigation }) {
         {voice.isSpeaking && (
           <Text style={vm.caption} numberOfLines={3}>{voice.speakingText}</Text>
         )}
+      </View>
+    );
+  }
+
+  if (chatBlocked) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#0A0A0A', justifyContent: 'center', alignItems: 'center', padding: 32 }}>
+        <Text style={{ color: '#D4AF37', fontSize: 20, fontWeight: '700', textAlign: 'center', marginBottom: 12 }}>
+          {chatBlocked.title}
+        </Text>
+        <Text style={{ color: '#888', fontSize: 15, textAlign: 'center', lineHeight: 22 }}>
+          {chatBlocked.sub}
+        </Text>
       </View>
     );
   }

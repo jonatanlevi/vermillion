@@ -24,6 +24,9 @@ export const CONFIG = {
 
   AI_TEMPERATURE: 0.3,
   AI_MAX_TOKENS:  350,
+
+  DEV_MODE: true,
+  AI_COACHING_MAX_TOKENS: 600,
 };
 
 /** שמות המודלים לתצוגה / בדיקות */

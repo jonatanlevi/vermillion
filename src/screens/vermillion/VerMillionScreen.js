@@ -18,7 +18,7 @@ import { useAuth } from '../../context/AuthContext';
 import { getUnlockedEquipment, getEffectiveOverrides } from '../../utils/registrationGate';
 import { getDayScheduleView } from '../../utils/dayScheduleDisplay';
 
-const DEV_BYPASS_TIMER = true; // TEMP: פתח לבדיקות — סגור ל-false לפני משתמשים אמיתיים
+import { CONFIG } from '../../config';
 
 const nextId = () => `msg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
 const QUESTIONS_PER_DAY = 3;
@@ -416,7 +416,7 @@ export default function VerMillionScreen({ navigation }) {
         markReady();
         setPhase('onboarding');
 
-        if (!DEV_BYPASS_TIMER && stampedToday && progress.complete) {
+        if (!CONFIG.DEV_MODE && stampedToday && progress.complete) {
           setDayDone(true);
           return;
         }
@@ -431,10 +431,10 @@ export default function VerMillionScreen({ navigation }) {
           const now  = new Date();
           const gate = new Date(now);
           gate.setHours(commitment.hour, commitment.minute, 0, 0);
-          if (!DEV_BYPASS_TIMER && now < gate && !stampedToday) {
+          if (!CONFIG.DEV_MODE && now < gate && !stampedToday) {
             setDayDone(true);
           } else {
-            if (DEV_BYPASS_TIMER || todayLog[calDay]) {
+            if (CONFIG.DEV_MODE || todayLog[calDay]) {
               await askNextOnboardingQuestion(day, progress.done);
             } else {
               if (!mountedRef.current) return;
