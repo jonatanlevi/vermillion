@@ -389,7 +389,9 @@ export default function VerMillionScreen({ navigation }) {
         markReady();
         setPhase('onboarding');
         if (progress.done === 0) {
-          setNeedsFirstGame(true);
+          // Start the conversation immediately — no hard gate.
+          // Games CTA will appear as an inline chat message.
+          await askNextOnboardingQuestion(1, 0);
         } else if (progress.complete) {
           navigation.navigate('Games');
         } else {

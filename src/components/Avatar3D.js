@@ -1,7 +1,7 @@
 import VermillionAvatar from './VermillionAvatar';
 
 export default function Avatar3D({
-  avatarUrl, userId, seed, equipment = [], overrides = {},
+  archetype, tier, avatarUrl, userId, seed, equipment = [], overrides = {},
   size, showGlow, accentColor,
 }) {
   return (

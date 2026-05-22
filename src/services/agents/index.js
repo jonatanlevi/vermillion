@@ -2,15 +2,20 @@ import { computeFinancialMetrics, calcCompletion } from '../../data/dailyQuestio
 import { classifyTier } from '../financialTier';
 import { buildSystemPrompt, generatePersonalizedGreeting, buildDynamicContext } from '../aiPrompts';
 
+const STAGE_RE_LOCAL = /^[🔍🧠✓✨⏳]/;
+
+function buildFilteredHistory(chatHistory) {
+  return (chatHistory || [])
+    .filter(m => !STAGE_RE_LOCAL.test(m.text || '') && (m.text || '').length <= 500)
+    .slice(-12);
+}
+
 // ─── Groq streaming call (via Vercel edge function) ──────────────
 async function callGroq(userMessage, userData, chatHistory, onToken) {
   const context = buildContext(userData);
   const systemPrompt = buildSystemPrompt(userData) + buildDynamicContext(userMessage, userData, chatHistory);
 
-  const STAGE_RE_LOCAL = /^[🔍🧠✓✨⏳]/;
-  const filteredHistory = (chatHistory || [])
-    .filter(m => !STAGE_RE_LOCAL.test(m.text || '') && (m.text || '').length <= 500)
-    .slice(-12);
+  const filteredHistory = buildFilteredHistory(chatHistory);
 
   const messages = [
     ...filteredHistory.map(m => ({
@@ -50,6 +55,98 @@ async function callGroq(userMessage, userData, chatHistory, onToken) {
             fullText += token;
             onToken?.(fullText);
           }
+        } catch { /* partial chunk */ }
+      }
+    }
+    return fullText;
+  } catch {
+    return '';
+  }
+}
+
+// ─── Gemini call (direct, client-side key) ───────────────────────
+async function callGemini(userMessage, userData, chatHistory, onToken) {
+  const key = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
+  if (!key) return '';
+
+  const systemPrompt = buildSystemPrompt(userData) + buildDynamicContext(userMessage, userData, chatHistory);
+  const filteredHistory = buildFilteredHistory(chatHistory);
+
+  const contents = [
+    ...filteredHistory.map(m => ({
+      role: m.role === 'user' ? 'user' : 'model',
+      parts: [{ text: m.text || '' }],
+    })),
+    { role: 'user', parts: [{ text: userMessage }] },
+  ];
+
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: systemPrompt }] },
+          contents,
+          generationConfig: { maxOutputTokens: 400, temperature: 0.3 },
+        }),
+      }
+    );
+    if (!res.ok) return '';
+    const data = await res.json();
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    if (text) onToken?.(text);
+    return text;
+  } catch {
+    return '';
+  }
+}
+
+// ─── OpenAI streaming call (direct, client-side key) ─────────────
+async function callOpenAI(userMessage, userData, chatHistory, onToken) {
+  const key = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
+  if (!key) return '';
+
+  const systemPrompt = buildSystemPrompt(userData) + buildDynamicContext(userMessage, userData, chatHistory);
+  const filteredHistory = buildFilteredHistory(chatHistory);
+
+  const messages = [
+    { role: 'system', content: systemPrompt },
+    ...filteredHistory.map(m => ({
+      role: m.role === 'user' ? 'user' : 'assistant',
+      content: m.text || '',
+    })),
+    { role: 'user', content: userMessage },
+  ];
+
+  try {
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${key}`,
+      },
+      body: JSON.stringify({ model: 'gpt-4o-mini', messages, max_tokens: 400, temperature: 0.3, stream: true }),
+    });
+    if (!res.ok || !res.body) return '';
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let fullText = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const chunk = decoder.decode(value, { stream: true });
+      for (const line of chunk.split('\n')) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith('data: ')) continue;
+        const payload = trimmed.slice(6);
+        if (payload === '[DONE]') continue;
+        try {
+          const token = JSON.parse(payload).choices?.[0]?.delta?.content || '';
+          if (token) { fullText += token; onToken?.(fullText); }
         } catch { /* partial chunk */ }
       }
     }
@@ -305,9 +402,8 @@ export async function askTeam(userMessage, userData, onProgress, chatHistory, on
 
   onProgress?.({ stage: 'synthesizing' });
 
-  // Groq streaming call
+  // Groq → Gemini → OpenAI → offline
   const groqResponse = await callGroq(userMessage, userData, chatHistory, onToken);
-
   if (groqResponse) {
     return {
       response:   validateResponse(groqResponse, context),
@@ -318,7 +414,28 @@ export async function askTeam(userMessage, userData, onProgress, chatHistory, on
     };
   }
 
-  // Fallback if Groq fails
+  const geminiResponse = await callGemini(userMessage, userData, chatHistory, onToken);
+  if (geminiResponse) {
+    return {
+      response:   validateResponse(geminiResponse, context),
+      agentsUsed: ['GEMINI'],
+      raw:        [],
+      context,
+      isCrisis:   false,
+    };
+  }
+
+  const openaiResponse = await callOpenAI(userMessage, userData, chatHistory, onToken);
+  if (openaiResponse) {
+    return {
+      response:   validateResponse(openaiResponse, context),
+      agentsUsed: ['OPENAI'],
+      raw:        [],
+      context,
+      isCrisis:   false,
+    };
+  }
+
   return {
     response:   buildOfflineResponse(userMessage, context, chatHistory),
     agentsUsed: [],

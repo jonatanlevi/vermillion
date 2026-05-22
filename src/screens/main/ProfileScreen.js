@@ -7,9 +7,10 @@ import { useAuth } from '../../context/AuthContext';
 import LanguagePicker from '../../components/LanguagePicker';
 import { THEMES, ARCHETYPES } from '../../components/CharacterFigure';
 import Avatar3D from '../../components/Avatar3D';
-import { DAY_META, calcCompletion, getBlindSpots } from '../../data/dailyQuestions';
+import { DAY_META, calcCompletion, getBlindSpots, computeFinancialMetrics } from '../../data/dailyQuestions';
 import { getUserTimeStatus, calcStreak } from '../../services/timeEngine';
-import { getOnboardingState, getLocalAvatarStyle } from '../../services/storage';
+import { getOnboardingState, getLocalAvatarStyle, getFinancialData } from '../../services/storage';
+import { classifyTier } from '../../services/financialTier';
 import { useFocusEffect } from '@react-navigation/native';
 
 export default function ProfileScreen({ navigation }) {
@@ -18,9 +19,18 @@ export default function ProfileScreen({ navigation }) {
   const { profile, signOut, reloadProfile } = useAuth();
 
   const [onbState, setOnbState] = useState(null);
+  const [tier, setTier]         = useState(0);
 
   useEffect(() => {
     getOnboardingState().then(setOnbState);
+    (async () => {
+      const finData    = await getFinancialData();
+      const obState    = await getOnboardingState();
+      const answers    = obState || {};
+      const metrics    = computeFinancialMetrics(answers);
+      const completion = calcCompletion(answers);
+      setTier(classifyTier(metrics, completion).tier);
+    })();
   }, []);
 
   useFocusEffect(useCallback(() => {
@@ -59,7 +69,7 @@ export default function ProfileScreen({ navigation }) {
         <View style={s.heroInner}>
 
           {/* ── Profile avatar (the VerMillion character in a circle) ── */}
-          <Avatar3D archetype={vm?.archetype || 'builder'} userId={profile?.id} seed={vm?.seed} equipment={vm?.equipment || []} overrides={vm?.overrides || {}} size={80} showGlow={true} accentColor="#C0392B" />
+          <Avatar3D archetype={vm?.archetype || 'builder'} userId={profile?.id} seed={vm?.seed} equipment={vm?.equipment || []} overrides={vm?.overrides || {}} size={80} showGlow={true} accentColor="#C0392B" tier={tier} />
 
           {/* User info */}
           <View style={s.userInfo}>

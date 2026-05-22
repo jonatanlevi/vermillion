@@ -2,9 +2,11 @@ import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, Easing } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import VermillionAvatar from '../../components/VermillionAvatar';
-import { saveProfile, saveLocalAvatarStyle } from '../../services/storage';
+import { saveProfile, saveLocalAvatarStyle, getFinancialData, getOnboardingState } from '../../services/storage';
 import { telemetry } from '../../services/activityTelemetry';
 import { useAuth } from '../../context/AuthContext';
+import { classifyTier } from '../../services/financialTier';
+import { computeFinancialMetrics, calcCompletion } from '../../data/dailyQuestions';
 
 const STAT_MAPS = {
   advice_style: { direct: 'ישיר', gentle: 'עדין', tough: 'קשוח' },
@@ -99,7 +101,12 @@ export default function AvatarRevealScreen({ navigation, route }) {
 
   async function handleSave() {
     setSaving(true);
-    const avatarStyle = { seed, equipment: [], overrides: personalityOverrides, appearance, tone };
+    const [, obState] = await Promise.all([getFinancialData(), getOnboardingState()]);
+    const answers    = obState || {};
+    const metrics    = computeFinancialMetrics(answers);
+    const completion = calcCompletion(answers);
+    const tierValue  = classifyTier(metrics, completion).tier;
+    const avatarStyle = { seed, archetype: appearance?.style || 'builder', tier: tierValue, equipment: [], overrides: personalityOverrides, appearance, tone };
     saveLocalAvatarStyle(user?.id, avatarStyle);
     try {
       await saveProfile({ avatar_style: avatarStyle });

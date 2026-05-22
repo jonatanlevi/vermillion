@@ -1,10 +1,26 @@
 {
   "date": "2026-05-21",
-  "generatedAt": "2026-05-21T03:49:42.647Z",
+  "generatedAt": "2026-05-21T08:50:48.851Z",
   "project": "VerMillion",
   "version": "1.0.0",
   "deployUrl": "https://vermillion-ashen.vercel.app",
   "commits": [
+    {
+      "hash": "d486f6d9",
+      "message": "fix: resolve post-login black screen on web"
+    },
+    {
+      "hash": "8864c891",
+      "message": "fix: move AppTheme const after all imports — broke bundler"
+    },
+    {
+      "hash": "88cb7db0",
+      "message": "merge: white bar fix + electric effect + chat-after-stamp fix"
+    },
+    {
+      "hash": "6e242fe8",
+      "message": "chore: add daily session log 2026-05-21"
+    },
     {
       "hash": "91c03b84",
       "message": "fix: 58 bugs + growth engine AI layers"
@@ -13,14 +29,17 @@
   "filesChanged": [
     ".env.vercel",
     ".env.vercel.prod",
+    "App.js",
     "api/admin-cost.js",
     "api/chat.js",
     "api/claude-bridge.js",
     "api/profile-reveal.js",
     "api/user-activity.js",
+    "app.json",
     "deploy.ps1",
     "docs/sessions/2026-05-19.json",
     "docs/sessions/2026-05-20.json",
+    "docs/sessions/2026-05-21.json",
     "src/components/BreakoutGame.js",
     "src/components/CardFlipGame.js",
     "src/components/ChainTapGame.js",
@@ -59,7 +78,8 @@
     "src/utils/registrationGate.js",
     "src/utils/stampWindow.js",
     "supabase/migrations/20260520_user_activity_events.sql",
-    "vercel.json"
+    "vercel.json",
+    "web/index.html"
   ],
   "todosRemaining": [
     "לפני השקה ❌ (TODO קריטי)",

@@ -15,6 +15,98 @@ export function resetConversation() {
   resetMockConversation();
 }
 
+async function callGroqService(messages, systemPrompt, onPartial) {
+  const origin = typeof window !== 'undefined' ? (window.location?.origin ?? '') : '';
+  const res = await fetch(`${origin}/api/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ messages, systemPrompt }),
+  });
+  if (!res.ok || !res.body) return '';
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let fullText = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    const chunk = decoder.decode(value, { stream: true });
+    for (const line of chunk.split('\n')) {
+      const trimmed = line.trim();
+      if (!trimmed.startsWith('data: ')) continue;
+      const data = trimmed.slice(6);
+      if (data === '[DONE]') continue;
+      try {
+        const token = JSON.parse(data).choices?.[0]?.delta?.content || '';
+        if (token) { fullText += token; onPartial?.(fullText); }
+      } catch { /* partial chunk */ }
+    }
+  }
+  return fullText;
+}
+
+async function callGeminiService(messages, systemPrompt, onPartial) {
+  const key = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
+  if (!key) return '';
+  const contents = messages
+    .filter(m => m.role !== 'system')
+    .map(m => ({
+      role: m.role === 'user' ? 'user' : 'model',
+      parts: [{ text: m.content || '' }],
+    }));
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: systemPrompt }] },
+          contents,
+          generationConfig: { maxOutputTokens: 400, temperature: 0.3 },
+        }),
+      }
+    );
+    if (!res.ok) return '';
+    const data = await res.json();
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    if (text) onPartial?.(text);
+    return text;
+  } catch { return ''; }
+}
+
+async function callOpenAIService(messages, systemPrompt, onPartial) {
+  const key = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
+  if (!key) return '';
+  const msgsWithSystem = [{ role: 'system', content: systemPrompt }, ...messages.filter(m => m.role !== 'system')];
+  try {
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+      body: JSON.stringify({ model: 'gpt-4o-mini', messages: msgsWithSystem, max_tokens: 400, temperature: 0.3, stream: true }),
+    });
+    if (!res.ok || !res.body) return '';
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let fullText = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const chunk = decoder.decode(value, { stream: true });
+      for (const line of chunk.split('\n')) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith('data: ')) continue;
+        const payload = trimmed.slice(6);
+        if (payload === '[DONE]') continue;
+        try {
+          const token = JSON.parse(payload).choices?.[0]?.delta?.content || '';
+          if (token) { fullText += token; onPartial?.(fullText); }
+        } catch { /* partial chunk */ }
+      }
+    }
+    return fullText;
+  } catch { return ''; }
+}
+
 export async function chatWithAI(userMessage, userData, onPartial, coachingDay) {
   const basePrompt = buildSystemPrompt(userData);
   const personalization = coachingDay ? buildPersonalizedCoachingContext(userData, coachingDay) : '';
@@ -24,64 +116,32 @@ export async function chatWithAI(userMessage, userData, onPartial, coachingDay) 
   chatHistory.push({ role: 'user', content: userMessage });
   if (chatHistory.length > 16) chatHistory = chatHistory.slice(-16);
 
-  try {
-    const origin = typeof window !== 'undefined' ? (window.location?.origin ?? '') : '';
-    const res = await fetch(`${origin}/api/chat`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        messages: chatHistory,
-        systemPrompt,
-      }),
-    });
+  // Groq → Gemini → OpenAI → offline
+  const providers = [
+    () => callGroqService(chatHistory, systemPrompt, onPartial),
+    () => callGeminiService(chatHistory, systemPrompt, onPartial),
+    () => callOpenAIService(chatHistory, systemPrompt, onPartial),
+  ];
 
-    if (!res.ok) throw new Error(`Chat API error: ${res.status}`);
+  for (const callProvider of providers) {
+    try {
+      const response = await callProvider();
+      if (!response) continue;
 
-    let fullResponse = '';
+      const validation = validateResponse(response, userData);
+      if (shouldFallback(validation)) continue;
 
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      const chunk = decoder.decode(value, { stream: true });
-      for (const line of chunk.split('\n')) {
-        const trimmed = line.trim();
-        if (!trimmed.startsWith('data: ')) continue;
-        const data = trimmed.slice(6);
-        if (data === '[DONE]') continue;
-        try {
-          const token = JSON.parse(data).choices?.[0]?.delta?.content || '';
-          if (token) {
-            fullResponse += token;
-            onPartial?.(fullResponse);
-          }
-        } catch { /* partial chunk */ }
-      }
-    }
-
-    // Validate response — guardrails + tier rules
-    if (fullResponse) {
-      const validation = validateResponse(fullResponse, userData);
-      if (shouldFallback(validation)) {
-        chatHistory.pop();
-        const fallback = await mockChatWithAI(userMessage, userData, onPartial);
-        if (fallback) chatHistory.push({ role: 'user', content: userMessage });
-        if (fallback) chatHistory.push({ role: 'assistant', content: fallback });
-        return fallback;
-      }
-    }
-
-    if (fullResponse) chatHistory.push({ role: 'assistant', content: fullResponse });
-    return fullResponse;
-
-  } catch (err) {
-    console.error('[aiService] chatWithAI failed:', err.message);
-    // Fallback to mock if API is unreachable
-    const result = await mockChatWithAI(userMessage, userData, onPartial);
-    if (result) chatHistory.push({ role: 'assistant', content: result });
-    return result;
+      chatHistory.push({ role: 'assistant', content: response });
+      return response;
+    } catch { /* try next provider */ }
   }
+
+  // All cloud providers failed — offline fallback
+  chatHistory.pop();
+  const result = await mockChatWithAI(userMessage, userData, onPartial);
+  if (result) {
+    chatHistory.push({ role: 'user', content: userMessage });
+    chatHistory.push({ role: 'assistant', content: result });
+  }
+  return result;
 }

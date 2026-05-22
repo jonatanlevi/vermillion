@@ -109,6 +109,7 @@ export default function LeaderboardScreen() {
               size={44}
               showGlow={false}
               accentColor="#C0392B"
+              tier={myRow.avatar_style?.tier ?? 0}
             />
           </View>
           <Text style={styles.myRankLabel}>הדירוג שלי</Text>
@@ -173,6 +174,7 @@ function UserRow({ item, isMe, weekly, weeklyPool }) {
           size={48}
           showGlow={false}
           accentColor={isMe ? '#C0392B' : undefined}
+          tier={item.avatar_style?.tier ?? 0}
         />
       </View>
       <View style={styles.userInfo}>
