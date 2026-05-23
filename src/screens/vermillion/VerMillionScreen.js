@@ -556,7 +556,9 @@ export default function VerMillionScreen({ navigation }) {
       text = `${DAY_INTROS[day]}${question}`;
     }
 
+    const qId = nextId();
     addMsg('assistant', text);
+    appendChatMessage({ id: qId, role: 'assistant', text }).catch(() => {});
   }
 
   const sendVoice = () => {
@@ -630,8 +632,10 @@ export default function VerMillionScreen({ navigation }) {
         setPendingField(null);
 
         const ack = getAck(pendingField, parsedValue);
+        appendChatMessage({ id: userMsgId, role: 'user', text }).catch(() => {});
         await new Promise(r => setTimeout(r, 300));
         addMsg('assistant', ack);
+        appendChatMessage({ id: nextId(), role: 'assistant', text: ack }).catch(() => {});
         await new Promise(r => setTimeout(r, 600));
         await askNextOnboardingQuestion(currentDay, newCount);
 
