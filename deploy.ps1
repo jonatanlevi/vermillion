@@ -77,3 +77,18 @@ Write-Host "Done! https://vermillion-ashen.vercel.app" -ForegroundColor Green
 Write-Host ""
 Write-Host "Generating daily work log..." -ForegroundColor DarkGray
 node scripts/daily-log.js
+
+# ─── Rebuild CRM so product knowledge stays in sync ──────────────
+$crmPath = "C:\Users\97254\Desktop\vermillioncrm"
+if (Test-Path $crmPath) {
+  Write-Host ""
+  Write-Host "Rebuilding CRM..." -ForegroundColor Cyan
+  Push-Location $crmPath
+  npm run build 2>&1 | Select-Object -Last 5
+  Pop-Location
+  if ($LASTEXITCODE -eq 0) {
+    Write-Host "CRM rebuilt — reopen the desktop app to get updates." -ForegroundColor Green
+  } else {
+    Write-Host "CRM build failed (exit $LASTEXITCODE) — run manually: cd vermillioncrm && npm run build" -ForegroundColor Yellow
+  }
+}
