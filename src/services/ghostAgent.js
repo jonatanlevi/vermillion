@@ -42,7 +42,7 @@ function evaluateOnboarding() {
   // Expectation: fast flow, no wall of text, clear value prop
 
   wins.push('SplashScreen — לוגו + שם מיידי, אין טקסט עודף');
-  wins.push('WelcomeScreen — "₪45,000 פרס" נראה מיד, תפס עניין');
+  wins.push('WelcomeScreen — "קופת פרסים שבועית דינמית" נראה מיד, תפס עניין');
 
   if (PERSONA.appSkepticism === 'high') {
     issues.push({
@@ -229,7 +229,7 @@ function evaluateLeaderboard() {
   const issues = [];
 
   wins.push('לוח הדירוג — אביב ראה את עצמו ב-#12, מיד רצה לשפר');
-  wins.push('פרס ₪45,000 מוצג בראש — מוטיבציה ברורה');
+  wins.push('קופת פרסים שבועית דינמית מוצגת בראש — מוטיבציה ברורה');
 
   issues.push({
     screen: 'LeaderboardScreen',

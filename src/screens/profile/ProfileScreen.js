@@ -78,8 +78,8 @@ function LeaderboardModal({ visible, onClose, userId }) {
             </TouchableOpacity>
           </View>
           <View style={styles.prizeBox}>
-            <Text style={styles.prizeLabel}>פרס חודשי</Text>
-            <Text style={styles.prizeAmt}>₪45,000</Text>
+            <Text style={styles.prizeLabel}>קופת פרסים שבועית</Text>
+            <Text style={styles.prizeAmt}>דינמית</Text>
             <Text style={styles.prizeNote}>{daysNum} ימים נותרו</Text>
           </View>
           {loading ? (

@@ -10,9 +10,8 @@ import { getUserTimeStatus } from '../../services/timeEngine';
 import { getOnboardingState } from '../../services/storage';
 
 const PRIZE_POOL = {
-  month: 'אפריל 2026',
-  total: 45000,
-  distribution: [{ rank: 1, amount: 25000 }, { rank: 2, amount: 15000 }, { rank: 3, amount: 5000 }],
+  label: 'קופת פרסים שבועית',
+  note: 'דינמית — 40% מהכנסות המועדון ÷ 4 שבועות',
 };
 
 export default function HomeScreen({ navigation }) {
@@ -75,7 +74,7 @@ export default function HomeScreen({ navigation }) {
             <View style={styles.paywallLeft}>
               <Text style={styles.paywallTitle}>🔒 VerMillion Premium</Text>
               <Text style={styles.paywallSub}>
-                שאלון האפיון · אתגר 30 יום · AI Coach · תחרות ₪45,000
+                שאלון האפיון · תחרות שבועית · AI Coach · קופת פרסים דינמית
               </Text>
             </View>
             <View style={styles.paywallBtn}>
@@ -266,7 +265,7 @@ export default function HomeScreen({ navigation }) {
           >
             <Text style={styles.challengeLockedIcon}>🏆</Text>
             <View style={{ flex: 1 }}>
-              <Text style={styles.challengeLockedTitle}>אתגר 30 יום — ₪45,000 בפרסים</Text>
+              <Text style={styles.challengeLockedTitle}>תחרות שבועית — קופת פרסים דינמית</Text>
               <Text style={styles.challengeLockedSub}>זמין למנויים בלבד · נעול</Text>
             </View>
             <Text style={styles.lockIcon}>🔒</Text>

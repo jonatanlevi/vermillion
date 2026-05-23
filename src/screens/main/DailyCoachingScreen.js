@@ -12,9 +12,9 @@ import { COACHING_DAYS } from '../../data/coachingContent';
 import { getOnboardingState, saveOnboardingState, markDayComplete } from '../../services/storage';
 
 const MILESTONE_CARDS = {
-  7:  { title: '🎉 שבוע ראשון — מדהים!', text: 'הוכחת שאתה מסוגל. 23 ימים נוספים ופרס ₪45,000 מחכה לך.', color: '#F39C12', bg: '#1A1400', border: '#F39C1244' },
+  7:  { title: '🎉 שבוע ראשון — מדהים!', text: 'הוכחת שאתה מסוגל. 23 ימים נוספים והתחרות השבועית פתוחה בפניך.', color: '#F39C12', bg: '#1A1400', border: '#F39C1244' },
   14: { title: '🏅 שבועיים — כבוד!', text: 'משתמשים שמגיעים ליום 14 מסיימים 80% מהאתגר. אתה בדרך הנכונה.', color: '#2ECC71', bg: '#0A1A0A', border: '#2ECC7144' },
-  18: { title: '🏁 מחצית הדרך — יום 18/30', text: 'עברת את הנקודה הקשה ביותר. 12 יום קדימה ופרס ₪45,000 מחכה לך.', color: '#27AE60', bg: '#0A1A0A', border: '#27AE6044' },
+  18: { title: '🏁 מחצית הדרך — יום 18/30', text: 'עברת את הנקודה הקשה ביותר. 12 יום קדימה וקופת הפרסים השבועית מחכה לך.', color: '#27AE60', bg: '#0A1A0A', border: '#27AE6044' },
   21: { title: '🔥 21 יום — הרגל חדש!', text: 'לוקח 21 יום ליצור הרגל. VerMillion הפך לחלק מהשגרה שלך.', color: '#3498DB', bg: '#0A0E1A', border: '#3498DB44' },
   25: { title: '⚡ 5 ימים לסיום!', text: 'אתה ב-10% העליונים שמגיעים לכאן. הסוף קרוב — תן את הכל.', color: '#E74C3C', bg: '#1A0A0A', border: '#E74C3C44' },
   30: { title: '🏆 יום אחרון — מאמץ אחרון!', text: 'הגעת ליום האחרון. VerMillion גאה בך. תגמור חזק ובוא נחגוג.', color: '#D4AF37', bg: '#1A1200', border: '#D4AF3744' },

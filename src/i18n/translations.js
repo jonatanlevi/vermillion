@@ -34,7 +34,7 @@ export const translations = {
 
     // ─── Stats ───
     stat1Value: '35K+', stat1Label: 'משתתפים',
-    stat2Label: 'פרס חודשי',
+    stat2Label: 'פרס שבועי',
     stat3Value: '99.1%', stat3Label: 'דיוק מקסימלי',
 
     // ─── CompleteProfile ───
@@ -229,9 +229,9 @@ export const translations = {
     gamesScoreLabel: 'ניקוד',
     gamesMultiplierLabel: 'מכפיל',
     gamesChooseGame: 'בחר משחק',
-    gamesPrizeTitle: '🏆 פרס חודשי',
-    gamesPrizeAmt: '₪45,000',
-    gamesPrizeSub: 'לשחקן עם הניקוד הגבוה ביותר בסוף החודש',
+    gamesPrizeTitle: '🏆 פרס שבועי',
+    gamesPrizeAmt: 'דינמי',
+    gamesPrizeSub: '5 הדייקניים ביותר — ביחס ימי השתתפות',
     gamesExit: '✕ יציאה',
     gamesGameDone: 'סיימת את המשחק',
     gamesSessionBanner: (n) => `+${n} נקודות הסשן האחרון 🔥`,
@@ -290,7 +290,7 @@ export const translations = {
       investment: { label: 'השקעות', icon: '📈', desc: 'נכסים ותיק השקעות' },
     },
     lbTitle: (month) => `🏆 לוח זוכים — ${month || 'אפריל'}`,
-    lbPrizeLabel: 'פרס חודשי', 
+    lbPrizeLabel: 'פרס שבועי',
     lbPrizeNote: (days) => `${days} ימים נותרו`,
     profileDevReset: 'איפוס נתונים (dev)',
 
@@ -567,9 +567,9 @@ export const translations = {
     gamesScoreLabel: 'Score',
     gamesMultiplierLabel: 'Multiplier',
     gamesChooseGame: 'Choose a game',
-    gamesPrizeTitle: '🏆 Monthly prize',
-    gamesPrizeAmt: '$45,000',
-    gamesPrizeSub: 'For the player with the highest score at month end',
+    gamesPrizeTitle: '🏆 Weekly prize',
+    gamesPrizeAmt: 'Dynamic',
+    gamesPrizeSub: 'Top 5 most accurate — proportional to participation days',
     gamesExit: '✕ Exit',
     gamesGameDone: 'Game complete',
     gamesSessionBanner: (n) => `+${n} pts last session 🔥`,

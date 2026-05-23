@@ -103,16 +103,10 @@ export const mockLeaderboard = [
 ];
 
 export const mockPrizePool = {
-  total: 45000,
+  note: 'דינמי — 40% הכנסות המועדון ÷ 4 שבועות',
   currency: '₪',
-  month: new Date().toLocaleDateString('he-IL', { month: 'long', year: 'numeric' }),
-  distribution: [
-    { rank: 1, amount: 15000 },
-    { rank: 2, amount: 10000 },
-    { rank: 3, amount: 8000 },
-    { rank: 4, amount: 7000 },
-    { rank: 5, amount: 5000 },
-  ],
+  weekLabel: new Date().toLocaleDateString('he-IL', { month: 'long', year: 'numeric' }),
+  distributionNote: '5 הדייקניים ביותר — ביחס ימי השתתפות',
 };
 
 export const mockTodayChallenge = {

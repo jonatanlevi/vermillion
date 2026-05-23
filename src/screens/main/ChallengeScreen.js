@@ -85,7 +85,7 @@ export default function ChallengeScreen({ navigation }) {
           </Text>
 
           <View style={styles.paywallFeatures}>
-            {['🎯 אתגר יומי', '🏆 לוח דירוג', '₪45,000 פרס חודשי', '🤖 AI אישי', '📊 ניתוח פרופיל'].map(f => (
+            {['🎯 אתגר יומי', '🏆 לוח דירוג', '💰 קופת פרסים דינמית', '🤖 AI אישי', '📊 ניתוח פרופיל'].map(f => (
               <View key={f} style={styles.paywallFeatureRow}>
                 <Text style={styles.paywallFeatureText}>{f}</Text>
                 <Text style={styles.paywallCheck}>✓</Text>

@@ -1,6 +1,6 @@
 # VerMillion — חוזה מוצר ותקן מערכת (מקור אמת)
 
-> עדכון: 2026-05-19  
+> עדכון: 2026-05-23  
 > לעיון משפטי: **`LEGAL_SYSTEM_SPEC_HE.md`**  
 > Supabase: **`SUPABASE_SETUP_CHECKLIST_HE.md`**
 
