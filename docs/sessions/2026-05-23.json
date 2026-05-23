@@ -1,0 +1,70 @@
+{
+  "date": "2026-05-23",
+  "generatedAt": "2026-05-23T06:55:41.417Z",
+  "project": "VerMillion",
+  "version": "1.0.0",
+  "deployUrl": "https://vermillion-ashen.vercel.app",
+  "commits": [
+    {
+      "hash": "9924a231",
+      "message": "fix: prevent duplicate onboarding messages in chat_history"
+    },
+    {
+      "hash": "296b9f40",
+      "message": "fix: save onboarding chat messages to chat_history"
+    },
+    {
+      "hash": "5fb931de",
+      "message": "feat: auto-rebuild CRM after deploy"
+    },
+    {
+      "hash": "3d1961f7",
+      "message": "fix: sync all prize references — weekly dynamic pool, correct eligibility"
+    },
+    {
+      "hash": "aab2c560",
+      "message": "fix: prize rules + DEV_MODE + AI chat gate week-1"
+    }
+  ],
+  "filesChanged": [
+    "CLAUDE.md",
+    "api/chat.js",
+    "deploy.ps1",
+    "docs/CODE_REVIEW_ANTI_CHEAT.md",
+    "docs/LEGAL_SYSTEM_SPEC_HE.md",
+    "docs/PRODUCT_CONTRACT.md",
+    "docs/sessions/2026-05-22.json",
+    "my-skills/14-ceo-mode/SKILL.md",
+    "my-skills/15-legal-prep/SKILL.md",
+    "my-skills/16-pitch/SKILL.md",
+    "src/config.js",
+    "src/constants/regulationsHe.js",
+    "src/i18n/translations.js",
+    "src/mock/data.js",
+    "src/screens/games/GamesScreen.js",
+    "src/screens/main/AICoachScreen.js",
+    "src/screens/main/ChallengeScreen.js",
+    "src/screens/main/DailyCoachingScreen.js",
+    "src/screens/main/HomeScreen.js",
+    "src/screens/onboarding/SubscriptionScreen.js",
+    "src/screens/profile/ProfileScreen.js",
+    "src/screens/vermillion/VerMillionScreen.js",
+    "src/services/ghostAgent.js"
+  ],
+  "todosRemaining": [
+    "לפני השקה ❌ (TODO קריטי)",
+    "`terms_accepted_at`",
+    "_API_KEY",
+    "ניירת משפטית"
+  ],
+  "recentDone": [
+    "פרופיל + Avatar",
+    "מסכי שישי/שבת",
+    "Deploy Vercel",
+    "**CRM לניהול העסק**",
+    "הסר dev pause button",
+    "`DEV_BYPASS_TIMER = false`",
+    "`DEV_NO_QUESTION_LIMIT = false`",
+    "תיקון isActive"
+  ]
+}

@@ -82,13 +82,16 @@ node scripts/daily-log.js
 $crmPath = "C:\Users\97254\Desktop\vermillioncrm"
 if (Test-Path $crmPath) {
   Write-Host ""
-  Write-Host "Rebuilding CRM..." -ForegroundColor Cyan
+  Write-Host "Rebuilding CRM (standalone + installer)..." -ForegroundColor Cyan
   Push-Location $crmPath
-  npm run build 2>&1 | Select-Object -Last 5
+  npm run build:standalone 2>&1 | Select-Object -Last 5
+  if ($LASTEXITCODE -eq 0) {
+    npm run electron:pack 2>&1 | Select-Object -Last 5
+  }
   Pop-Location
   if ($LASTEXITCODE -eq 0) {
-    Write-Host "CRM rebuilt — reopen the desktop app to get updates." -ForegroundColor Green
+    Write-Host "CRM installer rebuilt — install the new .exe from vermillioncrm/dist/" -ForegroundColor Green
   } else {
-    Write-Host "CRM build failed (exit $LASTEXITCODE) — run manually: cd vermillioncrm && npm run build" -ForegroundColor Yellow
+    Write-Host "CRM build failed (exit $LASTEXITCODE) — run manually: cd vermillioncrm && npm run electron:pack" -ForegroundColor Yellow
   }
 }

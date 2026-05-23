@@ -5,7 +5,8 @@ import {
 } from 'react-native';
 import { useVoice } from '../../hooks/useVoice';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { chatWithAI, getAIStatus } from '../../services/aiService';
+import { chatWithAI, getAIStatus, chatWithProfilingPrompt } from '../../services/aiService';
+import { buildProfilingSystemPrompt, buildDay1Intro, buildDayReturnMessage, extractAndSaveProfiling } from '../../services/profilingAgent';
 import { askTeam } from '../../services/agents';
 import { telemetry } from '../../services/activityTelemetry';
 import {
@@ -42,8 +43,10 @@ export default function AICoachScreen({ navigation }) {
   const [voiceMode, setVoiceMode]       = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [chatBlocked, setChatBlocked] = useState(null);
+  const [profilingMsgCount, setProfilingMsgCount] = useState(0);
   const flatListRef = useRef(null);
   const mountedRef = useRef(true);
+  const profilingHistoryRef = useRef([]);
   const onboardingStateRef = useRef({});
   const lastVoiceRef = useRef(false);
   const voiceReadyRef = useRef(false);
@@ -169,10 +172,24 @@ export default function AICoachScreen({ navigation }) {
       setPhase('onboarding');
       const progress = await getDayProgress(day);
       setDayProgress(progress);
-      if (progress.complete) {
-        addMsg('assistant', `יום ${day} הושלם ✅\n\nחזור מחר ליום ${day + 1}.`);
+      const todayDone = (state.daysCompleted || []).includes(day);
+      if (todayDone && day < 7) {
+        addMsg('assistant', `יום ${day} הושלם ✅\n\nחזור מחר ליום ${day + 1} — נמשיך להכיר אחד את השני.`);
       } else {
-        await askNextQuestion(day);
+        const history = await getChatHistory();
+        if (history.length > 0) {
+          setMessages(history.slice(-30));
+          profilingHistoryRef.current = history
+            .filter(m => m.text && !m.text.startsWith('🔍') && !m.text.startsWith('🧠'))
+            .slice(-10)
+            .map(m => ({ role: m.role, content: m.text }));
+          const prevUserMsgs = history.filter(m => m.role === 'user').length;
+          setProfilingMsgCount(prevUserMsgs % 5);
+        } else if (day === 1) {
+          addMsg('assistant', buildDay1Intro());
+        } else {
+          addMsg('assistant', buildDayReturnMessage(day));
+        }
       }
     }
   }
@@ -274,15 +291,83 @@ export default function AICoachScreen({ navigation }) {
     setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
 
     try {
-      if (phase === 'onboarding' && pendingField) {
-        await processOnboardingAnswer(pendingField, text);
-        const progress = await getDayProgress(currentDay);
-        setDayProgress(progress);
-        setPendingField(null);
-        const ack = getAck(pendingField, text);
-        addMsg('assistant', ack);
-        await new Promise(r => setTimeout(r, 600));
-        await askNextQuestion(currentDay);
+      if (phase === 'onboarding') {
+        appendChatMessage({ id: userMsgId, role: 'user', text }).catch(() => {});
+
+        const financial = await getFinancialData();
+        const systemPrompt = buildProfilingSystemPrompt(currentDay, financial);
+
+        profilingHistoryRef.current = [
+          ...profilingHistoryRef.current,
+          { role: 'user', content: text },
+        ].slice(-12);
+
+        const partialId = nextId();
+        setMessages(prev => [...prev, { id: partialId, role: 'assistant', text: '' }]);
+        telemetry.chatAiStart(partialId, 'AICoach');
+
+        const response = await chatWithProfilingPrompt(
+          profilingHistoryRef.current,
+          systemPrompt,
+          (partial) => {
+            if (!mountedRef.current) return;
+            setMessages(prev => prev.map(m => m.id === partialId ? { ...m, text: partial } : m));
+            telemetry.chatAiChunk(partialId, partial.length, 'AICoach');
+            flatListRef.current?.scrollToEnd({ animated: false });
+          }
+        );
+
+        const finalText = response || 'לא הגיעה תשובה — נסה שוב.';
+        const responseMs = now() - sendStart;
+
+        if (mountedRef.current) {
+          telemetry.chatAiDone(finalText, responseMs, 'AICoach');
+          setMessages(prev => {
+            const updated = prev.map(m => m.id === partialId
+              ? { ...m, text: finalText, responseMs, sentAt: now() }
+              : m);
+            saveChatHistory(updated).catch(() => {});
+            return updated;
+          });
+          appendChatMessage({ id: partialId, role: 'assistant', text: finalText, responseMs, sentAt: now() }).catch(() => {});
+          if (voiceEnabled) voice.speak(finalText);
+        }
+
+        profilingHistoryRef.current = [
+          ...profilingHistoryRef.current,
+          { role: 'assistant', content: finalText },
+        ].slice(-12);
+
+        // Silent extraction (fire and forget)
+        const msgsForExtraction = [
+          ...messages,
+          { role: 'user', text },
+          { role: 'assistant', text: finalText },
+        ];
+        extractAndSaveProfiling(msgsForExtraction).catch(() => {});
+
+        // Day completion after 5 user messages
+        const newCount = profilingMsgCount + 1;
+        setProfilingMsgCount(newCount);
+        if (newCount >= 5) {
+          await completeDay(currentDay);
+          const progress = await getDayProgress(currentDay);
+          setDayProgress(progress);
+          if (currentDay >= 7) {
+            addMsg('assistant', 'רגע — מכין את האפיון שלך...');
+            const { profileText } = await generateProfile();
+            setMessages(prev => [...prev.slice(0, -1), {
+              id: nextId(), role: 'assistant',
+              text: `${profileText}\n\n✅ האפיון שלך מוכן.\n\nמה תרצה לעבוד עליו קודם?`,
+            }]);
+            setPhase('coaching');
+          } else {
+            setTimeout(() => {
+              addMsg('assistant', `יום ${currentDay} הושלם ✅\n\nחזור מחר ליום ${currentDay + 1} — נמשיך להכיר אחד את השני.`);
+            }, 2000);
+            setProfilingMsgCount(0);
+          }
+        }
       } else {
         appendChatMessage({ id: userMsgId, role: 'user', text }).catch(() => {});
         const partialId = nextId();
@@ -439,7 +524,7 @@ export default function AICoachScreen({ navigation }) {
           <View style={styles.dayBadge}>
             <Text style={styles.dayBadgeText}>יום {currentDay}/7</Text>
             <View style={styles.progressBar}>
-              <View style={[styles.progressFill, { width: `${(dayProgress.done / Math.max(dayProgress.total, 1)) * 100}%` }]} />
+              <View style={[styles.progressFill, { width: `${Math.min((profilingMsgCount / 5) * 100, 100)}%` }]} />
             </View>
           </View>
         )}

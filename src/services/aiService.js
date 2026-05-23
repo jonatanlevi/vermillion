@@ -107,6 +107,21 @@ async function callOpenAIService(messages, systemPrompt, onPartial) {
   } catch { return ''; }
 }
 
+export async function chatWithProfilingPrompt(messages, systemPrompt, onPartial) {
+  const providers = [
+    () => callGroqService(messages, systemPrompt, onPartial),
+    () => callGeminiService(messages, systemPrompt, onPartial),
+    () => callOpenAIService(messages, systemPrompt, onPartial),
+  ];
+  for (const callProvider of providers) {
+    try {
+      const response = await callProvider();
+      if (response) return response;
+    } catch { /* try next */ }
+  }
+  return null;
+}
+
 export async function chatWithAI(userMessage, userData, onPartial, coachingDay) {
   const basePrompt = buildSystemPrompt(userData);
   const personalization = coachingDay ? buildPersonalizedCoachingContext(userData, coachingDay) : '';
