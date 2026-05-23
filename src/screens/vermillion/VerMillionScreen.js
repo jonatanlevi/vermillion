@@ -556,9 +556,7 @@ export default function VerMillionScreen({ navigation }) {
       text = `${DAY_INTROS[day]}${question}`;
     }
 
-    const qId = nextId();
     addMsg('assistant', text);
-    appendChatMessage({ id: qId, role: 'assistant', text }).catch(() => {});
   }
 
   const sendVoice = () => {
