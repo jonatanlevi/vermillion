@@ -11,6 +11,7 @@
  */
 
 import { getKnowledgeBlock } from './aiKnowledge';
+import { buildRegulatoryContext } from './regulatoryContext';
 import { DAY_QUESTIONS, getBlindSpots, calcCompletion, computeFinancialMetrics } from '../data/dailyQuestions';
 import { classifyTier } from './financialTier';
 
@@ -737,6 +738,7 @@ export function buildSystemPrompt(userData) {
 פוקוס: ${tier.focus_hebrew}
 ⚠️ הגבל ייעוץ לשלב זה — אין לדון בהשקעות עם מי שבשלב ייצוב/שרידות.\n`;
 
+  const regulatoryCtx = buildRegulatoryContext(userData);
   const growthLayer = buildGrowthEngineLayer(userData, tier, metrics);
 
   return `
@@ -772,6 +774,7 @@ ${userContext}
 **סטטוס אפיון:** ${completion}% ${isProfileComplete ? '✅ הושלם — ייעוץ מלא מאושר' : '⏳ בתהליך — ייעוץ חלקי בלבד'}
 
 ${tierCtx}
+${regulatoryCtx}
 ${growthLayer}
 ═══════════════════════════════════════
 🎯 המשימה שלך
