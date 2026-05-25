@@ -1,10 +1,14 @@
 {
   "date": "2026-05-23",
-  "generatedAt": "2026-05-23T06:55:41.417Z",
+  "generatedAt": "2026-05-23T08:33:38.639Z",
   "project": "VerMillion",
   "version": "1.0.0",
   "deployUrl": "https://vermillion-ashen.vercel.app",
   "commits": [
+    {
+      "hash": "a63fb265",
+      "message": "feat: conversational onboarding — VerMillion שיחה במקום טופס"
+    },
     {
       "hash": "9924a231",
       "message": "fix: prevent duplicate onboarding messages in chat_history"
@@ -34,6 +38,7 @@
     "docs/LEGAL_SYSTEM_SPEC_HE.md",
     "docs/PRODUCT_CONTRACT.md",
     "docs/sessions/2026-05-22.json",
+    "docs/sessions/2026-05-23.json",
     "my-skills/14-ceo-mode/SKILL.md",
     "my-skills/15-legal-prep/SKILL.md",
     "my-skills/16-pitch/SKILL.md",
@@ -49,7 +54,9 @@
     "src/screens/onboarding/SubscriptionScreen.js",
     "src/screens/profile/ProfileScreen.js",
     "src/screens/vermillion/VerMillionScreen.js",
-    "src/services/ghostAgent.js"
+    "src/services/aiService.js",
+    "src/services/ghostAgent.js",
+    "src/services/profilingAgent.js"
   ],
   "todosRemaining": [
     "לפני השקה ❌ (TODO קריטי)",

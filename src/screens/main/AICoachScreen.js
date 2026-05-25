@@ -52,6 +52,7 @@ export default function AICoachScreen({ navigation }) {
   const voiceReadyRef = useRef(false);
   const sendRef = useRef(null);
   const typingStartRef = useRef(null);
+  const typewriterRef = useRef(null);
   const voice = useVoice();
 
   // Voice mode animations
@@ -179,10 +180,8 @@ export default function AICoachScreen({ navigation }) {
         const history = await getChatHistory();
         if (history.length > 0) {
           setMessages(history.slice(-30));
-          profilingHistoryRef.current = history
-            .filter(m => m.text && !m.text.startsWith('🔍') && !m.text.startsWith('🧠'))
-            .slice(-10)
-            .map(m => ({ role: m.role, content: m.text }));
+          // Start fresh — no old history in AI context (prevents style contamination)
+          profilingHistoryRef.current = [];
           const prevUserMsgs = history.filter(m => m.role === 'user').length;
           setProfilingMsgCount(prevUserMsgs % 5);
         } else if (day === 1) {
@@ -276,8 +275,27 @@ export default function AICoachScreen({ navigation }) {
     } catch { /* non-critical */ }
   }
 
+  function animateText(msgId, fullText, onComplete) {
+    if (typewriterRef.current) clearInterval(typewriterRef.current);
+    let pos = 0;
+    typewriterRef.current = setInterval(() => {
+      if (!mountedRef.current) { clearInterval(typewriterRef.current); typewriterRef.current = null; return; }
+      pos = Math.min(pos + 2, fullText.length);
+      setMessages(prev => prev.map(m =>
+        m.id === msgId ? { ...m, text: fullText.slice(0, pos) } : m
+      ));
+      flatListRef.current?.scrollToEnd({ animated: false });
+      if (pos >= fullText.length) {
+        clearInterval(typewriterRef.current);
+        typewriterRef.current = null;
+        onComplete?.();
+      }
+    }, 18);
+  }
+
   const send = async (text) => {
     if (!text.trim() || loading) return;
+    if (typewriterRef.current) { clearInterval(typewriterRef.current); typewriterRef.current = null; }
     voice.stopSpeaking();
     const sendStart = now();
     const typingMs = typingStartRef.current ? (sendStart - typingStartRef.current) : null;
@@ -303,17 +321,17 @@ export default function AICoachScreen({ navigation }) {
         ].slice(-12);
 
         const partialId = nextId();
-        setMessages(prev => [...prev, { id: partialId, role: 'assistant', text: '' }]);
+        setMessages(prev => [...prev, { id: partialId, role: 'assistant', text: '…' }]);
         telemetry.chatAiStart(partialId, 'AICoach');
 
+        let streamLen = 0;
         const response = await chatWithProfilingPrompt(
           profilingHistoryRef.current,
           systemPrompt,
           (partial) => {
             if (!mountedRef.current) return;
-            setMessages(prev => prev.map(m => m.id === partialId ? { ...m, text: partial } : m));
-            telemetry.chatAiChunk(partialId, partial.length, 'AICoach');
-            flatListRef.current?.scrollToEnd({ animated: false });
+            streamLen = partial.length;
+            telemetry.chatAiChunk(partialId, streamLen, 'AICoach');
           }
         );
 
@@ -322,15 +340,18 @@ export default function AICoachScreen({ navigation }) {
 
         if (mountedRef.current) {
           telemetry.chatAiDone(finalText, responseMs, 'AICoach');
-          setMessages(prev => {
-            const updated = prev.map(m => m.id === partialId
-              ? { ...m, text: finalText, responseMs, sentAt: now() }
-              : m);
-            saveChatHistory(updated).catch(() => {});
-            return updated;
+          animateText(partialId, finalText, () => {
+            if (!mountedRef.current) return;
+            setMessages(prev => {
+              const updated = prev.map(m => m.id === partialId
+                ? { ...m, text: finalText, responseMs, sentAt: now() }
+                : m);
+              saveChatHistory(updated).catch(() => {});
+              return updated;
+            });
+            appendChatMessage({ id: partialId, role: 'assistant', text: finalText, responseMs, sentAt: now() }).catch(() => {});
+            if (voiceEnabled) voice.speak(finalText);
           });
-          appendChatMessage({ id: partialId, role: 'assistant', text: finalText, responseMs, sentAt: now() }).catch(() => {});
-          if (voiceEnabled) voice.speak(finalText);
         }
 
         profilingHistoryRef.current = [

@@ -27,9 +27,20 @@ export function AuthProvider({ children }) {
         clearTimeout(bail);
         settled = true;
         if (session?.user) {
-          setUser(session.user);
-          loadProfile(session.user.id);
-          return;
+          // Validate session against server — getSession() reads localStorage without
+          // hitting the network, so a deleted account still looks "logged in" locally.
+          // getUser() hits /auth/v1/user and returns 403 if the account no longer exists.
+          const { error: userErr } = await supabase.auth.getUser();
+          if (userErr) {
+            // Stale session (account deleted externally, e.g. CEO delete in CRM).
+            // Sign out clears the bad JWT from localStorage so the next flow starts fresh.
+            await supabase.auth.signOut().catch(() => {});
+            // Fall through to ghost / anonymous below
+          } else {
+            setUser(session.user);
+            loadProfile(session.user.id);
+            return;
+          }
         }
         const ghost = await getGhostPlaySession();
         if (ghost?.ghostId) {

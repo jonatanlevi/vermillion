@@ -23,6 +23,9 @@ import { CONFIG } from '../../config';
 const nextId = () => `msg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
 const QUESTIONS_PER_DAY = 3;
 
+// Session-scoped dedup — prevents saving the same AI question twice in one app session
+const _savedAssistantTexts = new Set();
+
 function getActiveDay(daysCompleted) {
   return Math.min((daysCompleted || []).length + 1, 7);
 }
@@ -459,27 +462,16 @@ export default function VerMillionScreen({ navigation }) {
       return id;
     }
 
-    // Thinking delay then typewriter
-    const thinkDelay = text.length < 50 ? 600 : text.length < 150 ? 700 : 800;
-    const charDelay  = text.length < 50 ? 28  : text.length < 150 ? 18  : 10;
+    // Show thinking dots, then reveal full text — Bubble handles typewriter
+    const thinkDelay = 500;
 
     setMessages(prev => [...prev, { id, role, text: '…' }]);
     setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
 
     setTimeout(() => {
       if (!mountedRef.current) return;
-      let i = 0;
-      setMessages(prev => prev.map(m => m.id === id ? { ...m, text: '' } : m));
-      const iv = setInterval(() => {
-        if (!mountedRef.current) { clearInterval(iv); return; }
-        i++;
-        setMessages(prev => prev.map(m => m.id === id ? { ...m, text: text.slice(0, i) } : m));
-        flatListRef.current?.scrollToEnd({ animated: false });
-        if (i >= text.length) {
-          clearInterval(iv);
-          if (voiceModeRef.current) voice.speak(text);
-        }
-      }, charDelay);
+      setMessages(prev => prev.map(m => m.id === id ? { ...m, text } : m));
+      if (voiceModeRef.current) voice.speak(text);
     }, thinkDelay);
 
     return id;
@@ -557,6 +549,10 @@ export default function VerMillionScreen({ navigation }) {
     }
 
     addMsg('assistant', text);
+    if (!_savedAssistantTexts.has(text)) {
+      _savedAssistantTexts.add(text);
+      appendChatMessage({ id: nextId(), role: 'assistant', text }).catch(() => {});
+    }
   }
 
   const sendVoice = () => {
@@ -603,7 +599,7 @@ export default function VerMillionScreen({ navigation }) {
           if (correctedText.length > 1) {
             setLoading(false);
             const correctedValue = await processOnboardingAnswer(lastSavedFieldRef.current, correctedText);
-            const ackMsg = `תוקן — ${getAck(lastSavedFieldRef.current, correctedValue)}`;
+            const ackMsg = `עדכנתי — ${getAck(lastSavedFieldRef.current, correctedValue)}`;
             addMsg('assistant', ackMsg);
             if (voiceModeRef.current) voice.speak(ackMsg);
             return;
@@ -613,7 +609,7 @@ export default function VerMillionScreen({ navigation }) {
         // ── ולידציה: שדות מספריים חייבים מספר ───────────────
         const NUMERIC_FIELDS = new Set(['netIncome','housingCost','fixedExpenses','variableExpenses',
           'creditDebt','loans','overdraft','savings','assets','spouseIncome','retirementSavings','kids']);
-        const ZERO_WORDS = /^(אין|לא\b|אפס|כלום|שום|0|null|none|לא יודע|לא בטוח)/i;
+        const ZERO_WORDS = /^(אין|אפס|כלום|שום דבר|שום|0|null|none|לא יודע|לא בטוח|לא עולה|לא עולה לי|לא עולה כלום|בחינם|חינם|לא משלם|לא משלמת|לא|לא רלוונטי)/i;
         const INCLUDED_IN_OTHER = /כלול|כבר ב|כבר נמצא|כבר חשבתי|נכנס לתוך|כולל|נכלל|חלק מ|בפנים|שם כבר|מחושב|ממה שאמרתי|כבר אמרתי|הוזכר/i;
         if (NUMERIC_FIELDS.has(pendingField) && !ZERO_WORDS.test(text.trim()) && !INCLUDED_IN_OTHER.test(text) && !/\d/.test(text) && !/אלף|מאה|מיליון|אלפיים|אחד|שניים|שלוש|ארבע|חמש|שש|שבע|שמונה|תשע|עשר/.test(text)) {
           setLoading(false);
@@ -920,14 +916,14 @@ function getAck(field, answer) {
     if (/גרוש|גרושה/.test(t)) return 'מבין. שינוי גדול בחיים — נתחשב בזה בכל ההמלצות.';
     if (/נשוי|נשואה/.test(t)) return 'תכנון פיננסי עם בן/בת זוג זה אחרת לגמרי — יש כאן שני ראשים, ולפעמים שתי דעות. נבנה תמונה מלאה.';
     if (/זוגיות|פרטנר/.test(t)) return 'בזוגיות — יש לפעמים שאלות משותפות. נתחשב בזה.';
-    return 'נרשם.';
+    return 'מובן.';
   }
 
   if (field === 'employmentType') {
     if (/לא עובד|מובטל|אין עבודה/.test(t)) return 'בסדר — נעבוד עם מה שנכנס. גם בלי עבודה יש מה לעשות עם הכסף.';
     if (/עצמאי|עסק|יזם|פרילנס/.test(t)) return 'עצמאי — הכנסה גמישה דורשת תכנון אחר. נתאים את הגישה.';
     if (/שכיר/.test(t)) return 'שכיר — יש לנו משכורת ברורה לעבוד ממנה. טוב.';
-    return 'רשמתי.';
+    return 'אוקיי.';
   }
 
   if (field === 'kids') {
@@ -938,8 +934,8 @@ function getAck(field, answer) {
   }
 
   if (field === 'netIncome') {
-    if (!n) return 'קיבלתי — זה הבסיס שנעבוד ממנו.';
-    return `${fmt(n)} נטו — הבסיס שנעבוד ממנו. נראה כמה מזה נשאר בסוף החודש.`;
+    if (!n) return 'קיבלתי — נתחיל מכאן.';
+    return `${fmt(n)} נטו — נתחיל מכאן. נסתכל כמה מזה נשאר בסוף החודש.`;
   }
 
   if (field === 'incomeStability') {
@@ -950,27 +946,27 @@ function getAck(field, answer) {
   if (field === 'housingType') {
     if (/שכיר|שכירות|שוכר/.test(t)) return 'שכירות — אחת ההוצאות הגדולות. נסתכל כמה מהכנסה היא לוקחת.';
     if (/משכנתא|בבעלות/.test(t)) return 'משכנתא — גם נכס וגם התחייבות חודשית. נסתכל על הפרמטרים.';
-    if (/הורים|אמא|אבא/.test(t)) return 'אצל הורים — חוסך בהוצאות דיור, פוטנציאל גדול לצבירה מהירה.';
-    return 'הבנתי — רשמתי את סוג הדיור שלך.';
+    if (/הורים|אמא|אבא/.test(t)) return 'אצל הורים — אחת ההחלטות הפיננסיות הכי חזקות. הרבה כסף נשאר בצד.';
+    return 'קיבלתי את סוג הדיור שלך.';
   }
 
   if (field === 'housingCost') {
-    if (!n || n === 0) return 'ללא עלות דיור — יתרון ממשי, עוד כסף להכניס לעבודה.';
-    return `${fmt(n)} על דיור — רשמתי. אחת ההוצאות המרכזיות, נסתכל עליה בהקשר.`;
+    if (!n || n === 0) return 'ללא עלות דיור — זה משחרר תזרים משמעותי. עוד כסף להכניס לעבודה.';
+    return `${fmt(n)} על דיור — אחת ההוצאות המרכזיות, נסתכל עליה בהקשר.`;
   }
 
   if (field === 'fixedExpenses') {
     if (n === 0) return 'ללא הוצאות קבועות נוספות — מצוין, עומס מינימלי על התקציב.';
-    return n ? `${fmt(n)} בהוצאות קבועות — כל שקל כאן חשוב, רשמתי.` : 'הבנתי — רשמתי.';
+    return n ? `${fmt(n)} בהוצאות קבועות — כל שקל כאן חשוב.` : 'קיבלתי.';
   }
 
   if (field === 'variableExpenses') {
-    if (n === 0) return 'הבנתי — כלול בקבועים. רשמתי אפס להוצאות המשתנות.';
-    return n ? `${fmt(n)} משתנות — כאן לרוב יש הכי הרבה מרחב לשיפור. רשמתי.` : 'הבנתי — רשמתי.';
+    if (n === 0) return 'מובן — כלול בקבועים. אפס להוצאות המשתנות.';
+    return n ? `${fmt(n)} משתנות — כאן לרוב יש הכי הרבה מרחב לשיפור.` : 'קיבלתי.';
   }
 
   if (field === 'biggestExpense') {
-    return 'מעניין — זה מגלה הרבה על סדרי העדיפויות שלך. רשמתי.';
+    return 'מעניין — זה מגלה הרבה על סדרי העדיפויות שלך.';
   }
 
   if (field === 'creditDebt') {
@@ -980,7 +976,7 @@ function getAck(field, answer) {
 
   if (field === 'loans') {
     if (n === 0) return 'ללא הלוואות — מצוין, פחות עומס חודשי.';
-    return n ? `${fmt(n)} בהלוואות — הבנתי. נבנה יחד תכנית פירעון הגיונית.` : 'הבנתי — רשמתי.';
+    return n ? `${fmt(n)} בהלוואות — נבנה יחד תכנית פירעון הגיונית.` : 'קיבלתי.';
   }
 
   if (field === 'overdraft') {
@@ -994,7 +990,7 @@ function getAck(field, answer) {
   }
 
   if (field === 'assets') {
-    return 'רשמתי את הנכסים — חשוב לתמונה הכוללת של העושר שלך.';
+    return 'קיבלתי את הנכסים — חשוב לתמונה הכוללת של העושר שלך.';
   }
 
   if (field === 'moneyGoal') {
@@ -1002,21 +998,21 @@ function getAck(field, answer) {
   }
 
   if (field === 'moneyFear') {
-    return 'הבנתי — זה בדיוק מה שנטפל בו. לא לבד בזה.';
+    return 'קיבלתי — זה בדיוק מה שנטפל בו. לא לבד בזה.';
   }
 
   if (field === 'endOfMonthFeeling') {
     if (/עצבני|לחוץ|מתח|מפחד|חרד/.test(t)) return 'לחץ בסוף חודש — זה נפוץ יותר ממה שחושבים. בדיוק בשביל זה אני פה.';
     if (/שקט|בסדר|טוב|רגוע/.test(t)) return 'שקט פיננסי — זה כוח אמיתי. נשמר ונגדיל אותו.';
     if (/לא בודק|לא מסתכל|מתעלם/.test(t)) return 'לא בודק — כנות שמחייבת. נתחיל לבנות תמונה ברורה ביחד.';
-    return 'הבנתי. תחושות כסף הן מידע חשוב — נשים על זה עין.';
+    return 'קיבלתי. תחושות כסף הן מידע חשוב — נשים על זה עין.';
   }
 
   if (field === 'moneyPersonality') {
     if (/חוסך|שומר|שמרן/.test(t)) return 'חוסך — בסיס מצוין. נגרום לחיסכון לעבוד קשה יותר בשבילך.';
     if (/מוציא|מבזבז|קונה/.test(t)) return 'נוטה להוציא — בסדר. נבין מה מניע את זה ונמצא איזון.';
     if (/לא מסתכל|לא בודק|מתעלם/.test(t)) return 'לא מסתכל — זה ישתנה. עד סוף השבוע תהיה לך תמונה ברורה.';
-    return 'הבנתי. נלמד ביחד מה מאפיין אותך עם כסף.';
+    return 'מעניין. נלמד ביחד מה מאפיין אותך עם כסף.';
   }
 
   if (field === 'biggestDream') {
@@ -1027,7 +1023,7 @@ function getAck(field, answer) {
 
   if (field === 'spouseIncome') {
     if (n === 0) return 'ללא הכנסה נוספת בבית כרגע — עובדים עם מה שיש, ויש מה לעשות.';
-    return n ? `${fmt(n)} נוספים — הכנסה משולבת משנה את החישוב. רשמתי.` : 'הבנתי — רשמתי.';
+    return n ? `${fmt(n)} נוספים — הכנסה משולבת משנה את החישוב.` : 'קיבלתי.';
   }
 
   if (field === 'retirementSavings') {
@@ -1035,7 +1031,7 @@ function getAck(field, answer) {
     return `${fmt(n)} בחודש לפנסיה — מצוין. נבין אם זה מספיק לפי גילך ומטרותיך.`;
   }
 
-  return 'הבנתי — רשמתי.';
+  return 'קיבלתי.';
 }
 
 const STAGE_RE = /^[🔍🧠✓✨⏳]/;
@@ -1061,7 +1057,7 @@ function Bubble({ message }) {
       i++;
       setDisplayed(text.slice(0, i));
       if (i >= text.length) clearInterval(timerRef.current);
-    }, 22);
+    }, 18);
     return () => clearInterval(timerRef.current);
   }, [message.text, message.streaming]);
 

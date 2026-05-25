@@ -1,4 +1,10 @@
 Write-Host "Building..." -ForegroundColor Cyan
+# Clear Metro's on-disk transform cache (not cleared by --clear alone)
+$metroCache = "$env:TEMP\metro-cache"
+if (Test-Path $metroCache) {
+  Remove-Item -Recurse -Force $metroCache
+  Write-Host "Cleared Metro transform cache" -ForegroundColor DarkGray
+}
 npx expo export --platform web --clear
 if ($LASTEXITCODE -ne 0) {
   Write-Host "expo export failed (exit $LASTEXITCODE)." -ForegroundColor Red
