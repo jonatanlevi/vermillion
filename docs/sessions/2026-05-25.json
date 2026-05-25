@@ -1,10 +1,18 @@
 {
   "date": "2026-05-25",
-  "generatedAt": "2026-05-25T12:43:00.852Z",
+  "generatedAt": "2026-05-25T16:17:32.631Z",
   "project": "VerMillion",
   "version": "1.0.0",
   "deployUrl": "https://vermillion-ashen.vercel.app",
   "commits": [
+    {
+      "hash": "1f65f879",
+      "message": "chore: save session docs and ux simulation scripts"
+    },
+    {
+      "hash": "2e2bdb5a",
+      "message": "feat: add personalized Israeli regulatory intent layer"
+    },
     {
       "hash": "032381d8",
       "message": "fix: code-review — max_tokens 900, AbortController timeout, bubble flash, ZERO_WORDS lookahead, animateText 1char/tick"
@@ -22,10 +30,15 @@
     "docs/sessions/2026-05-23.json",
     "docs/sessions/2026-05-24.json",
     "docs/sessions/2026-05-25.json",
+    "docs/ux-simulation-report.md",
+    "scripts/simulation-results.json",
+    "scripts/ux-simulation.mjs",
     "src/context/AuthContext.js",
     "src/screens/main/AICoachScreen.js",
     "src/screens/vermillion/VerMillionScreen.js",
-    "src/services/profilingAgent.js"
+    "src/services/aiPrompts.js",
+    "src/services/profilingAgent.js",
+    "src/services/regulatoryContext.js"
   ],
   "todosRemaining": [
     "לפני השקה ❌ (TODO קריטי)",
