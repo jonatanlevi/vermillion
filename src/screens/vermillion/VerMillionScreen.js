@@ -609,7 +609,7 @@ export default function VerMillionScreen({ navigation }) {
         // ── ולידציה: שדות מספריים חייבים מספר ───────────────
         const NUMERIC_FIELDS = new Set(['netIncome','housingCost','fixedExpenses','variableExpenses',
           'creditDebt','loans','overdraft','savings','assets','spouseIncome','retirementSavings','kids']);
-        const ZERO_WORDS = /^(אין|אפס|כלום|שום דבר|שום|0|null|none|לא יודע|לא בטוח|לא עולה|לא עולה לי|לא עולה כלום|בחינם|חינם|לא משלם|לא משלמת|לא|לא רלוונטי)/i;
+        const ZERO_WORDS = /^(אין|אפס|כלום|שום דבר|שום|0|null|none|לא יודע|לא בטוח|לא עולה|לא עולה לי|לא עולה כלום|בחינם|חינם|לא משלם|לא משלמת|לא(?!\s*\d)|לא רלוונטי)/i;
         const INCLUDED_IN_OTHER = /כלול|כבר ב|כבר נמצא|כבר חשבתי|נכנס לתוך|כולל|נכלל|חלק מ|בפנים|שם כבר|מחושב|ממה שאמרתי|כבר אמרתי|הוזכר/i;
         if (NUMERIC_FIELDS.has(pendingField) && !ZERO_WORDS.test(text.trim()) && !INCLUDED_IN_OTHER.test(text) && !/\d/.test(text) && !/אלף|מאה|מיליון|אלפיים|אחד|שניים|שלוש|ארבע|חמש|שש|שבע|שמונה|תשע|עשר/.test(text)) {
           setLoading(false);
@@ -1051,8 +1051,8 @@ function Bubble({ message }) {
       return;
     }
     clearInterval(timerRef.current);
-    let i = 0;
-    setDisplayed('');
+    let i = 1;
+    setDisplayed(text.slice(0, 1));
     timerRef.current = setInterval(() => {
       i++;
       setDisplayed(text.slice(0, i));

@@ -280,7 +280,7 @@ export default function AICoachScreen({ navigation }) {
     let pos = 0;
     typewriterRef.current = setInterval(() => {
       if (!mountedRef.current) { clearInterval(typewriterRef.current); typewriterRef.current = null; return; }
-      pos = Math.min(pos + 2, fullText.length);
+      pos = Math.min(pos + 1, fullText.length);
       setMessages(prev => prev.map(m =>
         m.id === msgId ? { ...m, text: fullText.slice(0, pos) } : m
       ));

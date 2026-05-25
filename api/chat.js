@@ -23,7 +23,7 @@ const MODELS_COACHING = {
 
 function buildProviderList(isQuickAck) {
   const models = isQuickAck ? MODELS_QUICK : MODELS_COACHING;
-  const maxTokens = isQuickAck ? 120 : 600;
+  const maxTokens = isQuickAck ? 120 : 900;
   const list = [];
 
   const groqEntry = GROQ_API_KEY ? {
@@ -90,6 +90,8 @@ export default async function handler(req) {
 
   for (const provider of providers) {
     let res;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), isQuickAck ? 8000 : 18000);
     try {
       res = await fetch(provider.url, {
         method: 'POST',
@@ -98,6 +100,7 @@ export default async function handler(req) {
           'Content-Type': 'application/json',
           ...(provider.extraHeaders || {}),
         },
+        signal: controller.signal,
         body: JSON.stringify({
           model: provider.model,
           messages: allMessages,
@@ -107,8 +110,10 @@ export default async function handler(req) {
           ...(provider.isGroq ? { stream_options: { include_usage: true } } : {}),
         }),
       });
+      clearTimeout(timeoutId);
     } catch (e) {
       console.error(`[${provider.name}] network error:`, e.message);
+      clearTimeout(timeoutId);
       continue;
     }
 
