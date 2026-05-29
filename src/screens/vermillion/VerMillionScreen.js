@@ -598,7 +598,6 @@ export default function VerMillionScreen({ navigation }) {
           { role: 'user', content: text },
         ];
 
-        let streamStarted = false;
         let fullText = '';
 
         try {
@@ -612,30 +611,28 @@ export default function VerMillionScreen({ navigation }) {
           if (res.ok && res.body) {
             const reader = res.body.getReader();
             const decoder = new TextDecoder();
+            let buffer = '';
             while (true) {
               const { done, value } = await reader.read();
               if (done) break;
-              const chunk = decoder.decode(value, { stream: true });
-              for (const line of chunk.split('\n')) {
+              buffer += decoder.decode(value, { stream: true });
+              const lines = buffer.split('\n');
+              buffer = lines.pop() ?? '';
+              for (const line of lines) {
                 const trimmed = line.trim();
                 if (!trimmed.startsWith('data: ')) continue;
                 const data = trimmed.slice(6);
                 if (data === '[DONE]') continue;
                 try {
                   const token = JSON.parse(data).choices?.[0]?.delta?.content || '';
-                  if (token) {
-                    fullText += token;
-                    if (!streamStarted) { streamStarted = true; setLoading(false); }
-                    if (mountedRef.current) {
-                      setMessages(prev => prev.map(m => m.id === partialId ? { ...m, text: fullText, streaming: true } : m));
-                    }
-                  }
-                } catch { /* partial chunk */ }
+                  if (token) fullText += token;
+                } catch { /* partial JSON — buffer handles continuation */ }
               }
             }
           }
         } catch { /* network error — fall through to fallback */ }
 
+        setLoading(false);
         if (!fullText) fullText = 'לא הצלחתי להתחבר. נסה שוב.';
 
         if (mountedRef.current) {
