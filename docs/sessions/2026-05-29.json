@@ -1,0 +1,62 @@
+{
+  "date": "2026-05-29",
+  "generatedAt": "2026-05-29T14:30:00.000Z",
+  "project": "VerMillion",
+  "version": "1.0.0",
+  "deployUrl": "https://vermillion-ashen.vercel.app",
+  "commits": [
+    {
+      "hash": "3fdb267",
+      "message": "feat: budget system + profiling chat overhaul",
+      "files": [
+        "api/chat.js",
+        "src/navigation/AppNavigator.js",
+        "src/screens/main/BudgetScreen.js (NEW)",
+        "src/screens/profile/ProfileScreen.js",
+        "src/screens/vermillion/VerMillionScreen.js",
+        "src/services/budgetEngine.js (NEW)",
+        "src/services/profilingAgent.js",
+        "src/services/storage.js"
+      ]
+    }
+  ],
+  "filesChanged": [
+    "api/chat.js",
+    "src/navigation/AppNavigator.js",
+    "src/screens/main/BudgetScreen.js",
+    "src/screens/profile/ProfileScreen.js",
+    "src/screens/vermillion/VerMillionScreen.js",
+    "src/services/budgetEngine.js",
+    "src/services/profilingAgent.js",
+    "src/services/storage.js"
+  ],
+  "todosRemaining": [
+    "לפני השקה: terms_accepted_at + terms_version להוסיף לטבלת Supabase + ל-PROFILE_DB_COLUMNS",
+    "לפני השקה: ANTHROPIC_API_KEY ל-.env + Vercel (profile-reveal Layer 3)",
+    "לפני השקה: ניירת משפטית (תנאי שימוש + תקנון תחרות עם עו\"ד)",
+    "לפני השקה: isActive = isToday || isPast ב-GamesScreen (וודא שנעול)",
+    "בדיקה: לוודא שפרופיילינג חדש (Groq-first) עובד ללא גרביל",
+    "שליחת מיילים לייעוץ משפטי: ראשון 01/06/2026 בבוקר (legalstart@runi.ac.il + Deanlaw@runi.ac.il)"
+  ],
+  "recentDone": [
+    "BUDGET SYSTEM: budgetEngine.js — buildBudget + buildDebtPayoff + buildSavingsProjection",
+    "BUDGET SYSTEM: storage.js — saveExpense/getExpenses/deleteExpense/getGoals/saveGoal/deleteGoal/updateGoalProgress",
+    "BUDGET SYSTEM: BudgetScreen.js — 3 tabs: תקציב / הוצאות / מטרות עם UI מלא",
+    "BUDGET SYSTEM: AppNavigator.js — Budget route מחובר ל-stack",
+    "BUDGET SYSTEM: ProfileScreen.js — CTA כרטיס 'התקציב שלי' מוביל ל-BudgetScreen",
+    "PROFILING FIX: api/chat.js — taskType=profiling → Groq ראשון (פותר גרביל עברית מ-Gemini free)",
+    "PROFILING FIX: VerMillionScreen.js — העברת taskType:profiling ל-/api/chat",
+    "PROFILING FIX: profilingAgent.js — system prompt ממוקד: 1 משפט קבלת פנים → pivot מיידי לשאלה קונקרטית",
+    "PROFILING FIX: כלל חדש ב-prompt — אם משתמש אומר 'חופש כלכלי' → 'יפה' ב-5 מילים + מעבר הלאה",
+    "PROFILING FIX: nextQuestion מחושב דינמי לפי שדות שנאספו עד כה"
+  ],
+  "analysis": {
+    "problemsFound": [
+      "גרביל עברית חמור: Gemini free (OpenRouter) לא מתמחה בעברית — נשלח ראשון לפרופיילינג",
+      "שיחה סובבת 33 הודעות על 'חופש כלכלי' ללא איסוף נתונים — system prompt לא הכווין לpivot",
+      "QUESTIONS_PER_DAY=3 לא עצר שיחה — השיחה הייתה מגרסה לפני הפיקס"
+    ],
+    "rootCause": "buildProviderList הכניסה OpenRouter ראשון כשtaskType לא הוגדר. כל קריאות פרופיילינג שלחו בלי taskType.",
+    "fix": "taskType=profiling → Groq ראשון. system prompt ממוקד עם כלל pivot מפורש."
+  }
+}
