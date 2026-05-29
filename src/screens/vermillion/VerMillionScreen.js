@@ -12,6 +12,7 @@ import {
   getDayProgress, completeDay, generateProfile, generateCoachingOpener,
 } from '../../services/onboardingAI';
 import { askTeam } from '../../services/agents';
+import { buildProfilingSystemPrompt, extractAndSaveProfiling, buildDayReturnMessage } from '../../services/profilingAgent';
 import { telemetry } from '../../services/activityTelemetry';
 import Avatar3D from '../../components/Avatar3D';
 import { useAuth } from '../../context/AuthContext';
@@ -534,18 +535,17 @@ export default function VerMillionScreen({ navigation }) {
       return;
     }
 
-    const { field, question } = prompt;
-    setPendingField(field);
-    currentQuestionRef.current = question;
     setAvatarMood('asking');
 
-    let text = question;
+    let text;
     if (day === 1 && doneCount === 0) {
       const firstName = profile?.first_name || profile?.name?.split(' ')[0] || '';
       const greeting = firstName ? `שלום ${firstName}! 👋` : 'שלום! 👋';
-      text = `${greeting}\n\nאני VerMillion — היועץ הפיננסי האישי שלך.\n\nאנחנו יוצאים למסע של שבוע — 3 שאלות ביום. בסוף השבוע יהיה לי פרופיל פיננסי מלא עליך, ותקבל יועץ שמכיר אותך באמת.\n\nנתחיל?\n\n${question}`;
-    } else if (doneCount === 0 && day > 1 && DAY_INTROS[day]) {
-      text = `${DAY_INTROS[day]}${question}`;
+      text = `${greeting}\n\nאני VerMillion — היועץ הפיננסי האישי שלך.\n\nהשבוע הראשון הוא שבוע הכירות. לפני שנדבר על מספרים — אני רוצה להכיר אותך כאדם. כי ייעוץ טוב מתחיל מלהבין מי עומד מולי.\n\nספר לי — למה הצטרפת ל-VerMillion? מה גרם לך להחליט להתחיל עכשיו?`;
+    } else if (doneCount === 0) {
+      text = buildDayReturnMessage(day);
+    } else {
+      text = `ממשיכים מאיפה שעצרנו — ספר לי עוד.`;
     }
 
     addMsg('assistant', text);
@@ -580,58 +580,110 @@ export default function VerMillionScreen({ navigation }) {
     telemetry.chatUserMessage(text, _typingMs, _charsPerSec, 'VerMillion');
 
     try {
-      if (phase === 'onboarding' && pendingField) {
-        // ── בלבול: חזור על השאלה ─────────────────────────────
-        const CONFUSION_RE = /לא שמעתי|לא הבנתי|מה אמרת|תחזור|מה\?|סליחה\?|תגיד שוב|לא ברור|מה הכוונה|לא קלטתי/i;
-        if (CONFUSION_RE.test(text)) {
-          setLoading(false);
-          const q = currentQuestionRef.current || 'נסה שוב — אני מקשיב.';
-          const repeatMsg = `אחזור:\n\n${q}`;
-          addMsg('assistant', repeatMsg);
-          if (voiceModeRef.current) voice.speak(repeatMsg);
-          return;
+      if (phase === 'onboarding') {
+        appendChatMessage({ id: userMsgId, role: 'user', text }).catch(() => {});
+        const partialId = nextId();
+        setMessages(prev => [...prev, { id: partialId, role: 'assistant', text: '...' }]);
+
+        const financialData = await getFinancialData();
+        const collected = financialData || {};
+        const systemPrompt = buildProfilingSystemPrompt(currentDay, collected);
+
+        const recentHistory = messages
+          .filter(m => m.role && m.text && !m.text.startsWith('✨') && !m.text.startsWith('⏳') && !m.text.startsWith('⏰'))
+          .slice(-10);
+
+        const chatMessages = [
+          ...recentHistory.map(m => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.text })),
+          { role: 'user', content: text },
+        ];
+
+        let streamStarted = false;
+        let fullText = '';
+
+        try {
+          const origin = typeof window !== 'undefined' ? (window.location?.origin ?? '') : '';
+          const res = await fetch(`${origin}/api/chat`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ messages: chatMessages, systemPrompt, taskType: 'profiling' }),
+          });
+
+          if (res.ok && res.body) {
+            const reader = res.body.getReader();
+            const decoder = new TextDecoder();
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              const chunk = decoder.decode(value, { stream: true });
+              for (const line of chunk.split('\n')) {
+                const trimmed = line.trim();
+                if (!trimmed.startsWith('data: ')) continue;
+                const data = trimmed.slice(6);
+                if (data === '[DONE]') continue;
+                try {
+                  const token = JSON.parse(data).choices?.[0]?.delta?.content || '';
+                  if (token) {
+                    fullText += token;
+                    if (!streamStarted) { streamStarted = true; setLoading(false); }
+                    if (mountedRef.current) {
+                      setMessages(prev => prev.map(m => m.id === partialId ? { ...m, text: fullText, streaming: true } : m));
+                    }
+                  }
+                } catch { /* partial chunk */ }
+              }
+            }
+          }
+        } catch { /* network error — fall through to fallback */ }
+
+        if (!fullText) fullText = 'לא הצלחתי להתחבר. נסה שוב.';
+
+        if (mountedRef.current) {
+          setMessages(prev => prev.map(m => m.id === partialId ? { ...m, text: fullText, streaming: false } : m));
+          appendChatMessage({ id: partialId, role: 'assistant', text: fullText }).catch(() => {});
+          if (voiceModeRef.current) voice.speak(fullText);
         }
 
-        // ── תיקון: משתמש מתקן תשובה קודמת ──────────────────
-        const CORRECTION_RE = /^(?:לא[,!\s]|לא נכון|לא זה|לא כך|רגע[,!\s]|תיקון|טעיתי|שגיתי|אני מתקן)/i;
-        if (CORRECTION_RE.test(text) && lastSavedFieldRef.current) {
-          const correctedText = text.replace(CORRECTION_RE, '').trim();
-          if (correctedText.length > 1) {
-            setLoading(false);
-            const correctedValue = await processOnboardingAnswer(lastSavedFieldRef.current, correctedText);
-            const ackMsg = `עדכנתי — ${getAck(lastSavedFieldRef.current, correctedValue)}`;
-            addMsg('assistant', ackMsg);
-            if (voiceModeRef.current) voice.speak(ackMsg);
-            return;
+        // Silent extraction — runs in background, saves whatever fields were mentioned
+        const allMsgs = [...recentHistory, { role: 'user', text }, { role: 'assistant', text: fullText }];
+        extractAndSaveProfiling(allMsgs).catch(() => {});
+
+        const newCount = questionsToday + 1;
+        setQuestionsToday(newCount);
+
+        if (newCount >= QUESTIONS_PER_DAY) {
+          if (!mountedRef.current) return;
+          await completeDay(currentDay);
+          if (currentDay >= 7) {
+            setAvatarMood('excited');
+            addMsg('assistant', '⏳ רגע אחד — מכין את האפיון האישי שלך...');
+            setTimeout(async () => {
+              if (!mountedRef.current) return;
+              try {
+                const { profileText } = await generateProfile();
+                setMessages(prev => [
+                  ...prev.slice(0, -1),
+                  { id: nextId(), role: 'assistant', text: `${profileText}\n\n✅ VerMillion שלך מוכן לגמרי.\nמעכשיו יש לך יועץ פיננסי אישי — שלך בלבד.` },
+                ]);
+              } catch {
+                setMessages(prev => [
+                  ...prev.slice(0, -1),
+                  { id: nextId(), role: 'assistant', text: '✅ האפיון שלך מוכן!\n\nVerMillion ילמד אותך טוב יותר מיום ליום. אנחנו מתחילים.' },
+                ]);
+              }
+              setPhase('coaching');
+            }, 1500);
+          } else {
+            setAvatarMood('happy');
+            addMsg('assistant', DAY_COMPLETIONS[currentDay] || `יום ${currentDay} ✅\n\nעובר אותך למשחקים...`);
+            setTimeout(() => {
+              if (!mountedRef.current) return;
+              navigation.navigate('Games');
+            }, 2200);
           }
         }
 
-        // ── ולידציה: שדות מספריים חייבים מספר ───────────────
-        const NUMERIC_FIELDS = new Set(['netIncome','housingCost','fixedExpenses','variableExpenses',
-          'creditDebt','loans','overdraft','savings','assets','spouseIncome','retirementSavings','kids']);
-        const ZERO_WORDS = /^(אין|אפס|כלום|שום דבר|שום|0|null|none|לא יודע|לא בטוח|לא עולה|לא עולה לי|לא עולה כלום|בחינם|חינם|לא משלם|לא משלמת|לא(?!\s*\d)|לא רלוונטי)/i;
-        const INCLUDED_IN_OTHER = /כלול|כבר ב|כבר נמצא|כבר חשבתי|נכנס לתוך|כולל|נכלל|חלק מ|בפנים|שם כבר|מחושב|ממה שאמרתי|כבר אמרתי|הוזכר/i;
-        if (NUMERIC_FIELDS.has(pendingField) && !ZERO_WORDS.test(text.trim()) && !INCLUDED_IN_OTHER.test(text) && !/\d/.test(text) && !/אלף|מאה|מיליון|אלפיים|אחד|שניים|שלוש|ארבע|חמש|שש|שבע|שמונה|תשע|עשר/.test(text)) {
-          setLoading(false);
-          const retryMsg = `לא קלטתי מספר. ${currentQuestionRef.current}`;
-          addMsg('assistant', retryMsg);
-          if (voiceModeRef.current) voice.speak(retryMsg);
-          return;
-        }
-
-        const parsedValue = await processOnboardingAnswer(pendingField, text);
-        lastSavedFieldRef.current = pendingField;
-        const newCount = questionsToday + 1;
-        setQuestionsToday(newCount);
-        setPendingField(null);
-
-        const ack = getAck(pendingField, parsedValue);
-        appendChatMessage({ id: userMsgId, role: 'user', text }).catch(() => {});
-        await new Promise(r => setTimeout(r, 300));
-        addMsg('assistant', ack);
-        appendChatMessage({ id: nextId(), role: 'assistant', text: ack }).catch(() => {});
-        await new Promise(r => setTimeout(r, 600));
-        await askNextOnboardingQuestion(currentDay, newCount);
+        setAvatarMood('neutral');
 
       } else if (phase === 'coaching') {
         appendChatMessage({ id: userMsgId, role: 'user', text }).catch(() => {});

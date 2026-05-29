@@ -24,6 +24,7 @@ import ModelDownloadScreen    from '../screens/onboarding/ModelDownloadScreen';
 import GamesScreen      from '../screens/games/GamesScreen';
 import VerMillionScreen from '../screens/vermillion/VerMillionScreen';
 import ProfileScreen    from '../screens/profile/ProfileScreen';
+import BudgetScreen     from '../screens/main/BudgetScreen';
 
 import HomeScreen              from '../screens/main/HomeScreen';
 import DailyQuestionsScreen    from '../screens/main/DailyQuestionsScreen';
@@ -263,6 +264,7 @@ export default function AppNavigator() {
             <Stack.Screen name="AvatarGallery"      component={AvatarGalleryScreen} />
             <Stack.Screen name="GhostPlay"          component={GhostPlayScreen} />
             <Stack.Screen name="Day30Celebration"   component={Day30CelebrationScreen} />
+            <Stack.Screen name="Budget"              component={BudgetScreen} />
           </>
         ) : (
           <>

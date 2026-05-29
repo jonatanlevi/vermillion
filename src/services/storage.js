@@ -14,6 +14,8 @@ const L = {
   SESSIONS: '@vermillion/local/gamesessions',
   PROF:     '@vermillion/local/profile',
   VOICE:    '@vermillion/local/voice_unlocked',
+  EXPENSES: '@vermillion/local/expenses_v1',
+  GOALS:    '@vermillion/local/goals_v1',
 };
 
 async function localGet(key, fallback) {
@@ -721,4 +723,49 @@ export async function clearAllData(knownUserId) {
   }
 
   await supabase.auth.signOut();
+}
+
+// ─── Expenses ────────────────────────────────────────────────
+export async function saveExpense({ amount, category, description = '', date }) {
+  const existing = await localGet(L.EXPENSES, []);
+  const expenses = Array.isArray(existing) ? existing : [];
+  const entry = { id: Date.now(), amount: Math.round(Number(amount)), category, description, date: date || new Date().toISOString().slice(0, 10) };
+  await localSet(L.EXPENSES, [entry, ...expenses]);
+  return entry;
+}
+
+export async function getExpenses(monthKey) {
+  const expenses = await localGet(L.EXPENSES, []);
+  if (!Array.isArray(expenses)) return [];
+  if (!monthKey) return expenses;
+  return expenses.filter(e => e.date && e.date.startsWith(monthKey));
+}
+
+export async function deleteExpense(id) {
+  const expenses = await localGet(L.EXPENSES, []);
+  await localSet(L.EXPENSES, (Array.isArray(expenses) ? expenses : []).filter(e => e.id !== id));
+}
+
+// ─── Goals ───────────────────────────────────────────────────
+export async function getGoals() {
+  return (await localGet(L.GOALS, [])) || [];
+}
+
+export async function saveGoal(goal) {
+  const goals = await getGoals();
+  const idx = goals.findIndex(g => g.id === goal.id);
+  if (idx >= 0) goals[idx] = { ...goals[idx], ...goal };
+  else goals.push({ ...goal, id: goal.id || Date.now(), createdAt: new Date().toISOString() });
+  await localSet(L.GOALS, goals);
+}
+
+export async function deleteGoal(id) {
+  const goals = await getGoals();
+  await localSet(L.GOALS, goals.filter(g => g.id !== id));
+}
+
+export async function updateGoalProgress(id, current) {
+  const goals = await getGoals();
+  const idx = goals.findIndex(g => g.id === id);
+  if (idx >= 0) { goals[idx].current = current; await localSet(L.GOALS, goals); }
 }

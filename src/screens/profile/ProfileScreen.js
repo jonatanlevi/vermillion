@@ -336,6 +336,22 @@ export default function ProfileScreen({ navigation }) {
         </View>
       ) : null}
 
+      {/* Budget CTA */}
+      {financial.netIncome ? (
+        <TouchableOpacity
+          style={styles.budgetBtn}
+          onPress={() => navigation.navigate('Budget')}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.budgetBtnEmoji}>📊</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.budgetBtnTitle}>התקציב שלי</Text>
+            <Text style={styles.budgetBtnSub}>מעקב הוצאות · מטרות חיסכון · פירוק חובות</Text>
+          </View>
+          <Text style={styles.budgetBtnArrow}>←</Text>
+        </TouchableOpacity>
+      ) : null}
+
       {/* Achievements */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>הישגים</Text>
@@ -524,6 +540,16 @@ const styles = StyleSheet.create({
   buyBtn:        { backgroundColor: '#1A1400', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1, borderColor: '#D4AF3766' },
   buyBtnDisabled:{ backgroundColor: '#111', borderColor: '#222' },
   buyBtnText:    { color: '#D4AF37', fontSize: 13, fontWeight: '800' },
+
+  budgetBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    backgroundColor: '#0D1A2E', borderRadius: 16, padding: 16,
+    borderWidth: 1, borderColor: '#1A3A5C', marginBottom: 24,
+  },
+  budgetBtnEmoji: { fontSize: 28 },
+  budgetBtnTitle: { color: '#FFF', fontSize: 15, fontWeight: '800', textAlign: 'right', marginBottom: 3 },
+  budgetBtnSub:   { color: '#4A8ABF', fontSize: 12, textAlign: 'right' },
+  budgetBtnArrow: { color: '#2E86C1', fontSize: 20, fontWeight: '700' },
 
   logoutBtn: { alignItems: 'center', paddingVertical: 14, marginTop: 8 },
   logoutText:{ color: '#C0392B', fontSize: 15, fontWeight: '600' },

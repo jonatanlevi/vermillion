@@ -21,7 +21,7 @@ const MODELS_COACHING = {
   together:   'meta-llama/Llama-3.3-70B-Instruct-Turbo',
 };
 
-function buildProviderList(isQuickAck) {
+function buildProviderList(isQuickAck, isHebrew) {
   const models = isQuickAck ? MODELS_QUICK : MODELS_COACHING;
   const maxTokens = isQuickAck ? 120 : 900;
   const list = [];
@@ -55,15 +55,15 @@ function buildProviderList(isQuickAck) {
     maxTokens,
   } : null;
 
-  if (isQuickAck) {
-    // quick_ack: Groq first (fastest for short replies)
-    if (groqEntry)   list.push(groqEntry);
-    if (orEntry)     list.push(orEntry);
+  if (isQuickAck || isHebrew) {
+    // quick_ack + profiling/Hebrew: Groq first — llama-3.3 handles Hebrew reliably
+    if (groqEntry)     list.push(groqEntry);
+    if (orEntry)       list.push(orEntry);
     if (togetherEntry) list.push(togetherEntry);
   } else {
     // coaching: OpenRouter Gemini first (best quality free), Groq fallback
-    if (orEntry)     list.push(orEntry);
-    if (groqEntry)   list.push(groqEntry);
+    if (orEntry)       list.push(orEntry);
+    if (groqEntry)     list.push(groqEntry);
     if (togetherEntry) list.push(togetherEntry);
   }
 
@@ -80,7 +80,8 @@ export default async function handler(req) {
   if (!messages?.length) return new Response(JSON.stringify({ error: 'missing messages' }), { status: 400 });
 
   const isQuickAck = taskType === 'quick_ack';
-  const providers  = buildProviderList(isQuickAck);
+  const isHebrew   = taskType === 'profiling';
+  const providers  = buildProviderList(isQuickAck, isHebrew);
 
   if (!providers.length) return new Response(JSON.stringify({ error: 'no API keys configured' }), { status: 500 });
 

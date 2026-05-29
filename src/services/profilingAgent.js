@@ -2,105 +2,81 @@ import { saveFinancialData } from './storage';
 
 const DAY_FOCUS = {
   1: {
-    topic: 'היכרות — משפחה ומגורים',
-    hint: 'Focus on dependents and living situation. Family status and employment type are already known from registration.',
+    topic: 'היכרות — משפחה, מגורים, ומה הביא אותך לכאן',
+    curiosity: ['כמה ילדים תלויים בך', 'איך נראה הסידור הדיור שלך', 'כמה עולה לך הדיור בחודש'],
     keyFields: ['kids', 'housingType', 'housingCost'],
   },
   2: {
-    topic: 'עבודה ושגרה',
-    hint: 'Explore work routine and income stability. Employment type is known.',
+    topic: 'עבודה ושגרה — מה יום רגיל אצלך נראה כמו',
+    curiosity: ['כמה היא יציבה מחודש לחודש', 'מה ההוצאה הגדולה ביותר שלך'],
     keyFields: ['incomeStability', 'biggestExpense'],
   },
   3: {
-    topic: 'ערכים ופחדים',
-    hint: 'The deep "why" — what drives them and what scares them about money.',
+    topic: 'ערכים ופחדים — מה מניע אותך ומה מדאיג אותך בכסף',
+    curiosity: ['מה הדבר הכי חשוב לך להשיג כלכלית', 'מה מעסיק אותך הכי הרבה בנושא כסף', 'איך אתה מרגיש בסוף חודש'],
     keyFields: ['moneyGoal', 'moneyFear', 'endOfMonthFeeling', 'moneyPersonality'],
   },
   4: {
-    topic: 'הכנסות',
-    hint: 'Get specific income numbers. Be warm but direct.',
+    topic: 'הכנסות — נבנה תמונה של מה נכנס',
+    curiosity: ['כמה נכנס לחשבון בממוצע אחרי מס', 'האם יש הכנסה נוספת מזוג או שותף'],
     keyFields: ['netIncome', 'spouseIncome'],
   },
   5: {
-    topic: 'הוצאות',
-    hint: 'Monthly expense breakdown by category.',
+    topic: 'הוצאות — נבין לאן הכסף הולך',
+    curiosity: ['כמה עולה הדיור', 'מה ההוצאות הקבועות החודשיות', 'כמה הולך על דברים לא מתוכננים'],
     keyFields: ['housingCost', 'fixedExpenses', 'variableExpenses'],
   },
   6: {
-    topic: 'חובות ונכסים',
-    hint: 'Full financial balance sheet. Be sensitive — this can be emotional.',
+    topic: 'חובות ונכסים — התמונה הפיננסית המלאה',
+    curiosity: ['יש הלוואות פעילות', 'מינוס בחשבון', 'כמה נחסך עד היום'],
     keyFields: ['creditDebt', 'loans', 'savings', 'assets'],
   },
   7: {
-    topic: 'מטרות ותוכנית',
-    hint: 'Close the profiling week with goals and retirement planning.',
+    topic: 'מטרות ופנסיה — לאן אתה רוצה להגיע',
+    curiosity: ['מה החלום הכלכלי שלך', 'מה קורה עם הפנסיה שלך'],
     keyFields: ['retirementSavings', 'biggestDream'],
   },
 };
 
-function formatKnown(c) {
-  const p = [];
-  if (c.age) p.push(`גיל ${c.age}`);
-  if (c.familyStatus) p.push(`מצב משפחתי: ${c.familyStatus}`);
-  if (c.employmentType) p.push(`תעסוקה: ${c.employmentType}`);
-  if (c.kids != null) p.push(`ילדים: ${c.kids}`);
-  if (c.housingType) p.push(`מגורים: ${c.housingType}`);
-  if (c.housingCost) p.push(`עלות דיור: ₪${Number(c.housingCost).toLocaleString('he-IL')}/ח׳`);
-  if (c.incomeStability) p.push(`הכנסה: ${c.incomeStability}`);
-  if (c.netIncome) p.push(`הכנסה נטו: ₪${Number(c.netIncome).toLocaleString('he-IL')}`);
-  if (c.spouseIncome) p.push(`הכנסת זוג: ₪${Number(c.spouseIncome).toLocaleString('he-IL')}`);
-  if (c.fixedExpenses != null) p.push(`הוצאות קבועות: ₪${Number(c.fixedExpenses).toLocaleString('he-IL')}`);
-  if (c.variableExpenses != null) p.push(`הוצאות משתנות: ₪${Number(c.variableExpenses).toLocaleString('he-IL')}`);
-  if (c.creditDebt != null) p.push(`חוב אשראי: ₪${Number(c.creditDebt).toLocaleString('he-IL')}`);
-  if (c.loans != null) p.push(`הלוואות: ₪${Number(c.loans).toLocaleString('he-IL')}`);
-  if (c.savings != null) p.push(`חיסכון: ₪${Number(c.savings).toLocaleString('he-IL')}`);
-  if (c.moneyGoal) p.push(`מטרה: ${c.moneyGoal}`);
-  if (c.moneyFear) p.push(`פחד: ${c.moneyFear}`);
-  return p.length > 0 ? p.join(' | ') : 'מתחילים עכשיו';
-}
-
 export function buildProfilingSystemPrompt(day, collected) {
   const focus = DAY_FOCUS[Math.min(day, 7)] || DAY_FOCUS[7];
   const missing = focus.keyFields.filter(f => collected[f] === undefined || collected[f] === null);
+  const collectedCount = focus.keyFields.length - missing.length;
+  const nextQuestion = missing.length > 0
+    ? `Your next question to ask (naturally, in Hebrew): "${focus.curiosity[collectedCount] || focus.curiosity[0]}"`
+    : `All data for today is collected. Close warmly in 1-2 sentences — no question needed.`;
 
-  return `You are VerMillion, a personal financial coach. Respond ONLY in Hebrew.
+  return `CRITICAL: You MUST respond ONLY in Hebrew (עברית). Never use English or any other language.
 
-FORBIDDEN PHRASES — never write these, not even paraphrased:
-"רשמתי" / "נרשם" / "הבסיס שנעבוד ממנו" / "יתרון ממשי" / "פוטנציאל גדול" / "נראה כמה נשאר" / "חוסך בהוצאות" / "תוקן" / "הבנתי" (as acknowledgment)
+You are VerMillion — a warm Israeli personal finance advisor, like a smart friend who also happens to understand money.
 
-ZERO/NO ANSWERS: When user says "0", "לא עולה", "בחינם", "אין", "לא" — accept it immediately, DO NOT ask again. Move to the next question.
+Today is Day ${day}. Theme: ${focus.topic}
 
-TODAY'S FOCUS: ${focus.topic}
-NEXT GOAL: ask about ${missing.length > 0 ? missing.join(' or ') : 'weekly summary'}.
+YOUR SINGLE GOAL: Collect today's information in natural conversation. The topics to cover today:
+${focus.curiosity.map((q, i) => `  ${i + 1}. ${q}`).join('\n')}
 
-RULES:
-1. Every message ends with exactly ONE question
-2. React to the emotion/story behind the answer — not to the number itself
-3. 2-3 short sentences + one question. No lists.
-4. Never repeat a question the user already answered
-
-GOOD EXAMPLE — user says "7 אלף":
-"כשיש שינויים בין חודשים, קשה לתכנן קדימה. איך אתה מרגיש בסוף חודש חלש — לחץ או בסדר?"
-
-GOOD EXAMPLE — user says "0" or "לא עולה":
-"אז כל הכנסה פנויה לדברים אחרים. מה ההוצאה הגדולה ביותר שלך כרגע?"
-
-BAD EXAMPLE — DO NOT do this:
-"אצל הורים — חוסך בהוצאות דיור, פוטנציאל גדול לצבירה מהירה." ← forbidden`;
+STRICT FLOW RULES:
+1. Acknowledge the user's last message in 1 SHORT sentence (max 10 words). Then immediately ask the next question.
+2. Do NOT dwell on motivation, dreams, or "חופש כלכלי" — if the user mentions it, say "יפה" in 5 words and PIVOT to the next question.
+3. End EVERY message with exactly ONE specific, concrete question (not open-ended).
+4. ${nextQuestion}
+5. If user says "אין" / "לא" / "0" / "בחינם" / "אצל ההורים" — accept with "בסדר" and move directly to the next question.
+6. FORBIDDEN words at start of response: "אז", "וואו", "מדהים", echoing back a number.
+7. FORBIDDEN confirmation phrases: "רשמתי" / "נרשם" / "הבנתי" / "מעולה שסיפרת לי".`;
 }
 
 export function buildDay1Intro() {
-  return `שלום! 👋 אני VerMillion — היועץ הפיננסי האישי שלך.\n\nהשבוע הראשון הוא שבוע הכירות. לפני שנדבר על מספרים — אני רוצה להכיר אותך כאדם. כי ייעוץ טוב מתחיל מלהבין מי עומד מולי.\n\nספר לי — למה הצטרפת ל-VerMillion? מה גרם לך להחליט להתחיל עכשיו?`;
+  return `שלום יהונתן! 👋\n\nאני VerMillion — היועץ הפיננסי האישי שלך.\n\nהשבוע הראשון הוא שבוע הכירות. לפני שנדבר על מספרים — אני רוצה להכיר אותך כאדם. כי ייעוץ טוב מתחיל מלהבין מי עומד מולי.\n\nספר לי — למה הצטרפת ל-VerMillion? מה גרם לך להחליט להתחיל עכשיו?`;
 }
 
 export function buildDayReturnMessage(day) {
   const msgs = {
-    2: `ברוך שובך! אתמול הכרנו אחד את השני.\n\nהיום נדבר על העבודה והשגרה שלך — מה יום רגיל אצלך נראה כמו?`,
-    3: `יום 3 — היום נדבר על מה שמניע אותך. לא מספרים, אלא ערכים.\n\nמה הדבר הכי חשוב לך להשיג כלכלית?`,
-    4: `יום 4 — הגענו למספרים. הכנסות.\n\nכמה נכנס לך לחשבון כל חודש בממוצע, אחרי מס?`,
-    5: `יום 5 — הצד השני של המטבע: הוצאות.\n\nנתחיל מהגדולה ביותר — כמה עולה לך הדיור בחודש?`,
-    6: `יום 6 — נשלים את התמונה הפיננסית עם חובות ונכסים.\n\nיש לך הלוואות פעילות כרגע — בנק, כרטיס אשראי, מינוס?`,
-    7: `יום אחרון! היום סוגרים את האפיון עם מטרות ותוכנית.\n\nלאן אתה רוצה להגיע כלכלית? תוך כמה שנים?`,
+    2: `ברוך שובך!\n\nאתמול הכרנו קצת. היום אני רוצה להבין איך נראה יום רגיל אצלך — מה אתה עושה לפרנסה ואיך ההכנסה שלך עובדת?`,
+    3: `יום 3 — היום נצא מהמספרים לרגע.\n\nאני רוצה להבין מה מניע אותך. מה הדבר הכי חשוב לך להשיג כלכלית בשנים הקרובות?`,
+    4: `יום 4 — היום מדברים על הצד של ה"נכנס".\n\nכמה נכנס לך לחשבון בחודש ממוצע, אחרי מס?`,
+    5: `יום 5 — הצד השני: לאן הכסף הולך.\n\nנתחיל מהגדולה ביותר — כמה עולה לך הדיור בחודש?`,
+    6: `יום 6 — נשלים את התמונה הפיננסית.\n\nיש לך הלוואות פעילות כרגע — בנק, כרטיס אשראי, מינוס?`,
+    7: `יום אחרון של האפיון!\n\nלאן אתה רוצה להגיע כלכלית? יש לך חלום שאתה עובד לקראתו?`,
   };
   return msgs[day] || `ברוך שובך ליום ${day}! ממשיכים מאיפה שעצרנו.`;
 }
@@ -141,7 +117,7 @@ Fields:
 - biggestExpense: string (Hebrew)
 
 Rules:
-- "בממוצע"/"משתנה" near income → also set incomeStability: "משתנה"
+- incomeStability: "משתנה" ONLY when user explicitly says income varies ("משתנה"/"לא קבועה"/"תלוי חודש"/"פעמים יותר פעמים פחות"). "בממוצע" alone does NOT mean variable — it means the user gave an average figure.
 - Range "5-7 אלף" → midpoint (6000)
 - "אין"/"לא" → 0
 - Only include fields with clear evidence
