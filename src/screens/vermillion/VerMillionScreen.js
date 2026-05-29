@@ -12,7 +12,7 @@ import {
   getDayProgress, completeDay, generateProfile, generateCoachingOpener,
 } from '../../services/onboardingAI';
 import { askTeam } from '../../services/agents';
-import { buildProfilingSystemPrompt, extractAndSaveProfiling, buildDayReturnMessage } from '../../services/profilingAgent';
+import { buildProfilingSystemPrompt, extractAndSaveProfiling, buildDayReturnMessage, buildDayConfirmation, DAY_FOCUS } from '../../services/profilingAgent';
 import { telemetry } from '../../services/activityTelemetry';
 import Avatar3D from '../../components/Avatar3D';
 import { useAuth } from '../../context/AuthContext';
@@ -541,9 +541,10 @@ export default function VerMillionScreen({ navigation }) {
     if (day === 1 && doneCount === 0) {
       const firstName = profile?.first_name || profile?.name?.split(' ')[0] || '';
       const greeting = firstName ? `שלום ${firstName}! 👋` : 'שלום! 👋';
-      text = `${greeting}\n\nאני VerMillion — היועץ הפיננסי האישי שלך.\n\nהשבוע הראשון הוא שבוע הכירות. לפני שנדבר על מספרים — אני רוצה להכיר אותך כאדם. כי ייעוץ טוב מתחיל מלהבין מי עומד מולי.\n\nספר לי — למה הצטרפת ל-VerMillion? מה גרם לך להחליט להתחיל עכשיו?`;
+      text = `${greeting}\n\nאני VerMillion — המאמן הפיננסי האישי שלך.\n\nהשבוע הראשון הוא שבוע היכרות. אני לא מתחיל ממספרים — אני מתחיל מלהבין מי עומד מולי.\n\nמה דבר אחד שרצית לשנות בנושא כסף השנה?`;
     } else if (doneCount === 0) {
-      text = buildDayReturnMessage(day);
+      const fin = await getFinancialData();
+      text = buildDayReturnMessage(day, fin || {});
     } else {
       text = `ממשיכים מאיפה שעצרנו — ספר לי עוד.`;
     }
@@ -648,19 +649,30 @@ export default function VerMillionScreen({ navigation }) {
         const newCount = questionsToday + 1;
         setQuestionsToday(newCount);
 
-        if (newCount >= QUESTIONS_PER_DAY) {
+        // Complete day: 3+ exchanges AND at least 1 key field collected (or 6 exchanges max)
+        const updatedData = await getFinancialData();
+        const dayFocus = DAY_FOCUS[Math.min(currentDay, 7)];
+        const collectedFields = (dayFocus?.keyFields || []).filter(
+          f => updatedData?.[f] !== undefined && updatedData?.[f] !== null
+        );
+        const hasData = collectedFields.length > 0;
+        const shouldComplete = (newCount >= QUESTIONS_PER_DAY && hasData) || newCount >= 6;
+
+        if (shouldComplete) {
           if (!mountedRef.current) return;
           await completeDay(currentDay);
+
           if (currentDay >= 7) {
             setAvatarMood('excited');
-            addMsg('assistant', '⏳ רגע אחד — מכין את האפיון האישי שלך...');
+            addMsg('assistant', buildDayConfirmation(currentDay, updatedData || {}));
             setTimeout(async () => {
               if (!mountedRef.current) return;
+              addMsg('assistant', '⏳ רגע אחד — מכין את האפיון האישי שלך...');
               try {
                 const { profileText } = await generateProfile();
                 setMessages(prev => [
                   ...prev.slice(0, -1),
-                  { id: nextId(), role: 'assistant', text: `${profileText}\n\n✅ VerMillion שלך מוכן לגמרי.\nמעכשיו יש לך יועץ פיננסי אישי — שלך בלבד.` },
+                  { id: nextId(), role: 'assistant', text: `${profileText}\n\n✅ המאמן הפיננסי שלך מוכן לגמרי.\nמעכשיו יש לך VerMillion — שלך בלבד.` },
                 ]);
               } catch {
                 setMessages(prev => [
@@ -669,14 +681,14 @@ export default function VerMillionScreen({ navigation }) {
                 ]);
               }
               setPhase('coaching');
-            }, 1500);
+            }, 3500);
           } else {
             setAvatarMood('happy');
-            addMsg('assistant', DAY_COMPLETIONS[currentDay] || `יום ${currentDay} ✅\n\nעובר אותך למשחקים...`);
+            addMsg('assistant', buildDayConfirmation(currentDay, updatedData || {}));
             setTimeout(() => {
               if (!mountedRef.current) return;
               navigation.navigate('Games');
-            }, 2200);
+            }, 4000);
           }
         }
 
