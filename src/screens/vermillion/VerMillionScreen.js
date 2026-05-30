@@ -22,7 +22,7 @@ import { getDayScheduleView } from '../../utils/dayScheduleDisplay';
 import { CONFIG } from '../../config';
 
 const nextId = () => `msg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-const QUESTIONS_PER_DAY = 3;
+const QUESTIONS_PER_DAY = 5;
 
 // Session-scoped dedup — prevents saving the same AI question twice in one app session
 const _savedAssistantTexts = new Set();
@@ -545,7 +545,8 @@ export default function VerMillionScreen({ navigation }) {
       const fin = await getFinancialData();
       text = buildDayReturnMessage(day, fin || {});
     } else {
-      text = `ממשיכים מאיפה שעצרנו — ספר לי עוד.`;
+      const fin2 = await getFinancialData();
+      text = buildDayReturnMessage(day, fin2 || {});
     }
 
     addMsg('assistant', text);
@@ -648,14 +649,14 @@ export default function VerMillionScreen({ navigation }) {
         const newCount = questionsToday + 1;
         setQuestionsToday(newCount);
 
-        // Complete day: 3+ exchanges AND at least 1 key field collected (or 6 exchanges max)
+        // Complete day: 5+ exchanges AND at least 1 key field collected (or 8 exchanges max)
         const updatedData = await getFinancialData();
         const dayFocus = DAY_FOCUS[Math.min(currentDay, 7)];
         const collectedFields = (dayFocus?.keyFields || []).filter(
           f => updatedData?.[f] !== undefined && updatedData?.[f] !== null
         );
         const hasData = collectedFields.length > 0;
-        const shouldComplete = (newCount >= QUESTIONS_PER_DAY && hasData) || newCount >= 6;
+        const shouldComplete = (newCount >= QUESTIONS_PER_DAY && hasData) || newCount >= 8;
 
         if (shouldComplete) {
           if (!mountedRef.current) return;
@@ -683,11 +684,8 @@ export default function VerMillionScreen({ navigation }) {
             }, 3500);
           } else {
             setAvatarMood('happy');
-            addMsg('assistant', buildDayConfirmation(currentDay, updatedData || {}));
-            setTimeout(() => {
-              if (!mountedRef.current) return;
-              navigation.navigate('Games');
-            }, 4000);
+            const confirmText = buildDayConfirmation(currentDay, updatedData || {});
+            addMsg('assistant', confirmText + '\n\n▶ לחץ "משחקים" בתחתית כשתהיה מוכן.');
           }
         }
 
