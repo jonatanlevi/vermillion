@@ -1,10 +1,22 @@
 {
   "date": "2026-05-30",
-  "generatedAt": "2026-05-30T05:02:35.076Z",
+  "generatedAt": "2026-05-30T05:51:10.308Z",
   "project": "VerMillion",
   "version": "1.0.0",
   "deployUrl": "https://vermillion-ashen.vercel.app",
   "commits": [
+    {
+      "hash": "e3799b1b",
+      "message": "fix: local instant extraction before AI call — kills kids/housingType race condition"
+    },
+    {
+      "hash": "7fc00a3b",
+      "message": "fix: profiling race condition — collectedRef + pendingExtractionRef, no double questions"
+    },
+    {
+      "hash": "54f854c5",
+      "message": "chore: session log 2026-05-30 + cursorrules + brain docs"
+    },
     {
       "hash": "da7169a5",
       "message": "fix: profiling flow — QUESTIONS_PER_DAY 5, no auto-nav, stronger system prompt"
@@ -15,6 +27,12 @@
     }
   ],
   "filesChanged": [
+    ".cursorrules",
+    "docs/brain/code_brain.md",
+    "docs/brain/error_ledger.md",
+    "docs/brain/product_brain.md",
+    "docs/sessions/2026-05-29.json",
+    "docs/sessions/2026-05-30.json",
     "src/screens/vermillion/VerMillionScreen.js",
     "src/services/profilingAgent.js"
   ],
