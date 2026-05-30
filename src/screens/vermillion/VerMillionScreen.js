@@ -6,7 +6,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import { getOnboardingState, getFinancialData, isOnboardingComplete, appendChatMessage, getChatHistory, getCommitmentTime, getMsUntilCommitment, getGameLog, getGameSessions } from '../../services/storage';
+import { getOnboardingState, getFinancialData, saveFinancialData, isOnboardingComplete, appendChatMessage, getChatHistory, getCommitmentTime, getMsUntilCommitment, getGameLog, getGameSessions } from '../../services/storage';
 import {
   getTodayOnboardingPrompt, processOnboardingAnswer,
   getDayProgress, completeDay, generateProfile, generateCoachingOpener,
@@ -23,6 +23,53 @@ import { CONFIG } from '../../config';
 
 const nextId = () => `msg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
 const QUESTIONS_PER_DAY = 5;
+
+const _HE_NUMS = { 'אפס':0,'אחד':1,'אחת':1,'שניים':2,'שתיים':2,'שני':2,'שלושה':3,'שלוש':3,'ארבעה':4,'ארבע':4,'חמישה':5,'חמש':5,'שישה':6,'שש':6,'שבעה':7,'שבע':7,'שמונה':8,'תשעה':9,'תשע':9,'עשרה':10,'עשר':10 };
+
+function extractLocalAnswer(field, userText) {
+  const t = userText.trim();
+  const rawNum = parseFloat(t.replace(/[₪,\s]/g, '').replace(/(\d+)/g, '$1'));
+  const num = isNaN(rawNum) ? NaN : rawNum;
+  const words = t.split(/\s+/);
+  const heNum = words.reduce((acc, w) => acc !== undefined ? acc : _HE_NUMS[w.replace(/['".:]/g, '')], undefined);
+  const zeroMatch = /^(אין|לא|0|ללא|בחינם|חינם|לא משלם|לא משלמת|לא יודע|לא רלוונטי)/.test(t);
+
+  switch (field) {
+    case 'kids': {
+      const n = !isNaN(num) && num >= 0 && num <= 15 ? num : heNum;
+      if (n !== undefined) return { kids: n };
+      if (zeroMatch) return { kids: 0 };
+      return null;
+    }
+    case 'housingType': {
+      if (/שכירות|שוכר|שוכרת/.test(t)) return { housingType: 'שכירות' };
+      if (/משכנתא|בעלים|בעל דירה/.test(t)) return { housingType: 'משכנתא' };
+      if (/הורים|בית הורים|בית ההורים/.test(t)) return { housingType: 'הורים' };
+      if (zeroMatch) return { housingType: 'הורים' };
+      return null;
+    }
+    case 'housingCost':
+    case 'netIncome':
+    case 'spouseIncome':
+    case 'fixedExpenses':
+    case 'variableExpenses':
+    case 'creditDebt':
+    case 'loans':
+    case 'savings':
+    case 'retirementSavings': {
+      if (!isNaN(num) && num >= 0) return { [field]: num };
+      if (zeroMatch) return { [field]: 0 };
+      return null;
+    }
+    case 'incomeStability': {
+      if (/קבועה|קבוע|יציב|אותו הדבר/.test(t)) return { incomeStability: 'קבועה' };
+      if (/משתנה|לא קבוע|תלוי|פעמים/.test(t)) return { incomeStability: 'משתנה' };
+      return null;
+    }
+    default:
+      return null;
+  }
+}
 
 // Session-scoped dedup — prevents saving the same AI question twice in one app session
 const _savedAssistantTexts = new Set();
@@ -590,10 +637,18 @@ export default function VerMillionScreen({ navigation }) {
         const partialId = nextId();
         setMessages(prev => [...prev, { id: partialId, role: 'assistant', text: '...' }]);
 
-        // Wait for pending extraction to finish (max 2s) before building system prompt
-        if (pendingExtractionRef.current) {
-          await Promise.race([pendingExtractionRef.current, new Promise(r => setTimeout(r, 2000))]);
+        // Immediate local extraction — updates collectedRef BEFORE building system prompt
+        const focus = DAY_FOCUS[Math.min(currentDay, 7)];
+        const missing = (focus?.keyFields || []).filter(f => collectedRef.current[f] === undefined || collectedRef.current[f] === null);
+        const currentField = missing[0];
+        if (currentField) {
+          const localExtracted = extractLocalAnswer(currentField, text);
+          if (localExtracted) {
+            collectedRef.current = { ...collectedRef.current, ...localExtracted };
+            saveFinancialData(localExtracted).catch(() => {});
+          }
         }
+
         const collected = collectedRef.current;
         const systemPrompt = buildProfilingSystemPrompt(currentDay, collected);
 
