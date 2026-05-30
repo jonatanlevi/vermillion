@@ -349,8 +349,7 @@ export default function VerMillionScreen({ navigation }) {
       if (!mountedRef.current || contentReady) return;
       contentReady = true;
       setPhase('onboarding');
-      addMsg('assistant', 'שלום! אני VerMillion — היועץ הפיננסי האישי שלך.\n\nיש לך ילדים? כמה?');
-      setPendingField('kids');
+      addMsg('assistant', 'שלום! אני VerMillion — המאמן הפיננסי האישי שלך.\n\nספר לי — מה דבר אחד שרצית לשנות בנושא כסף השנה?');
     };
     const bailTimer = setTimeout(showFallback, 5000);
     const markReady = () => { contentReady = true; clearTimeout(bailTimer); };
@@ -895,7 +894,7 @@ export default function VerMillionScreen({ navigation }) {
               ))}
             </View>
           ) : (
-            <Text style={styles.avatarSub}>● היועץ האישי שלך</Text>
+            <Text style={styles.avatarSub}>● המאמן הפיננסי שלך</Text>
           )}
         </View>
       </View>

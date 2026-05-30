@@ -76,8 +76,9 @@ EXAMPLES (follow exactly):
 ✓ GOOD: "כמה עולה לך הדיור בחודש?"`;
 }
 
-export function buildDay1Intro() {
-  return `שלום יהונתן! 👋\n\nאני VerMillion — היועץ הפיננסי האישי שלך.\n\nהשבוע הראשון הוא שבוע הכירות. לפני שנדבר על מספרים — אני רוצה להכיר אותך כאדם. כי ייעוץ טוב מתחיל מלהבין מי עומד מולי.\n\nספר לי — למה הצטרפת ל-VerMillion? מה גרם לך להחליט להתחיל עכשיו?`;
+export function buildDay1Intro(firstName = '') {
+  const greeting = firstName ? `שלום ${firstName}! 👋` : 'שלום! 👋';
+  return `${greeting}\n\nאני VerMillion — המאמן הפיננסי האישי שלך.\n\nהשבוע הראשון הוא שבוע היכרות. אני לא מתחיל ממספרים — אני מתחיל מלהבין מי עומד מולי.\n\nמה דבר אחד שרצית לשנות בנושא כסף השנה?`;
 }
 
 const _fmt = n => n ? `₪${Math.round(n).toLocaleString('he-IL')}` : null;
