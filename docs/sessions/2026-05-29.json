@@ -1,10 +1,14 @@
 {
   "date": "2026-05-29",
-  "generatedAt": "2026-05-29T13:23:54.944Z",
+  "generatedAt": "2026-05-29T13:43:10.206Z",
   "project": "VerMillion",
   "version": "1.0.0",
   "deployUrl": "https://vermillion-ashen.vercel.app",
   "commits": [
+    {
+      "hash": "81e489a8",
+      "message": "feat: council recommendations — day completion by fields, confirmation loop, personalized openers, מאמן language"
+    },
     {
       "hash": "f110b3ed",
       "message": "fix: remove extra brace in profilingAgent.js"

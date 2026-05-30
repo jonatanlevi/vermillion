@@ -1,0 +1,37 @@
+{
+  "date": "2026-05-30",
+  "generatedAt": "2026-05-30T05:02:35.076Z",
+  "project": "VerMillion",
+  "version": "1.0.0",
+  "deployUrl": "https://vermillion-ashen.vercel.app",
+  "commits": [
+    {
+      "hash": "da7169a5",
+      "message": "fix: profiling flow — QUESTIONS_PER_DAY 5, no auto-nav, stronger system prompt"
+    },
+    {
+      "hash": "cd3b2ced",
+      "message": "fix: remove all remaining יועץ references, update buildDay1Intro to מאמן"
+    }
+  ],
+  "filesChanged": [
+    "src/screens/vermillion/VerMillionScreen.js",
+    "src/services/profilingAgent.js"
+  ],
+  "todosRemaining": [
+    "לפני השקה ❌ (TODO קריטי)",
+    "`terms_accepted_at`",
+    "_API_KEY",
+    "ניירת משפטית"
+  ],
+  "recentDone": [
+    "פרופיל + Avatar",
+    "מסכי שישי/שבת",
+    "Deploy Vercel",
+    "**CRM לניהול העסק**",
+    "הסר dev pause button",
+    "`DEV_BYPASS_TIMER = false`",
+    "`DEV_NO_QUESTION_LIMIT = false`",
+    "תיקון isActive"
+  ]
+}

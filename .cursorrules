@@ -1,0 +1,81 @@
+# VerMillion — Cursor Rules (Memory Protocol)
+
+## STEP 0: ALWAYS READ THE BRAIN FIRST
+
+Before proposing any architectural change, starting a new feature, or modifying core logic:
+1. Read `docs/brain/product_brain.md` — business context, design system, pricing
+2. Read `docs/brain/code_brain.md` — tech stack, architecture rules, file structure
+3. Check `docs/brain/error_ledger.md` — known issues and learned lessons
+
+Do NOT skip this step. These files are the source of truth.
+
+---
+
+## CORE RULES
+
+### Identity
+- The product name is **VerMillion** — exact spelling, always. Never "Vermillion", "vermillion", or "VERMILLION".
+- The app is in Hebrew, RTL first. Every new component defaults to `textAlign: 'right'`.
+
+### Code Style
+- `StyleSheet.create({})` always — no inline styles ever.
+- No Redux, no Zustand — `useState` / `useEffect` only until there is a real pain point.
+- Relative imports only — never absolute.
+- No TypeScript yet — plain JavaScript.
+- No comments on obvious code — only WHY when non-obvious.
+
+### Time & Anti-Cheat (Critical)
+- DNA = שעה מיום הרשמת המשתמש הספציפי. לא `Asia/Jerusalem` גלובלי.
+- Before touching `timeEngine.js`, `storage.js`, or any stamp/game-complete logic:
+  → Read `.cursor/rules/vermillion-time-dna-contract.mdc`
+  → Read `.cursor/rules/vermillion-anti-cheat.mdc`
+  → Read `docs/CODE_REVIEW_ANTI_CHEAT.md`
+
+### Mock Data
+- `mock/data.js` is for DEV and ghost simulation ONLY.
+- **Never** use `mockUser` in production screens.
+
+---
+
+## MEMORY PROTOCOL
+
+### When a bug is fixed or complex issue resolved:
+→ Ask: "האם לתעד את הפתרון ב-`docs/brain/error_ledger.md`?"
+
+### When business logic or UI requirements change:
+→ Automatically update `docs/brain/product_brain.md` to reflect the change.
+
+### When architecture or tech stack decisions are made:
+→ Automatically update `docs/brain/code_brain.md`.
+
+### When explaining implementations:
+→ Focus on **how it works** and **why this approach was chosen**.
+→ Not just outputting code — explain the decision.
+
+---
+
+## NAVIGATION CONTRACT
+```
+Splash → Welcome → Register → CompleteProfile → AvatarAppearance
+       → AvatarTone → AvatarIntro → AvatarReveal → Subscription → MainTabs
+
+MainTabs: Home | Challenge | Leaderboard | AICoach | Profile
+Modals from Home: DailyQuestions, DailyCoaching, ProfileReveal
+```
+Do not add new screens without updating this map.
+
+---
+
+## DESIGN SYSTEM (quick reference)
+```
+Background: #0A0A0A | Surface: #1A1A1A | Red: #C0392B | Gold: #D4AF37
+Dark Mode ONLY. Border radius: 12-24 (buttons), 16 (cards). minHeight 48px buttons.
+```
+
+---
+
+## DEPLOY
+```powershell
+.\deploy.ps1       # Web to Vercel
+```
+URL: https://vermillion-ashen.vercel.app
