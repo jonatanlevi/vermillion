@@ -226,6 +226,8 @@ export default function VerMillionScreen({ navigation }) {
   const lastSavedFieldRef    = useRef(null);
   const currentQuestionRef   = useRef('');
   const typingStartRef       = useRef(null);
+  const collectedRef         = useRef({});
+  const pendingExtractionRef = useRef(null);
   const voice = useVoice();
 
   useFocusEffect(
@@ -543,10 +545,12 @@ export default function VerMillionScreen({ navigation }) {
       text = `${greeting}\n\nאני VerMillion — המאמן הפיננסי האישי שלך.\n\nהשבוע הראשון הוא שבוע היכרות. אני לא מתחיל ממספרים — אני מתחיל מלהבין מי עומד מולי.\n\nמה דבר אחד שרצית לשנות בנושא כסף השנה?`;
     } else if (doneCount === 0) {
       const fin = await getFinancialData();
-      text = buildDayReturnMessage(day, fin || {});
+      collectedRef.current = fin || {};
+      text = buildDayReturnMessage(day, collectedRef.current);
     } else {
       const fin2 = await getFinancialData();
-      text = buildDayReturnMessage(day, fin2 || {});
+      collectedRef.current = fin2 || {};
+      text = buildDayReturnMessage(day, collectedRef.current);
     }
 
     addMsg('assistant', text);
@@ -586,8 +590,11 @@ export default function VerMillionScreen({ navigation }) {
         const partialId = nextId();
         setMessages(prev => [...prev, { id: partialId, role: 'assistant', text: '...' }]);
 
-        const financialData = await getFinancialData();
-        const collected = financialData || {};
+        // Wait for pending extraction to finish (max 2s) before building system prompt
+        if (pendingExtractionRef.current) {
+          await Promise.race([pendingExtractionRef.current, new Promise(r => setTimeout(r, 2000))]);
+        }
+        const collected = collectedRef.current;
         const systemPrompt = buildProfilingSystemPrompt(currentDay, collected);
 
         const recentHistory = messages
@@ -642,15 +649,20 @@ export default function VerMillionScreen({ navigation }) {
           if (voiceModeRef.current) voice.speak(fullText);
         }
 
-        // Silent extraction — runs in background, saves whatever fields were mentioned
+        // Silent extraction — updates collectedRef when done so next system prompt has fresh data
         const allMsgs = [...recentHistory, { role: 'user', text }, { role: 'assistant', text: fullText }];
-        extractAndSaveProfiling(allMsgs).catch(() => {});
+        pendingExtractionRef.current = extractAndSaveProfiling(allMsgs)
+          .then(() => getFinancialData())
+          .then(data => { if (data) collectedRef.current = data; })
+          .catch(() => {})
+          .finally(() => { pendingExtractionRef.current = null; });
 
         const newCount = questionsToday + 1;
         setQuestionsToday(newCount);
 
         // Complete day: 5+ exchanges AND at least 1 key field collected (or 8 exchanges max)
         const updatedData = await getFinancialData();
+        if (updatedData) collectedRef.current = updatedData;
         const dayFocus = DAY_FOCUS[Math.min(currentDay, 7)];
         const collectedFields = (dayFocus?.keyFields || []).filter(
           f => updatedData?.[f] !== undefined && updatedData?.[f] !== null

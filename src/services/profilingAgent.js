@@ -67,6 +67,7 @@ STRICT RULES:
 5. FORBIDDEN: inventing new questions not listed above.
 6. FORBIDDEN at start: repeating back the user's number or exact words.
 7. FORBIDDEN anywhere: "רשמתי" / "נרשם" / "הבנתי" / "שאל שוב" / "מעולה שסיפרת".
+8. FORBIDDEN: writing the question twice. If rephrasing — one version only, shorter.
 
 EXAMPLES:
 ✗ BAD: "2 ילדים — כמה נחמד! איך..."  (echoed number)
